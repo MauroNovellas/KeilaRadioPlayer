@@ -1,0 +1,6 @@
+Cadena SER|https://playerservices.streamtheworld.com/api/livestream-redirect/CADENASERAAC.aac
+Radio Nacional|https://rtvelivestream.rtve.es/rtvesec/rne/rne_r1_main.m3u8
+Rock FM|https://rockfm-cope.flumotion.com/playlist.m3u8
+Onda Cero Madrid|https://atres-live.ondacero.es/live/ondacero/master.m3u8
+Onda Cero Barcelona|https://atres-live.ondacero.es/live/delegaciones/oc/barcelona/master.m3u8
+COPE|https://flucast09-h-cloud.flumotion.com/cope/net1.aac
