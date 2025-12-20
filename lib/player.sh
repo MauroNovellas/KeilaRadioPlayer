@@ -1,63 +1,51 @@
 #!/bin/bash
 
-VLC_SOCKET="/tmp/radio_vlc.sock"
-VOLUMEN_FILE="$BASE_DIR/.volumen"
-LAST_FILE="$BASE_DIR/.ultima"
+FIFO="/tmp/radio_fifo"
+PID_CVLC=""
+ACTUAL_NOMBRE="(ninguna)"
+ACTUAL_URL=""
+ESTADO="Detenido"
 
-VOLUMEN=$(cat "$VOLUMEN_FILE" 2>/dev/null || echo 50)
-ESTADO="Parado"
+init_player() {
+    command -v cvlc >/dev/null || {
+        echo "VLC no está instalado"; exit 1;
+    }
+    [ -p "$FIFO" ] || mkfifo "$FIFO"
+    exec 3<> "$FIFO"
+}
 
-start_vlc() {
-    rm -f "$VLC_SOCKET"
-
-    vlc -I dummy \
-        --extraintf rc \
-        --rc-unix "$VLC_SOCKET" \
-        --rc-quiet \
-        --no-video \
-        --volume "$VOLUMEN" \
-        "$1" >/dev/null 2>&1 &
-
-    VLC_PID=$!
-    sleep 0.3
+vlc_vol() {
+    echo $((VOL_ACTUAL * 256 / 100))
 }
 
 reproducir() {
+    kill "$PID_CVLC" 2>/dev/null
+
     ACTUAL_NOMBRE="$1"
     ACTUAL_URL="$2"
-
-    echo "$ACTUAL_NOMBRE|$ACTUAL_URL" > "$LAST_FILE"
-
-    if [ -S "$VLC_SOCKET" ]; then
-        echo "stop" | socat - UNIX-CONNECT:"$VLC_SOCKET" >/dev/null
-    fi
-
-    start_vlc "$ACTUAL_URL"
     ESTADO="Reproduciendo"
+
+    cvlc --quiet --extraintf rc --rc-fake-tty "$2" <"$FIFO" >/dev/null 2>&1 &
+    PID_CVLC=$!
+
+    echo "volume $(vlc_vol)" >&3
+    save_state
 }
 
 toggle_pause() {
-    [ ! -S "$VLC_SOCKET" ] && return
-    echo "pause" | socat - UNIX-CONNECT:"$VLC_SOCKET" >/dev/null
-
-    if [ "$ESTADO" = "Reproduciendo" ]; then
-        ESTADO="Pausado"
-    else
-        ESTADO="Reproduciendo"
-    fi
+    echo "pause" >&3
+    [ "$ESTADO" = "Reproduciendo" ] && ESTADO="Pausado" || ESTADO="Reproduciendo"
 }
 
 ajustar_volumen() {
-    local delta="$1"
-    VOLUMEN=$((VOLUMEN + delta))
-    [ "$VOLUMEN" -lt 0 ] && VOLUMEN=0
-    [ "$VOLUMEN" -gt 100 ] && VOLUMEN=100
+    VOL_ACTUAL=$((VOL_ACTUAL + $1))
+    ((VOL_ACTUAL < VOL_MIN)) && VOL_ACTUAL=$VOL_MIN
+    ((VOL_ACTUAL > VOL_MAX)) && VOL_ACTUAL=$VOL_MAX
+    echo "volume $(vlc_vol)" >&3
+    save_state
+}
 
-    echo "$VOLUMEN" > "$VOLUMEN_FILE"
-
-    if [ -S "$VLC_SOCKET" ]; then
-        echo "volume $VOLUMEN" | socat - UNIX-CONNECT:"$VLC_SOCKET" >/dev/null
-    fi
-
-    NECESITA_REDIBUJAR=1
+stop_player() {
+    kill "$PID_CVLC" 2>/dev/null
+    rm -f "$FIFO"
 }
