@@ -1,5 +1,8 @@
 #!/bin/bash
 
+SPINNER=( "⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏" )
+SPIN_IDX=0
+
 barra_vol() {
     local v=$1 t=20 l=$((v*t/100))
     printf "["
@@ -8,21 +11,34 @@ barra_vol() {
     printf "] %d%%" "$v"
 }
 
+spinner_char() {
+    c="${SPINNER[$SPIN_IDX]}"
+    SPIN_IDX=$(( (SPIN_IDX + 1) % ${#SPINNER[@]} ))
+    echo "$c"
+}
+
 cabecera() {
     clear
     echo "────────────────────────────────"
     echo " Radio.sh"
     echo " Emisora : $ACTUAL_NOMBRE"
     printf " Volumen : "; barra_vol "$VOL_ACTUAL"; echo
-    echo " Estado  : $ESTADO"
+
+    if [ "$ESTADO" = "Conectando..." ]; then
+        echo " Estado  : $(spinner_char) Conectando..."
+    else
+        echo " Estado  : $ESTADO"
+    fi
+
+    echo " Info    : ${INFO_STREAM:-N/A}"
     echo "────────────────────────────────"
     echo
 }
 
 menu() {
     cabecera
-    echo "RADIO FAVORITAS"
-    echo "---------------"
+    echo "EMISORAS FAVORITAS"
+    echo "------------------"
 
     for i in "${!fav_names[@]}"; do
         if [ "$i" -eq "$CURSOR_IDX" ]; then
@@ -37,8 +53,7 @@ menu() {
     if [ "$MODO_MOVER" = "1" ]; then
         echo "MODO MOVER: ↑ ↓ desplazar | Enter confirmar | q cancelar"
     else
-                echo "↑ ↓ navegar | ← → volumen | Enter reproducir"
+        echo "↑ ↓ navegar | ← → volumen | Enter reproducir"
         echo "1..9 seleccionar | m mover | f favorito | e explorar | q salir"
-
     fi
 }
