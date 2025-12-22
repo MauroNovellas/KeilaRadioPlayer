@@ -2,41 +2,83 @@
 
 SPINNER=( "⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏" )
 SPIN_IDX=0
+UI_INIT=0
+
+##############################################################################
+# DIBUJOS
+##############################################################################
 
 barra_vol() {
-    local v=$1 t=20 l=$((v*t/100))
+    local v=$1
+    local w=20
+    local f=$((v * w / 100))
+
     printf "["
-    printf "█%.0s" $(seq 1 $l)
-    printf "░%.0s" $(seq 1 $((t-l)))
-    printf "] %d%%" "$v"
+    for ((i=0;i<w;i++)); do
+        if [ "$i" -lt "$f" ]; then
+            printf "█"
+        else
+            printf "░"
+        fi
+    done
+    printf "] %3d%%" "$v"
 }
 
-spinner_char() {
-    c="${SPINNER[$SPIN_IDX]}"
+spinner() {
+    printf "%s" "${SPINNER[$SPIN_IDX]}"
     SPIN_IDX=$(( (SPIN_IDX + 1) % ${#SPINNER[@]} ))
-    echo "$c"
 }
 
-cabecera() {
+##############################################################################
+# UI
+##############################################################################
+
+ui_init() {
     clear
+    tput civis
+
     echo "────────────────────────────────"
     echo " Radio.sh"
-    echo " Emisora : $ACTUAL_NOMBRE"
-    printf " Volumen : "; barra_vol "$VOL_ACTUAL"; echo
-
-    if [ "$ESTADO" = "Conectando..." ]; then
-        echo " Estado  : $(spinner_char) Conectando..."
-    else
-        echo " Estado  : $ESTADO"
-    fi
-
-    echo " Info    : ${INFO_STREAM:-N/A}"
+    echo " Emisora :"
+    echo " Volumen :"
+    echo " Estado  :"
+    echo " Info    :"
     echo "────────────────────────────────"
     echo
+
+    UI_INIT=1
 }
 
 menu() {
-    cabecera
+    [ "$UI_INIT" -eq 0 ] && ui_init
+
+    # Emisora
+    tput cup 2 10
+    printf "\033[K%s" "$ACTUAL_NOMBRE"
+
+    # Volumen (BORRADO REAL)
+    tput cup 3 10
+    printf "\033[K"
+    barra_vol "$VOL_ACTUAL"
+
+    # Estado + spinner
+    tput cup 4 10
+    printf "\033[K"
+    if [ "$ESTADO" = "Conectando" ]; then
+        spinner
+        printf " Conectando"
+    else
+        printf "%s" "$ESTADO"
+    fi
+
+    # Info
+    tput cup 5 10
+    printf "\033[K%s" "${INFO_STREAM:-}"
+
+    # Lista
+    tput cup 7 0
+    printf "\033[J"
+
     echo "EMISORAS FAVORITAS"
     echo "------------------"
 
@@ -47,13 +89,4 @@ menu() {
             printf "  %d) %s\n" "$((i+1))" "${fav_names[$i]}"
         fi
     done
-
-    echo
-
-    if [ "$MODO_MOVER" = "1" ]; then
-        echo "MODO MOVER: ↑ ↓ desplazar | Enter confirmar | q cancelar"
-    else
-        echo "↑ ↓ navegar | ← → volumen | Enter reproducir"
-        echo "1..9 seleccionar | m mover | f favorito | e explorar | q salir"
-    fi
 }
