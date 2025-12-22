@@ -1,5 +1,8 @@
 #!/bin/bash
 
+check_player
+
+# permitir refresco visual (spinner / volumen)
 NECESITA_REDIBUJAR=1
 CURSOR_IDX=0
 
