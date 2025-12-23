@@ -53,4 +53,9 @@ buscar_emisora() {
         # Si canceló, limpiamos para volver al menú principal
         clear
     fi
+
+    # Forzar reinicialización de la UI al volver
+    UI_INIT=0
+    SHOW_CONTROLS=0
+    NECESITA_REDIBUJAR=1
 }
