@@ -1,11 +1,10 @@
 #!/bin/bash
 
-SPINNER=( "⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏" )
-SPIN_IDX=0
 UI_INIT=0
+SHOW_CONTROLS=0
 
 ##############################################################################
-# DIBUJOS
+# UTILIDADES DE DIBUJO
 ##############################################################################
 
 barra_vol() {
@@ -24,19 +23,15 @@ barra_vol() {
     printf "] %3d%%" "$v"
 }
 
-spinner() {
-    printf "%s" "${SPINNER[$SPIN_IDX]}"
-    SPIN_IDX=$(( (SPIN_IDX + 1) % ${#SPINNER[@]} ))
-}
-
 ##############################################################################
-# UI
+# UI FIJA
 ##############################################################################
 
 ui_init() {
     clear
     tput civis
 
+    # Cabecera fija
     echo "────────────────────────────────"
     echo " Radio.sh"
     echo " Emisora :"
@@ -44,10 +39,51 @@ ui_init() {
     echo " Estado  :"
     echo " Info    :"
     echo "────────────────────────────────"
+    echo " Controles: [c]"
     echo
+
+    # Zona inferior inicial
+    echo "EMISORAS FAVORITAS"
+    echo "------------------"
 
     UI_INIT=1
 }
+
+##############################################################################
+# CONTROLES (TOGGLE CON 'c')
+##############################################################################
+
+draw_controls() {
+    # Limpiamos desde línea 7 hacia abajo
+    tput cup 7 0
+    printf "\033[J"
+
+    echo " Controles"
+    echo " ---------"
+    echo " ↑ ↓   Seleccionar emisora"
+    echo " ← →   Volumen"
+    echo " ENTER Reproducir"
+    echo " p     Pausa"
+    echo " f     Favorito"
+    echo " m     Mover favorito"
+    echo " e     Todas las emisoras"
+    echo " q     Salir"
+    echo
+    echo "EMISORAS FAVORITAS"
+    echo "------------------"
+}
+
+clear_controls() {
+    tput cup 7 0
+    printf "\033[J"
+
+    echo "EMISORAS FAVORITAS"
+    echo "------------------"
+}
+
+##############################################################################
+# DIBUJO DINÁMICO
+##############################################################################
 
 menu() {
     [ "$UI_INIT" -eq 0 ] && ui_init
@@ -56,31 +92,29 @@ menu() {
     tput cup 2 10
     printf "\033[K%s" "$ACTUAL_NOMBRE"
 
-    # Volumen (BORRADO REAL)
+    # Volumen
     tput cup 3 10
     printf "\033[K"
     barra_vol "$VOL_ACTUAL"
 
-    # Estado + spinner
+    # Estado
     tput cup 4 10
-    printf "\033[K"
-    if [ "$ESTADO" = "Conectando" ]; then
-        spinner
-        printf " Conectando"
-    else
-        printf "%s" "$ESTADO"
-    fi
+    printf "\033[K%s" "$ESTADO"
 
     # Info
     tput cup 5 10
     printf "\033[K%s" "${INFO_STREAM:-}"
 
-    # Lista
-    tput cup 7 0
-    printf "\033[J"
+    # Lista de favoritos (empieza SIEMPRE en la misma línea)
+    local start_line
+    if [ "$SHOW_CONTROLS" = "1" ]; then
+        start_line=17
+    else
+        start_line=9
+    fi
 
-    echo "EMISORAS FAVORITAS"
-    echo "------------------"
+    tput cup "$start_line" 0
+    printf "\033[J"
 
     for i in "${!fav_names[@]}"; do
         if [ "$i" -eq "$CURSOR_IDX" ]; then
