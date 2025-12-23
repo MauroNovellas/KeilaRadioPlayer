@@ -1,5 +1,7 @@
 #!/bin/bash
 
+PAUSADO=0
+
 FIFO="/tmp/radio_fifo"
 
 PID_CVLC=""
@@ -39,6 +41,7 @@ get_rx_bytes() {
 reproducir() {
     stop_player
 
+    PAUSADO=0
     ACTUAL_NOMBRE="$1"
     ACTUAL_URL="$2"
     ESTADO="Conectando"
@@ -61,13 +64,18 @@ reproducir() {
 check_player() {
     [ -z "$PID_CVLC" ] && return
 
-    if ! kill -0 "$PID_CVLC" 2>/dev/null; then
-        ESTADO="Detenido"
-        INFO_STREAM=""
-        PID_CVLC=""
-        NECESITA_REDIBUJAR=1
-        return
+    if [ "$PAUSADO" = "1" ]; then
+        ESTADO="Pausado"
+        INFO_STREAM="Pausado"
+    else
+        if [ "$KBPS" -gt 0 ]; then
+            ESTADO="Reproduciendo"
+            INFO_STREAM="${KBPS} kbps"
+        else
+            INFO_STREAM="Conectando"
+        fi
     fi
+
 
     now=$(date +%s)
 
@@ -92,7 +100,15 @@ check_player() {
 
 toggle_pause() {
     echo "pause" >&3
-    [ "$ESTADO" = "Reproduciendo" ] && ESTADO="Pausado" || ESTADO="Reproduciendo"
+
+    if [ "$PAUSADO" = "0" ]; then
+        PAUSADO=1
+        ESTADO="Pausado"
+    else
+        PAUSADO=0
+        ESTADO="Reproduciendo"
+    fi
+
     NECESITA_REDIBUJAR=1
 }
 
