@@ -9,17 +9,7 @@
 
 buscar_emisora() {
     # 1. COMPROBACIÓN DE SEGURIDAD
-    if ! command -v fzf &> /dev/null; then
-        clear
-        echo "Error: Esta función requiere 'fzf'."
-        echo "---------------------------------------"
-        echo "Instálalo para continuar:"
-        echo "  Debian/Ubuntu: sudo apt install fzf"
-        echo "  Arch Linux:    sudo pacman -S fzf"e
-        echo
-        read -r -p "Presiona Enter para volver..."
-        return 1
-    fi
+    # hecho en deps.sh
 
     # 2. LANZAMIENTO DE FZF
     # Explicación de flags:
