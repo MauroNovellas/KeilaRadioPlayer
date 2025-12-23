@@ -11,12 +11,11 @@ buscar_emisora() {
     # 1. COMPROBACIÓN DE SEGURIDAD
     if ! command -v fzf &> /dev/null; then
         clear
-        echo "⚠️  Error: Esta función requiere 'fzf'."
+        echo "Error: Esta función requiere 'fzf'."
         echo "---------------------------------------"
         echo "Instálalo para continuar:"
         echo "  Debian/Ubuntu: sudo apt install fzf"
-        echo "  Arch Linux:    sudo pacman -S fzf"
-        echo "  MacOS:         brew install fzf"
+        echo "  Arch Linux:    sudo pacman -S fzf"e
         echo
         read -r -p "Presiona Enter para volver..."
         return 1
@@ -30,7 +29,7 @@ buscar_emisora() {
     # --height=100%   : Usa toda la pantalla disponible.
     
     local seleccion
-    seleccion=$(fzf --prompt="🔍 Buscar Emisora > " \
+    seleccion=$(fzf --prompt="Buscar Emisora > " \
                     --delimiter='\|' \
                     --with-nth=1 \
                     --header="[↑/↓] Navegar | [Escribe] Filtrar | [Enter] Reproducir | [ESC] Salir" \
