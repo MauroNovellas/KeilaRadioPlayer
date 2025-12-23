@@ -10,6 +10,7 @@ source "$LIB/config.sh"
 source "$LIB/state.sh"
 source "$LIB/ui.sh"
 source "$LIB/player.sh"
+source "$LIB/search.sh"
 source "$LIB/input.sh"
 
 init_state
