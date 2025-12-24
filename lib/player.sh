@@ -2,7 +2,7 @@
 
 PAUSADO=0
 
-FIFO="/tmp/radio_fifo"
+MPV_SOCKET="/tmp/radio_mpv.sock"
 
 PID_MPV=""
 ACTUAL_NOMBRE="(ninguna)"
@@ -22,12 +22,17 @@ init_player() {
         exit 1
     }
 
-    [ -p "$FIFO" ] || mkfifo "$FIFO"
-    exec 3<> "$FIFO"
+    command -v socat >/dev/null || {
+        echo "socat no está instalado"
+        exit 1
+    }
+
+    rm -f "$MPV_SOCKET"
 }
 
-mpv_vol() {
-    echo $VOL_ACTUAL
+mpv_cmd() {
+    [ -S "$MPV_SOCKET" ] || return
+    printf '%s\n' "$1" | socat - "$MPV_SOCKET" >/dev/null 2>&1
 }
 
 get_iface() {
@@ -53,27 +58,29 @@ reproducir() {
     LAST_RX=$(get_rx_bytes)
     LAST_CHECK=$(date +%s)
 
-    mpv --really-quiet --no-video --no-terminal --input-ipc-server="$FIFO" "$ACTUAL_URL" >/dev/null 2>&1 &
+    rm -f "$MPV_SOCKET"
+
+    mpv --really-quiet \
+        --no-video \
+        --no-terminal \
+        --input-ipc-server="$MPV_SOCKET" \
+        "$ACTUAL_URL" >/dev/null 2>&1 &
 
     PID_MPV=$!
-    echo '{ "command": ["set_property", "volume", '"$VOL_ACTUAL"'] }' >&3
+
+    # Esperar a que el socket exista
+    for _ in {1..20}; do
+        [ -S "$MPV_SOCKET" ] && break
+        sleep 0.05
+    done
+
+    mpv_cmd '{ "command": ["set_property", "volume", '"$VOL_ACTUAL"'] }'
+
     save_state
 }
 
 check_player() {
     [ -z "$PID_MPV" ] && return
-
-    if [ "$PAUSADO" = "1" ]; then
-        ESTADO="Pausado"
-        INFO_STREAM="Pausado"
-    else
-        if [ "$KBPS" -gt 0 ]; then
-            ESTADO="Reproduciendo"
-            INFO_STREAM="${KBPS} kbps"
-        else
-            INFO_STREAM="Conectando"
-        fi
-    fi
 
     now=$(date +%s)
 
@@ -85,11 +92,14 @@ check_player() {
 
         KBPS=$((diff * 8 / 1024))
 
-        if [ "$KBPS" -gt 0 ]; then
+        if [ "$PAUSADO" = "1" ]; then
+            ESTADO="Pausado"
+            INFO_STREAM="Pausado"
+        elif [ "$KBPS" -gt 0 ]; then
             ESTADO="Reproduciendo"
             INFO_STREAM="${KBPS} kbps"
         else
-            INFO_STREAM="Conectando"
+            ESTADO="Conectando"
         fi
 
         NECESITA_REDIBUJAR=1
@@ -97,7 +107,7 @@ check_player() {
 }
 
 toggle_pause() {
-    echo '{ "command": ["cycle", "pause"] }' >&3
+    mpv_cmd '{ "command": ["cycle", "pause"] }'
 
     if [ "$PAUSADO" = "0" ]; then
         PAUSADO=1
@@ -114,7 +124,9 @@ ajustar_volumen() {
     VOL_ACTUAL=$((VOL_ACTUAL + $1))
     ((VOL_ACTUAL < VOL_MIN)) && VOL_ACTUAL=$VOL_MIN
     ((VOL_ACTUAL > VOL_MAX)) && VOL_ACTUAL=$VOL_MAX
-    echo '{ "command": ["set_property", "volume", '"$VOL_ACTUAL"'] }' >&3
+
+    mpv_cmd '{ "command": ["set_property", "volume", '"$VOL_ACTUAL"'] }'
+
     save_state
     NECESITA_REDIBUJAR=1
 }
@@ -122,4 +134,5 @@ ajustar_volumen() {
 stop_player() {
     [ -n "$PID_MPV" ] && kill "$PID_MPV" 2>/dev/null
     PID_MPV=""
+    rm -f "$MPV_SOCKET"
 }
