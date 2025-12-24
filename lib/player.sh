@@ -4,7 +4,7 @@ PAUSADO=0
 
 FIFO="/tmp/radio_fifo"
 
-PID_CVLC=""
+PID_MPV=""
 ACTUAL_NOMBRE="(ninguna)"
 ACTUAL_URL=""
 ESTADO="Detenido"
@@ -17,8 +17,8 @@ LAST_CHECK=0
 KBPS=0
 
 init_player() {
-    command -v cvlc >/dev/null || {
-        echo "VLC no está instalado"
+    command -v mpv >/dev/null || {
+        echo "MPV no está instalado"
         exit 1
     }
 
@@ -26,8 +26,8 @@ init_player() {
     exec 3<> "$FIFO"
 }
 
-vlc_vol() {
-    echo $((VOL_ACTUAL * 256 / 100))
+mpv_vol() {
+    echo $VOL_ACTUAL
 }
 
 get_iface() {
@@ -53,16 +53,15 @@ reproducir() {
     LAST_RX=$(get_rx_bytes)
     LAST_CHECK=$(date +%s)
 
-    cvlc --quiet --extraintf rc --rc-fake-tty "$ACTUAL_URL" \
-        <"$FIFO" >/dev/null 2>&1 &
+    mpv --really-quiet --no-video --no-terminal --input-ipc-server="$FIFO" "$ACTUAL_URL" >/dev/null 2>&1 &
 
-    PID_CVLC=$!
-    echo "volume $(vlc_vol)" >&3
+    PID_MPV=$!
+    echo '{ "command": ["set_property", "volume", '"$VOL_ACTUAL"'] }' >&3
     save_state
 }
 
 check_player() {
-    [ -z "$PID_CVLC" ] && return
+    [ -z "$PID_MPV" ] && return
 
     if [ "$PAUSADO" = "1" ]; then
         ESTADO="Pausado"
@@ -98,7 +97,7 @@ check_player() {
 }
 
 toggle_pause() {
-    echo "pause" >&3
+    echo '{ "command": ["cycle", "pause"] }' >&3
 
     if [ "$PAUSADO" = "0" ]; then
         PAUSADO=1
@@ -115,12 +114,12 @@ ajustar_volumen() {
     VOL_ACTUAL=$((VOL_ACTUAL + $1))
     ((VOL_ACTUAL < VOL_MIN)) && VOL_ACTUAL=$VOL_MIN
     ((VOL_ACTUAL > VOL_MAX)) && VOL_ACTUAL=$VOL_MAX
-    echo "volume $(vlc_vol)" >&3
+    echo '{ "command": ["set_property", "volume", '"$VOL_ACTUAL"'] }' >&3
     save_state
     NECESITA_REDIBUJAR=1
 }
 
 stop_player() {
-    [ -n "$PID_CVLC" ] && kill "$PID_CVLC" 2>/dev/null
-    PID_CVLC=""
+    [ -n "$PID_MPV" ] && kill "$PID_MPV" 2>/dev/null
+    PID_MPV=""
 }
