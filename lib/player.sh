@@ -17,14 +17,10 @@ LAST_CHECK=0
 KBPS=0
 
 init_player() {
-    if command -v cvlc >/dev/null; then
-        VLC_CMD="cvlc"
-    elif command -v vlc >/dev/null; then
-        VLC_CMD="vlc"
-    else
+    command -v cvlc >/dev/null || {
         echo "VLC no está instalado"
         exit 1
-    fi
+    }
 
     [ -p "$FIFO" ] || mkfifo "$FIFO"
     exec 3<> "$FIFO"
@@ -39,11 +35,7 @@ get_iface() {
 }
 
 get_rx_bytes() {
-    if es_termux; then
-        echo 0
-    else
-        awk -v iface="$NET_IF" '$1 ~ iface":" {print $2}' /proc/net/dev
-    fi
+    awk -v iface="$NET_IF" '$1 ~ iface":" {print $2}' /proc/net/dev
 }
 
 reproducir() {
@@ -61,9 +53,8 @@ reproducir() {
     LAST_RX=$(get_rx_bytes)
     LAST_CHECK=$(date +%s)
 
-    $VLC_CMD --quiet --extraintf rc --rc-fake-tty "$ACTUAL_URL" \
-    <"$FIFO" >/dev/null 2>&1 &
-
+    cvlc --quiet --extraintf rc --rc-fake-tty "$ACTUAL_URL" \
+        <"$FIFO" >/dev/null 2>&1 &
 
     PID_CVLC=$!
     echo "volume $(vlc_vol)" >&3
@@ -84,7 +75,6 @@ check_player() {
             INFO_STREAM="Conectando"
         fi
     fi
-
 
     now=$(date +%s)
 
