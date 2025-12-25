@@ -4,8 +4,14 @@
 # CONFIGURACIÓN INICIAL DEL TERMINAL
 ##############################################################################
 
+cleanup() {
+    tput cnorm
+    tput sgr0
+    clear
+}
+
 tput civis
-trap 'tput cnorm; exit' INT TERM EXIT
+trap cleanup INT TERM EXIT
 
 ##############################################################################
 # RUTAS BASE
