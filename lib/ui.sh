@@ -56,7 +56,7 @@ ui_init() {
     tput civis
 
     echo "${C_TITLE}┌──────────────────────────────────────┐${C_RESET}"
-    echo "${C_TITLE}│${C_RESET} 🎵  Keila Radio Player                         ${C_TITLE}│${C_RESET}"
+    echo "${C_TITLE}│${C_RESET} KEILA Radio Player                   ${C_TITLE}│${C_RESET}"
     echo "${C_TITLE}├──────────────────────────────────────┤${C_RESET}"
     echo "${C_TITLE}│${C_RESET} ${C_LABEL}Emisora :${C_RESET}"
     echo "${C_TITLE}│${C_RESET} ${C_LABEL}Volumen :${C_RESET}"
