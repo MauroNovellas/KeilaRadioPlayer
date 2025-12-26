@@ -6,7 +6,6 @@
 
 PAUSADO=0
 
-SOCKET="/tmp/radio_mpv.sock"
 PID_MPV=""
 
 ACTUAL_NOMBRE="(ninguna)"
@@ -25,8 +24,24 @@ KBPS=0
 # ENTORNO
 ##############################################################################
 
+# Detectamos si estamos ejecutando en Termux (Android)
 ES_TERMUX=0
 [ -n "$TERMUX_VERSION" ] && ES_TERMUX=1
+
+##############################################################################
+# SOCKET MPV
+#
+# En Linux de escritorio usamos /tmp (rápido y estándar).
+# En Termux / Android, /tmp puede no existir o tener permisos
+# inconsistentes, así que usamos ~/.cache para evitar errores
+# y asegurar que el socket IPC de mpv funcione correctamente.
+##############################################################################
+
+if [ "$ES_TERMUX" -eq 1 ]; then
+    SOCKET="$HOME/.cache/radio_mpv.sock"
+else
+    SOCKET="/tmp/radio_mpv.sock"
+fi
 
 ##############################################################################
 # INIT
@@ -94,7 +109,7 @@ reproducir() {
 
     PID_MPV=$!
 
-    # Esperar a que el socket exista
+    # Esperar a que el socket IPC exista
     for _ in {1..20}; do
         [ -S "$SOCKET" ] && break
         sleep 0.05
@@ -125,7 +140,7 @@ check_player() {
         return
     fi
 
-    # En Termux no calculamos bitrate
+    # En Termux no calculamos bitrate (Android bloquea /proc/net)
     if [ "$ES_TERMUX" -eq 1 ]; then
         ESTADO="Reproduciendo"
         INFO_STREAM=""
