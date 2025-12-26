@@ -22,6 +22,13 @@ LAST_CHECK=0
 KBPS=0
 
 ##############################################################################
+# ENTORNO
+##############################################################################
+
+ES_TERMUX=0
+[ -n "$TERMUX_VERSION" ] && ES_TERMUX=1
+
+##############################################################################
 # INIT
 ##############################################################################
 
@@ -43,14 +50,16 @@ mpv_cmd() {
 }
 
 ##############################################################################
-# RED / BITRATE
+# RED / BITRATE (solo Linux PC)
 ##############################################################################
 
 get_iface() {
+    [ "$ES_TERMUX" -eq 1 ] && return
     ip route get 1 2>/dev/null | awk '{print $5; exit}'
 }
 
 get_rx_bytes() {
+    [ "$ES_TERMUX" -eq 1 ] && echo 0 && return
     awk -v iface="$NET_IF" '$1 ~ iface":" {print $2}' /proc/net/dev
 }
 
@@ -71,9 +80,11 @@ reproducir() {
     START_TIME=$(date +%s)
     NECESITA_REDIBUJAR=1
 
-    NET_IF=$(get_iface)
-    LAST_RX=$(get_rx_bytes)
-    LAST_CHECK=$(date +%s)
+    if [ "$ES_TERMUX" -eq 0 ]; then
+        NET_IF=$(get_iface)
+        LAST_RX=$(get_rx_bytes)
+        LAST_CHECK=$(date +%s)
+    fi
 
     mpv --really-quiet \
         --no-video \
@@ -111,6 +122,14 @@ check_player() {
     if [ "$PAUSADO" = "1" ]; then
         ESTADO="Pausado"
         INFO_STREAM="Pausado"
+        return
+    fi
+
+    # En Termux no calculamos bitrate
+    if [ "$ES_TERMUX" -eq 1 ]; then
+        ESTADO="Reproduciendo"
+        INFO_STREAM=""
+        NECESITA_REDIBUJAR=1
         return
     fi
 
