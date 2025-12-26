@@ -24,7 +24,7 @@ KBPS=0
 # ENTORNO
 ##############################################################################
 
-# Detectamos si estamos ejecutando en Termux (Android)
+# Detectar si estamos en Termux (Android)
 ES_TERMUX=0
 [ -n "$TERMUX_VERSION" ] && ES_TERMUX=1
 
@@ -33,8 +33,8 @@ ES_TERMUX=0
 #
 # En Linux de escritorio usamos /tmp (rápido y estándar).
 # En Termux / Android, /tmp puede no existir o tener permisos
-# inconsistentes, así que usamos ~/.cache para evitar errores
-# y asegurar que el socket IPC de mpv funcione correctamente.
+# inconsistentes. Usamos ~/.cache y creamos el directorio
+# explícitamente antes de lanzar mpv.
 ##############################################################################
 
 if [ "$ES_TERMUX" -eq 1 ]; then
@@ -60,8 +60,7 @@ init_player() {
 
 mpv_cmd() {
     [ -S "$SOCKET" ] || return
-    resp=$(printf '%s\n' "$1" | socat - UNIX-CONNECT:"$SOCKET" 2>/dev/null)
-    echo "$resp" | grep -vq '"error":"success"' && echo "$resp"
+    printf '%s\n' "$1" | socat - UNIX-CONNECT:"$SOCKET" 2>/dev/null
 }
 
 ##############################################################################
@@ -84,7 +83,6 @@ get_rx_bytes() {
 
 reproducir() {
     stop_player
-
     rm -f "$SOCKET"
 
     PAUSADO=0
@@ -101,6 +99,9 @@ reproducir() {
         LAST_CHECK=$(date +%s)
     fi
 
+    # Asegurar que el directorio del socket existe (crítico en Termux)
+    mkdir -p "$(dirname "$SOCKET")"
+
     mpv --really-quiet \
         --no-video \
         --no-terminal \
@@ -110,7 +111,7 @@ reproducir() {
     PID_MPV=$!
 
     # Esperar a que el socket IPC exista
-    for _ in {1..20}; do
+    for _ in {1..40}; do
         [ -S "$SOCKET" ] && break
         sleep 0.05
     done
