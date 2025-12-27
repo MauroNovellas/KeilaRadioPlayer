@@ -14,7 +14,7 @@ load_favorites() {
     fav_urls=()
     [ -f "$FAVORITAS" ] || return
 
-    while IFS="|" read -r n u; do
+    while IFS="|" read -sr n u; do
         fav_names+=("$n")
         fav_urls+=("$u")
     done < "$FAVORITAS"
