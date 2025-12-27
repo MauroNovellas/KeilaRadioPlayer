@@ -111,14 +111,15 @@ menu() {
 
     # Emisora
     tput cup 3 12
-    printf "\033[K%s" "$ACTUAL_NOMBRE"
+    tput el
+    printf "%s" "$ACTUAL_NOMBRE"
 
     # Volumen
     tput cup 4 12
     tput el
     barra_vol "$VOL_ACTUAL"
 
-    # Estado (player ya da INFO_STREAM correcto)
+    # Estado
     local linea_estado
     if [ "$ESTADO" = "Reproduciendo" ]; then
         linea_estado="${C_OK}${ESTADO} @ ${INFO_STREAM}${C_RESET}"
@@ -127,7 +128,8 @@ menu() {
     fi
 
     tput cup 5 12
-    printf "\033[K%s" "$linea_estado"
+    tput el
+    printf "%s" "$linea_estado"
 
     # Lista de favoritos
     local start_line
@@ -138,7 +140,7 @@ menu() {
     fi
 
     tput cup "$start_line" 0
-    tput ed
+    tput ed   # limpia desde aquí hasta el final de la pantalla
 
     for i in "${!fav_names[@]}"; do
         if [ "$i" -eq "$CURSOR_IDX" ]; then
