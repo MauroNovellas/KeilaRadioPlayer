@@ -11,6 +11,7 @@ DEPENDENCIAS=(
     "fzf:fzf:fzf"
     "ip:iproute2:iproute2"
     "tput:ncurses-bin:ncurses"
+    "socat:socat:socat"
 )
 
 ##############################################################################
@@ -81,7 +82,7 @@ comprobar_dependencias() {
     fi
 
     for dep in "${DEPENDENCIAS[@]}"; do
-        IFS=":" read -r bin pkg_linux pkg_termux <<< "$dep"
+        IFS=":" read -sr bin pkg_linux pkg_termux <<< "$dep"
 
         if command -v "$bin" >/dev/null; then
             continue
