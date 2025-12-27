@@ -89,39 +89,41 @@ swap_fav() {
 ##############################################################################
 
 leer_tecla() {
-    local key seq 
+    local key seq
 
-    # Leer primer carácter con un pequeño timeout if
-    ! IFS= read -rsn1 -t 0.2 key; then
+    # Leer primer carácter
+    if ! IFS= read -rsn1 -t 0.2 key; then
         echo ""
         return
     fi
 
-    # Si es ESC, intentamos leer la secuencia de cursor
+    # Si es ESC, intentar leer secuencia ANSI
     if [[ "$key" == $'\x1b' ]]; then
-        # Leer hasta 2 caracteres más, con algo más de margen
-        if IFS= read -rsn2 -t 0.1 seq; then
+        # Intentar leer dos caracteres más
+        if IFS= read -rsn2 -t 0.02 seq; then
             case "$seq" in
                 "[A") echo "UP" ;;
                 "[B") echo "DOWN" ;;
                 "[C") echo "RIGHT" ;;
                 "[D") echo "LEFT" ;;
-                *) echo "" ;; # descartamos cualquier otra cosa
+                *)    echo "" ;;
             esac
         else
-            # Si no llegó la secuencia completa, limpiamos lo que haya ahora
-            # sin bucles agresivos ni más esperas
+            # Si no llegó la secuencia completa, descartar lo que haya
             IFS= read -rsn2 -t 0 seq 2>/dev/null || true
             echo ""
-            fi
-            return
-        fi 
+        fi
+        return
+    fi
 
-        case "$key" in 
-            "") echo "ENTER" ;;
-            *) echo "$key" ;;
-        esac
-    }
+    # ENTER
+    if [[ "$key" == "" ]]; then
+        echo "ENTER"
+        return
+    fi
+
+    echo "$key"
+}
 
 ##############################################################################
 # MENÚ PRINCIPAL
