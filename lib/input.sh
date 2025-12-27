@@ -89,37 +89,39 @@ swap_fav() {
 ##############################################################################
 
 leer_tecla() {
-    local key seq
+    local key seq 
 
-    # Leer primer byte
-    IFS= read -rsn1 key || { echo ""; return; }
+    # Leer primer carácter con un pequeño timeout if
+    ! IFS= read -rsn1 -t 0.2 key; then
+        echo ""
+        return
+    fi
 
-    # Si es ESC, leer secuencia completa
+    # Si es ESC, intentamos leer la secuencia de cursor
     if [[ "$key" == $'\x1b' ]]; then
-        seq=""
-        # Consumir todo lo que haya en el buffer sin bloquear
-        while IFS= read -rsn1 -t 0.001 k; do
-            seq+="$k"
-        done
+        # Leer hasta 2 caracteres más, con algo más de margen
+        if IFS= read -rsn2 -t 0.1 seq; then
+            case "$seq" in
+                "[A") echo "UP" ;;
+                "[B") echo "DOWN" ;;
+                "[C") echo "RIGHT" ;;
+                "[D") echo "LEFT" ;;
+                *) echo "" ;; # descartamos cualquier otra cosa
+            esac
+        else
+            # Si no llegó la secuencia completa, limpiamos lo que haya ahora
+            # sin bucles agresivos ni más esperas
+            IFS= read -rsn2 -t 0 seq 2>/dev/null || true
+            echo ""
+            fi
+            return
+        fi 
 
-        case "$seq" in
-            "[A") echo "UP" ;;
-            "[B") echo "DOWN" ;;
-            "[C") echo "RIGHT" ;;
-            "[D") echo "LEFT" ;;
-            *) echo "" ;;  # descartar cualquier basura
+        case "$key" in 
+            "") echo "ENTER" ;;
+            *) echo "$key" ;;
         esac
-        return
-    fi
-
-    # ENTER
-    if [[ "$key" == "" ]]; then
-        echo "ENTER"
-        return
-    fi
-
-    echo "$key"
-}
+    }
 
 ##############################################################################
 # MENÚ PRINCIPAL
