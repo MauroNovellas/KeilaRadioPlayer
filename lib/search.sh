@@ -33,7 +33,7 @@ buscar_emisora() {
     # Si la variable $seleccion no está vacía (el usuario no pulsó ESC)
     if [ -n "$seleccion" ]; then
         # Separamos el string basándonos en el pipe '|'
-        IFS="|" read -r nombre url <<< "$seleccion"
+        IFS="|" read -rs nombre url <<< "$seleccion"
         
         # Invocamos a tu función de reproducción existente
         # Limpiamos pantalla antes para que se vea bien el player
