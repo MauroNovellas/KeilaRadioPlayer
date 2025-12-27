@@ -64,8 +64,8 @@ mpv_cmd() {
     local resp
     resp=$(printf '%s\n' "$1" | socat - UNIX-CONNECT:"$SOCKET" 2>/dev/null)
 
-    # Mostrar solo si no es un éxito silencioso
-    echo "$resp" | grep -vq '"error":"success"' && echo "$resp"
+    # Solo mostrar errores reales
+    echo "$resp" | grep -q '"error":"success"' || echo "$resp" | grep -q '"error":"failure"' && echo "$resp"
 }
 
 ##############################################################################
