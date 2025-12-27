@@ -78,7 +78,7 @@ ui_init() {
 
 draw_controls() {
     tput cup 9 0
-    printf "\033[J"
+    tput ed
 
     echo "${C_TITLE}┌ CONTROLES ────────────────────────────┐${C_RESET}"
     echo "  ↑ ↓     Seleccionar emisora"
@@ -97,7 +97,7 @@ draw_controls() {
 
 clear_controls() {
     tput cup 9 0
-    printf "\033[J"
+    tput ed
     echo "${C_TITLE}EMISORAS FAVORITAS${C_RESET}"
     echo "──────────────────"
 }
@@ -115,7 +115,7 @@ menu() {
 
     # Volumen
     tput cup 4 12
-    printf "\033[K"
+    tput el
     barra_vol "$VOL_ACTUAL"
 
     # Estado (player ya da INFO_STREAM correcto)
@@ -138,7 +138,7 @@ menu() {
     fi
 
     tput cup "$start_line" 0
-    printf "\033[J"
+    tput ed
 
     for i in "${!fav_names[@]}"; do
         if [ "$i" -eq "$CURSOR_IDX" ]; then
