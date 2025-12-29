@@ -1,127 +1,57 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <ncurses.h>
+#!/bin/bash
 
-#define MAX_FAV 256
-
-typedef struct {
-    char name[256];
-    char url[512];
-} Favorite;
-
-Favorite favs[MAX_FAV];
-int fav_count = 0;
-
-void load_favorites(const char *path) {
-    FILE *f = fopen(path, "r");
-    if (!f) return;
-
-    char line[1024];
-    while (fgets(line, sizeof(line), f)) {
-        char *sep = strchr(line, '|');
-        if (!sep) continue;
-
-        *sep = '\0';
-
-        // Copiar nombre de forma segura
-        size_t len = strlen(line);
-        if (len >= sizeof(favs[fav_count].name))
-            len = sizeof(favs[fav_count].name) - 1;
-
-        memcpy(favs[fav_count].name, line, len);
-        favs[fav_count].name[len] = '\0';
-
-        // Copiar URL de forma segura
-        const char *url = sep + 1;
-        len = strlen(url);
-        if (len >= sizeof(favs[fav_count].url))
-            len = sizeof(favs[fav_count].url) - 1;
-
-        memcpy(favs[fav_count].url, url, len);
-        favs[fav_count].url[len] = '\0';
-
-        fav_count++;
-        if (fav_count >= MAX_FAV) break;
-    }
-
-    fclose(f);
+cleanup() {
+    tput cnorm
+    tput sgr0
+    clear
 }
 
-void draw_ui(int selected) {
-    clear();
-    mvprintw(0, 0, "KEILA Radio Player (UI en C)");
-    mvprintw(1, 0, "----------------------------------------");
-    mvprintw(3, 0, "[W/S o ↑/↓] Mover  [ENTER] Reproducir  [q] Salir");
-    mvprintw(5, 0, "EMISORAS FAVORITAS");
-    mvprintw(6, 0, "------------------");
+tput civis
+trap cleanup INT TERM EXIT
 
-    for (int i = 0; i < fav_count; i++) {
-        if (i == selected)
-            mvprintw(8 + i, 0, "> %2d) %s", i + 1, favs[i].name);
-        else
-            mvprintw(8 + i, 0, "  %2d) %s", i + 1, favs[i].name);
-    }
+# Calcular ruta del proyecto y entrar en ella
+BASE_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$BASE_DIR"
 
-    refresh();
-}
+LIB="$BASE_DIR/lib"
+UI_C="$BASE_DIR/lib_c/ui_ncurses"
 
-int main() {
-    const char *fav_path = getenv("KEILA_FAVORITAS");
+# Exportar BASE_DIR para que ui.c pueda usarlo si lo necesita
+export BASE_DIR
 
-    // Fallback si no viene desde radio.sh
-    if (!fav_path || fav_path[0] == '\0') {
-        const char *base = getenv("BASE_DIR");
-        if (base && base[0] != '\0') {
-            static char path[512];
-            snprintf(path, sizeof(path), "%s/emisorasFavoritas.txt", base);
-            fav_path = path;
-        } else {
-            fav_path = "./emisorasFavoritas.txt";
-        }
-    }
+# Cargar configuración
+source "$LIB/config.sh"
 
-    load_favorites(fav_path);
+# Exportar ruta de favoritos para ui.c
+export KEILA_FAVORITAS="$FAVORITAS"
 
-    initscr();
-    noecho();
-    cbreak();
-    keypad(stdscr, TRUE);
-    curs_set(0);
+# Cargar módulos
+source "$LIB/state.sh"
+source "$LIB/deps.sh"
+source "$LIB/player.sh"
+source "$LIB/search.sh"
 
-    int selected = 0;
-    int ch;
+comprobar_dependencias
+init_state
+init_player
+load_state
 
-    while (1) {
-        draw_ui(selected);
-        ch = getch();
+while true; do
+    cmd=$("$UI_C" </dev/tty 2>/dev/tty)
 
-        switch (ch) {
-            case 'q':
-                endwin();
-                printf("EXIT|\n");
-                return 0;
 
-            case KEY_UP:
-            case 'w':
-            case 'W':
-                if (selected > 0) selected--;
-                break;
+    echo "DEBUG CMD = '$cmd'"
+    sleep 1
 
-            case KEY_DOWN:
-            case 's':
-            case 'S':
-                if (selected < fav_count - 1) selected++;
-                break;
+    IFS="|" read -r action name url <<< "$cmd"
 
-            case '\n':
-            case KEY_ENTER:
-                endwin();
-                printf("PLAY|%s|%s\n", favs[selected].name, favs[selected].url);
-                return 0;
-        }
-    }
-
-    endwin();
-    return 0;
-}
+    case "$action" in
+        PLAY)
+            reproducir "$name" "$url"
+            ;;
+        EXIT)
+            stop_player
+            exit 0
+            ;;
+    esac
+done
