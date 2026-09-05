@@ -22,9 +22,10 @@ lock_acquire() {
         fi
 
         owner=""
-        [[ -r "$lock_dir/pid" ]] && IFS= read -r owner < "$lock_dir/pid" || true
+        if [[ -r "$lock_dir/pid" ]]; then
+            IFS= read -r owner < "$lock_dir/pid" || true
+        fi
 
-        # Recupera un lock abandonado por una instancia que ya no existe.
         if [[ "$owner" =~ ^[0-9]+$ ]] && ! kill -0 "$owner" 2>/dev/null; then
             rm -rf "$lock_dir" 2>/dev/null || true
             continue
@@ -41,7 +42,9 @@ lock_release() {
     local owner=""
 
     [[ -d "$lock_dir" ]] || return 0
-    [[ -r "$lock_dir/pid" ]] && IFS= read -r owner < "$lock_dir/pid" || true
+    if [[ -r "$lock_dir/pid" ]]; then
+        IFS= read -r owner < "$lock_dir/pid" || true
+    fi
 
     if [[ -z "$owner" || "$owner" == "$$" ]]; then
         rm -rf "$lock_dir" 2>/dev/null || return 1
