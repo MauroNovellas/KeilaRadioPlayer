@@ -29,20 +29,22 @@ declare -F ui_draw_desktop >/dev/null || fail 'falta render desktop'
 
 ui_desktop_pane_widths 119
 assert_eq 119 "$((UI_DESKTOP_LEFT_WIDTH + UI_DESKTOP_RIGHT_WIDTH + 7))" 'geometría desktop 119'
-((UI_DESKTOP_LEFT_WIDTH >= 40)) || fail 'panel de favoritos demasiado estrecho'
-((UI_DESKTOP_LEFT_WIDTH <= 58)) || fail 'panel de favoritos crece demasiado'
-((UI_DESKTOP_RIGHT_WIDTH > UI_DESKTOP_LEFT_WIDTH)) || fail 'ahora suena no recibe el ancho extra'
+((UI_DESKTOP_RIGHT_WIDTH >= 40)) || fail 'panel de favoritos demasiado estrecho'
+((UI_DESKTOP_RIGHT_WIDTH <= 58)) || fail 'panel de favoritos crece demasiado'
+((UI_DESKTOP_LEFT_WIDTH > UI_DESKTOP_RIGHT_WIDTH)) || fail 'ahora suena no es el panel principal'
+assert_eq 65 "$UI_DESKTOP_LEFT_WIDTH" 'ahora suena domina en desktop normal'
+assert_eq 47 "$UI_DESKTOP_RIGHT_WIDTH" 'favoritos queda contenido en desktop normal'
 
 ui_desktop_pane_widths 159
 assert_eq 159 "$((UI_DESKTOP_LEFT_WIDTH + UI_DESKTOP_RIGHT_WIDTH + 7))" 'geometría desktop 159'
-assert_eq 58 "$UI_DESKTOP_LEFT_WIDTH" 'favoritos queda contenido en ultrawide'
-assert_eq 94 "$UI_DESKTOP_RIGHT_WIDTH" 'ahora suena absorbe el ancho ultrawide'
+assert_eq 94 "$UI_DESKTOP_LEFT_WIDTH" 'ahora suena absorbe el ancho ultrawide'
+assert_eq 58 "$UI_DESKTOP_RIGHT_WIDTH" 'favoritos queda contenido en ultrawide'
 
 UI_UNICODE=0
 ui_configure_glyphs
 UI_COLOR=0
 ui_desktop_pane_widths 119
-header=$(ui_desktop_header_rule 119 'FAVORITOS (8)' 'AHORA SUENA')
+header=$(ui_desktop_header_rule 119 'AHORA SUENA' 'FAVORITOS (8)')
 first_line=${header%%$'\n'*}
 assert_eq 119 "${#first_line}" 'cabecera desktop respeta ancho exacto'
 
@@ -61,4 +63,4 @@ assert_eq 13 "$(ui_desktop_body_height)" 'desktop llena altura mínima sin scrol
 UI_HELP_VISIBLE=1
 assert_eq 10 "$(ui_desktop_body_height)" 'ayuda conserva altura del frame'
 
-printf 'ok   TUI desktop de dos paneles\n'
+printf 'ok   TUI desktop: ahora suena principal, favoritos a la derecha\n'
