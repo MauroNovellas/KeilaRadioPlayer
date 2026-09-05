@@ -7,6 +7,8 @@ DEFAULT_FAVORITES_FILE="$BASE_DIR/defaults/favorites"
 
 # shellcheck source=lib/version.sh
 source "$BASE_DIR/lib/version.sh"
+# shellcheck source=lib/update.sh
+source "$BASE_DIR/lib/update.sh"
 # shellcheck source=lib/deps.sh
 source "$BASE_DIR/lib/deps.sh"
 # shellcheck source=lib/config.sh
@@ -29,6 +31,8 @@ source "$BASE_DIR/lib/input.sh"
 source "$BASE_DIR/lib/ui.sh"
 # shellcheck source=lib/ui-responsive.sh
 source "$BASE_DIR/lib/ui-responsive.sh"
+# shellcheck source=lib/ui-safe-width.sh
+source "$BASE_DIR/lib/ui-safe-width.sh"
 
 cleanup() {
     recording_stop >/dev/null 2>&1 || true
@@ -295,20 +299,34 @@ app_loop() {
 }
 
 main() {
-    if [[ "${1:-}" == '--version' ]]; then
-        printf 'Keila Radio Player %s\n' "$KEILA_VERSION"
-        return 0
-    fi
-
-    if [[ "${1:-}" == '--check' ]]; then
-        app_init_data || return 1
-        printf 'Keila Radio Player %s: inicialización OK\n' "$KEILA_VERSION"
-        printf 'Configuración: %s\n' "$KEILA_CONFIG_FILE"
-        printf 'Favoritos: %s\n' "$KEILA_FAVORITES_FILE"
-        printf 'Estado: %s\n' "$KEILA_STATE_FILE"
-        printf 'Grabaciones: %s\n' "$KEILA_RECORDINGS_DIR"
-        return 0
-    fi
+    case "${1:-}" in
+        --version)
+            printf 'Keila Radio Player %s\n' "$KEILA_VERSION"
+            return 0
+            ;;
+        --check)
+            app_init_data || return 1
+            printf 'Keila Radio Player %s: inicialización OK\n' "$KEILA_VERSION"
+            printf 'Configuración: %s\n' "$KEILA_CONFIG_FILE"
+            printf 'Favoritos: %s\n' "$KEILA_FAVORITES_FILE"
+            printf 'Estado: %s\n' "$KEILA_STATE_FILE"
+            printf 'Grabaciones: %s\n' "$KEILA_RECORDINGS_DIR"
+            return 0
+            ;;
+        --check-update)
+            update_check
+            return $?
+            ;;
+        --update)
+            printf 'La instalación automática todavía no está habilitada. Usa --check-update para comprobar versiones.\n'
+            return 2
+            ;;
+        --*)
+            printf 'Opción desconocida: %s\n' "$1" >&2
+            printf 'Opciones: --version, --check, --check-update\n' >&2
+            return 2
+            ;;
+    esac
 
     deps_ensure || exit 1
     app_init_data || exit 1
