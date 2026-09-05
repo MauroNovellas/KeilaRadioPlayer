@@ -140,6 +140,26 @@ test_favorites() (
     favorites_remove_index 0 || return 1
     favorites_load
     assert_eq '1' "${#FAVORITE_NAMES[@]}" 'eliminación persistente' || return 1
+
+    # Si la escritura falla después de mutar las arrays, la vista en memoria no
+    # debe mostrar un estado que nunca llegó al disco.
+    local persisted_name="${FAVORITE_NAMES[0]}"
+    local persisted_url="${FAVORITE_URLS[0]}"
+    favorites_save_unlocked() { return 1; }
+
+    local failed_add_status=0
+    favorites_add 'No persistida' 'https://example.invalid/fail' || failed_add_status=$?
+    assert_eq '1' "$failed_add_status" 'alta informa fallo de persistencia' || return 1
+    assert_eq '1' "${#FAVORITE_NAMES[@]}" 'alta fallida restaura tamaño en memoria' || return 1
+    assert_eq "$persisted_name" "${FAVORITE_NAMES[0]}" 'alta fallida restaura nombre en memoria' || return 1
+    assert_eq "$persisted_url" "${FAVORITE_URLS[0]}" 'alta fallida restaura URL en memoria' || return 1
+
+    FAVORITES_TOGGLE_ACTION='stale'
+    local failed_toggle_status=0
+    favorites_toggle 'No persistida' 'https://example.invalid/fail' || failed_toggle_status=$?
+    assert_eq '1' "$failed_toggle_status" 'toggle informa fallo de persistencia' || return 1
+    assert_eq '' "${FAVORITES_TOGGLE_ACTION:-}" 'toggle fallido no deja acción obsoleta' || return 1
+    assert_eq '1' "${#FAVORITE_NAMES[@]}" 'toggle fallido conserva lista persistida' || return 1
 )
 
 test_recording_helpers() (
