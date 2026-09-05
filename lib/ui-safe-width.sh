@@ -109,3 +109,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/ui-desktop-primary.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/ui-desktop-balance.sh"
 # shellcheck source=lib/ui-update-status.sh
 source "$(dirname "${BASH_SOURCE[0]}")/ui-update-status.sh"
+
+# La búsqueda integrada sustituye únicamente el selector de emisoras que usa B.
+# El launcher sigue utilizando el mismo app_search_catalog() y puede volver al
+# selector fzf con KEILA_FZF_SEARCH=1 durante la transición.
+# shellcheck source=lib/app-search.sh
+source "$(dirname "${BASH_SOURCE[0]}")/app-search.sh"
