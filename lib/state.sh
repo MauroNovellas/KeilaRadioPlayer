@@ -32,17 +32,31 @@ state_load() {
 }
 
 state_save() {
-    keila_init_paths
+    keila_init_paths || return 1
+
+    local lock_dir="${KEILA_STATE_FILE}.lock"
+    lock_acquire "$lock_dir" || return 1
 
     local tmp="${KEILA_STATE_FILE}.tmp.$$"
+    local status=0
     umask 077
 
     {
         printf 'volume\t%s\n' "$STATE_VOLUME"
         printf 'last_name\t%s\n' "$STATE_LAST_NAME"
         printf 'last_url\t%s\n' "$STATE_LAST_URL"
-    } > "$tmp"
+    } > "$tmp" || status=1
 
-    mv -f "$tmp" "$KEILA_STATE_FILE"
-    chmod 600 "$KEILA_STATE_FILE" 2>/dev/null || true
+    if ((status == 0)); then
+        mv -f "$tmp" "$KEILA_STATE_FILE" || status=1
+    fi
+
+    if ((status == 0)); then
+        chmod 600 "$KEILA_STATE_FILE" 2>/dev/null || true
+    else
+        rm -f "$tmp" 2>/dev/null || true
+    fi
+
+    lock_release "$lock_dir" || status=1
+    return "$status"
 }
