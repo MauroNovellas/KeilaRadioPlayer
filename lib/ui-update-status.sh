@@ -165,19 +165,19 @@ if ! declare -F ui_enter_without_update_check >/dev/null 2>&1; then
 fi
 
 ui_enter() {
-    ui_enter_without_update_check "$@" || return $?
+    ui_enter_without_update_check || return $?
     ui_update_background_start >/dev/null 2>&1 || true
 }
 
 ui_leave() {
     ui_update_background_cleanup
-    ui_leave_without_update_check "$@"
+    ui_leave_without_update_check
 }
 
 ui_message_tick() {
     local changed=1
 
-    if ui_message_tick_without_update_check "$@"; then
+    if ui_message_tick_without_update_check; then
         changed=0
     fi
     if ui_update_background_poll; then
