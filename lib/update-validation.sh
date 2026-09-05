@@ -36,6 +36,7 @@ update_validate_tree() {
         lib/ui-search.sh
         lib/app-search.sh
         lib/ui-desktop-search-pane.sh
+        lib/ui-terminal-guard.sh
     )
 
     for file in "${required_files[@]}"; do
