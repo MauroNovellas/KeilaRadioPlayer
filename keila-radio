@@ -15,8 +15,11 @@ source "$BASE_DIR/lib/favorites.sh"
 source "$BASE_DIR/lib/stations.sh"
 # shellcheck source=lib/player.sh
 source "$BASE_DIR/lib/player.sh"
+# shellcheck source=lib/ui.sh
+source "$BASE_DIR/lib/ui.sh"
 
 cleanup() {
+    ui_leave >/dev/null 2>&1 || true
     player_stop >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -28,235 +31,183 @@ die() {
     exit 1
 }
 
-print_favorites() {
-    printf '\nFavoritos\n\n'
+save_player_state() {
+    STATE_VOLUME="$PLAYER_VOLUME"
+
+    if [[ -n "${PLAYER_URL:-}" ]]; then
+        STATE_LAST_NAME="$PLAYER_NAME"
+        STATE_LAST_URL="$PLAYER_URL"
+    fi
+
+    state_save
+}
+
+app_play() {
+    local name="$1"
+    local url="$2"
+
+    if ! player_start "$name" "$url"; then
+        UI_MESSAGE="No se pudo iniciar la emisora: $name"
+        return 1
+    fi
+
+    save_player_state >/dev/null 2>&1 || true
+    UI_MESSAGE="Reproduciendo: $name"
+    return 0
+}
+
+app_play_selected() {
+    favorites_load
+    ui_sync_selection
 
     if ((${#FAVORITE_NAMES[@]} == 0)); then
-        printf '  (no tienes favoritos guardados)\n'
-        return 0
-    fi
-
-    local i
-    for ((i = 0; i < ${#FAVORITE_NAMES[@]}; i++)); do
-        if [[ -n "$STATE_LAST_URL" && "${FAVORITE_URLS[$i]}" == "$STATE_LAST_URL" ]]; then
-            printf '  %2d) %s  [última]\n' "$((i + 1))" "${FAVORITE_NAMES[$i]}"
-        else
-            printf '  %2d) %s\n' "$((i + 1))" "${FAVORITE_NAMES[$i]}"
-        fi
-    done
-}
-
-choose_favorite() {
-    local input action number index
-
-    while true; do
-        favorites_load
-        print_favorites
-        printf '\n'
-        printf 'Número = reproducir · d N = eliminar · k N = subir · j N = bajar · q = volver\n'
-        read -r -p 'Favoritos > ' input || return 1
-
-        [[ "$input" =~ ^[qQ]$ ]] && return 1
-
-        if [[ "$input" =~ ^[0-9]+$ ]]; then
-            number="$input"
-            if ((number < 1 || number > ${#FAVORITE_NAMES[@]})); then
-                printf '\nSelección fuera de rango.\n'
-                continue
-            fi
-
-            SELECTED_NAME="${FAVORITE_NAMES[$((number - 1))]}"
-            SELECTED_URL="${FAVORITE_URLS[$((number - 1))]}"
-            return 0
-        fi
-
-        read -r action number _ <<< "$input"
-        [[ "$number" =~ ^[0-9]+$ ]] || {
-            printf '\nComando no válido.\n'
-            continue
-        }
-
-        index=$((number - 1))
-        if ((index < 0 || index >= ${#FAVORITE_NAMES[@]})); then
-            printf '\nSelección fuera de rango.\n'
-            continue
-        fi
-
-        case "$action" in
-            d|D)
-                printf '\nEliminando: %s\n' "${FAVORITE_NAMES[$index]}"
-                favorites_remove_index "$index" || printf 'No se pudo eliminar el favorito.\n' >&2
-                ;;
-            k|K)
-                if favorites_move "$index" -1; then
-                    printf '\nMovida arriba: %s\n' "${FAVORITE_NAMES[$((index - 1))]}"
-                else
-                    printf '\nEsa emisora ya está arriba del todo.\n'
-                fi
-                ;;
-            j|J)
-                if favorites_move "$index" 1; then
-                    printf '\nMovida abajo: %s\n' "${FAVORITE_NAMES[$((index + 1))]}"
-                else
-                    printf '\nEsa emisora ya está abajo del todo.\n'
-                fi
-                ;;
-            *)
-                printf '\nComando no válido.\n'
-                ;;
-        esac
-    done
-}
-
-choose_catalog_station() {
-    if ! stations_select_fzf; then
-        printf '\nBúsqueda cancelada o catálogo no disponible.\n'
+        UI_MESSAGE="No tienes favoritos. Pulsa B para buscar una emisora."
         return 1
     fi
 
-    printf '\nSeleccionada: %s' "$SELECTED_NAME"
-    [[ -n "${SELECTED_AMBIT:-}" ]] && printf ' · %s' "$SELECTED_AMBIT"
-    [[ -n "${SELECTED_FORMAT:-}" ]] && printf ' · %s' "$SELECTED_FORMAT"
-    printf '\n'
+    local name="${FAVORITE_NAMES[$UI_SELECTED_INDEX]}"
+    local url="${FAVORITE_URLS[$UI_SELECTED_INDEX]}"
+    app_play "$name" "$url"
 }
 
-resume_last_station() {
-    [[ -n "$STATE_LAST_URL" ]] || return 1
+app_change_volume() {
+    local delta="$1"
 
-    SELECTED_NAME="${STATE_LAST_NAME:-Última emisora}"
-    SELECTED_URL="$STATE_LAST_URL"
-}
-
-show_start_menu() {
-    printf '\nKeila Radio Player v2\n\n'
-
-    if [[ -n "$STATE_LAST_URL" ]]; then
-        printf '  Enter) Reanudar: %s\n' "${STATE_LAST_NAME:-Última emisora}"
-    fi
-
-    printf '  b) Buscar en TDTChannels\n'
-    printf '  f) Favoritos / gestionar favoritos\n'
-    printf '  u) Actualizar catálogo\n'
-    printf '  q) Salir\n\n'
-}
-
-choose_station() {
-    local choice
-
-    while true; do
-        show_start_menu
-        read -r -p 'Opción: ' choice || return 2
-
-        if [[ -z "$choice" && -n "$STATE_LAST_URL" ]]; then
-            resume_last_station && return 0
-        fi
-
-        case "$choice" in
-            b|B)
-                choose_catalog_station && return 0
-                ;;
-            f|F)
-                choose_favorite && return 0
-                ;;
-            u|U)
-                printf '\n'
-                if stations_update_catalog; then
-                    printf '\n'
-                else
-                    printf '\nNo se pudo actualizar el catálogo.\n\n' >&2
-                fi
-                ;;
-            q|Q)
-                return 2
-                ;;
-            *)
-                printf '\nOpción no válida.\n'
-                ;;
-        esac
-    done
-}
-
-save_current_state() {
-    STATE_VOLUME="$PLAYER_VOLUME"
-    STATE_LAST_NAME="$PLAYER_NAME"
-    STATE_LAST_URL="$PLAYER_URL"
-
-    if ! state_save; then
-        printf '\nAviso: no se pudo guardar el estado de Keila.\n' >&2
-        return 1
-    fi
-}
-
-show_favorite_status() {
-    if favorites_find_url "$PLAYER_URL" >/dev/null; then
-        printf 'Favorito: sí\n'
+    if player_change_volume "$delta"; then
+        save_player_state >/dev/null 2>&1 || true
+        UI_MESSAGE="Volumen: ${PLAYER_VOLUME}%"
     else
-        printf 'Favorito: no\n'
+        UI_MESSAGE="No se pudo cambiar el volumen."
     fi
 }
 
-show_controls() {
-    printf '\nReproduciendo: %s\n' "$PLAYER_NAME"
-    printf 'Volumen: %s%%\n' "$PLAYER_VOLUME"
-    show_favorite_status
-    printf '\n[p] pausa   [a/d] volumen   [f] favorito   [q] salir\n'
+app_toggle_pause() {
+    if ! player_is_running; then
+        UI_MESSAGE="No hay ninguna emisora en reproducción."
+        return 1
+    fi
+
+    if player_toggle_pause; then
+        if ((PLAYER_PAUSED)); then
+            UI_MESSAGE="Reproducción pausada."
+        else
+            UI_MESSAGE="Reproducción reanudada."
+        fi
+    else
+        UI_MESSAGE="No se pudo cambiar la pausa."
+        return 1
+    fi
 }
 
-toggle_current_favorite() {
+app_toggle_favorite() {
+    if ! player_is_running; then
+        UI_MESSAGE="No hay ninguna emisora en reproducción."
+        return 1
+    fi
+
+    favorites_load
+
     if ! favorites_toggle "$PLAYER_NAME" "$PLAYER_URL"; then
-        printf '\nNo se pudo modificar favoritos.\n' >&2
+        UI_MESSAGE="No se pudo modificar favoritos."
         return 1
     fi
 
     case "${FAVORITES_TOGGLE_ACTION:-}" in
         added)
-            printf '\nAñadida a favoritos: %s\n' "$PLAYER_NAME"
+            UI_MESSAGE="Añadida a favoritos: $PLAYER_NAME"
+            ui_select_url "$PLAYER_URL" >/dev/null 2>&1 || true
             ;;
         removed)
-            printf '\nEliminada de favoritos: %s\n' "$PLAYER_NAME"
+            UI_MESSAGE="Eliminada de favoritos: $PLAYER_NAME"
+            ui_sync_selection
             ;;
     esac
 }
 
-interactive_loop() {
-    local key
+app_search_catalog() {
+    ui_suspend
 
-    while IFS= read -rsn1 key; do
-        case "$key" in
-            p|P)
-                if player_toggle_pause; then
-                    if ((PLAYER_PAUSED)); then
-                        printf '\nPausado\n'
-                    else
-                        printf '\nReproduciendo\n'
-                    fi
-                fi
+    local status=0
+    stations_select_fzf || status=$?
+
+    ui_resume
+
+    if ((status != 0)); then
+        UI_MESSAGE="Búsqueda cancelada."
+        return 0
+    fi
+
+    app_play "$SELECTED_NAME" "$SELECTED_URL"
+}
+
+app_update_catalog() {
+    ui_suspend
+
+    local status=0
+    stations_update_catalog || status=$?
+
+    ui_resume
+
+    if ((status == 0)); then
+        UI_MESSAGE="Catálogo de TDTChannels actualizado."
+    else
+        UI_MESSAGE="No se pudo actualizar el catálogo."
+    fi
+}
+
+app_check_player() {
+    if [[ -n "${PLAYER_PID:-}" ]] && ! player_is_running; then
+        PLAYER_PID=""
+        PLAYER_PAUSED=0
+        UI_MESSAGE="La reproducción se ha detenido."
+    fi
+}
+
+app_loop() {
+    ui_enter
+
+    while true; do
+        app_check_player
+        ui_draw
+
+        if ! ui_read_key; then
+            return 0
+        fi
+
+        case "$UI_KEY" in
+            w|W)
+                ui_move_selection -1 || true
+                ;;
+            s|S)
+                ui_move_selection 1 || true
                 ;;
             a|A)
-                if player_change_volume -5; then
-                    save_current_state >/dev/null || true
-                    printf '\nVolumen: %s%%\n' "$PLAYER_VOLUME"
-                fi
+                app_change_volume -5
                 ;;
             d|D)
-                if player_change_volume 5; then
-                    save_current_state >/dev/null || true
-                    printf '\nVolumen: %s%%\n' "$PLAYER_VOLUME"
-                fi
+                app_change_volume 5
+                ;;
+            '')
+                app_play_selected || true
+                ;;
+            p|P)
+                app_toggle_pause || true
                 ;;
             f|F)
-                toggle_current_favorite || true
+                app_toggle_favorite || true
+                ;;
+            b|B)
+                app_search_catalog || true
+                ;;
+            u|U)
+                app_update_catalog || true
                 ;;
             q|Q)
-                printf '\nSaliendo de Keila...\n'
+                UI_MESSAGE="Hasta luego."
+                ui_draw
                 return 0
                 ;;
         esac
-
-        if ! player_is_running; then
-            printf '\nEl proceso de mpv ha terminado.\n' >&2
-            return 1
-        fi
     done
 }
 
@@ -269,39 +220,22 @@ main() {
     PLAYER_VOLUME="$STATE_VOLUME"
 
     player_require_dependencies || exit 1
+    ui_require_dependencies || exit 1
+
+    ui_select_url "$STATE_LAST_URL" >/dev/null 2>&1 || true
 
     local station_url="${1:-}"
     local station_name="${2:-Stream de prueba}"
 
     if [[ -n "$station_url" ]]; then
-        SELECTED_NAME="$station_name"
-        SELECTED_URL="$station_url"
+        app_play "$station_name" "$station_url" || die "No se pudo iniciar mpv"
+    elif [[ -n "$STATE_LAST_NAME" ]]; then
+        UI_MESSAGE="Última emisora: $STATE_LAST_NAME"
     else
-        choose_station
-        local choice_status=$?
-
-        case "$choice_status" in
-            0)
-                ;;
-            2)
-                printf '\nHasta luego.\n'
-                return 0
-                ;;
-            *)
-                die "No se pudo seleccionar una emisora"
-                ;;
-        esac
+        UI_MESSAGE="W/S para elegir un favorito o B para buscar en TDTChannels."
     fi
 
-    printf '\nConectando con %s...\n' "$SELECTED_NAME"
-
-    if ! player_start "$SELECTED_NAME" "$SELECTED_URL"; then
-        die "No se pudo iniciar mpv"
-    fi
-
-    save_current_state >/dev/null || true
-    show_controls
-    interactive_loop
+    app_loop
 }
 
 main "$@"

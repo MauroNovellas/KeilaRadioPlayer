@@ -2,7 +2,7 @@
 
 Keila Radio Player es un reproductor de radio en Bash para terminal, usando `mpv` como motor de reproducción.
 
-La rama `v2` está en desarrollo activo y añade una arquitectura modular, persistencia XDG, búsqueda en TDTChannels y gestión de favoritos.
+La rama `v2` está en desarrollo activo y usa una arquitectura modular, persistencia XDG, búsqueda en TDTChannels, gestión de favoritos y una TUI navegable con teclado.
 
 ## Requisitos
 
@@ -12,11 +12,12 @@ La rama `v2` está en desarrollo activo y añade una arquitectura modular, persi
 - curl
 - jq
 - fzf
+- tput (`ncurses-bin` en Debian)
 
 En Debian:
 
 ```bash
-sudo apt install mpv socat curl jq fzf
+sudo apt install mpv socat curl jq fzf ncurses-bin
 ```
 
 ## Ejecutar v2
@@ -33,21 +34,17 @@ Los datos personales se guardan fuera del repositorio:
 ~/.cache/keila-radio/radio.json
 ```
 
-Durante la reproducción:
+## Controles de la TUI
 
 ```text
-p       pausa/reanudar
-a / d   bajar/subir volumen
-f       añadir/eliminar la emisora actual de favoritos
-q       salir
+W / S    mover la selección por favoritos
+Enter    reproducir el favorito seleccionado
+A / D    bajar/subir volumen
+P        pausa/reanudar
+F        añadir/eliminar la emisora en reproducción de favoritos
+B        buscar una emisora en TDTChannels con fzf
+U        actualizar el catálogo de TDTChannels
+Q        salir
 ```
 
-En el menú de favoritos:
-
-```text
-N       reproducir favorito N
-d N     eliminar favorito N
-k N     mover favorito N hacia arriba
-j N     mover favorito N hacia abajo
-q       volver
-```
+La lista de favoritos tiene scroll automático. Al buscar con `B`, Keila suspende temporalmente la TUI, abre `fzf` y vuelve a la interfaz al seleccionar o cancelar.

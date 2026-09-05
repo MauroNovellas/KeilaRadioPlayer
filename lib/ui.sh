@@ -1,145 +1,300 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-##############################################################################
-# ESTADO UI
-##############################################################################
+# Interfaz de terminal de Keila Radio Player v2.
+# Este módulo solo dibuja y gestiona estado visual; la lógica de reproducción
+# y persistencia sigue viviendo en sus módulos correspondientes.
 
-UI_INIT=0
-SHOW_CONTROLS=0
+UI_ACTIVE=0
+UI_SUSPENDED=0
+UI_SELECTED_INDEX=0
+UI_SCROLL_OFFSET=0
+UI_MESSAGE=""
+UI_COLS=80
+UI_LINES=24
 
-##############################################################################
-# COLORES (fallback seguro)
-##############################################################################
-
-if tput colors &>/dev/null && [ "$(tput colors)" -ge 8 ]; then
-    C_RESET=$(tput sgr0)
-    C_TITLE=$(tput setaf 6)
-    C_LABEL=$(tput setaf 4)
-    C_OK=$(tput setaf 2)
-    C_WARN=$(tput setaf 3)
-    C_SEL=$(tput rev)
-else
-    C_RESET=""
-    C_TITLE=""
-    C_LABEL=""
-    C_OK=""
-    C_WARN=""
-    C_SEL=""
-fi
-
-##############################################################################
-# UTILIDADES DE DIBUJO
-##############################################################################
-
-barra_vol() {
-    local v=$1
-    local w=20
-    local f=$((v * w / 100))
-
-    printf "["
-    for ((i=0;i<w;i++)); do
-        if [ "$i" -lt "$f" ]; then
-            printf "${C_OK}█${C_RESET}"
-        else
-            printf "░"
-        fi
-    done
-    printf "] %3d%%" "$v"
+ui_require_dependencies() {
+    if ! command -v tput >/dev/null 2>&1; then
+        printf 'Falta la dependencia: tput\n' >&2
+        printf 'En Debian puedes instalarla con: sudo apt install ncurses-bin\n' >&2
+        return 1
+    fi
 }
 
-##############################################################################
-# UI FIJA
-##############################################################################
+ui_refresh_size() {
+    UI_COLS=$(tput cols 2>/dev/null || printf '80')
+    UI_LINES=$(tput lines 2>/dev/null || printf '24')
 
-ui_init() {
-    clear
-    tput civis
-
-    echo "${C_TITLE}┌──────────────────────────────────────┐${C_RESET}"
-    echo "${C_TITLE}│${C_RESET} KEILA Radio Player                   ${C_TITLE}│${C_RESET}"
-    echo "${C_TITLE}├──────────────────────────────────────┤${C_RESET}"
-    echo "${C_TITLE}│${C_RESET} ${C_LABEL}Emisora :${C_RESET}"
-    echo "${C_TITLE}│${C_RESET} ${C_LABEL}Volumen :${C_RESET}"
-    echo "${C_TITLE}│${C_RESET} ${C_LABEL}Estado  :${C_RESET}"
-    echo "${C_TITLE}└──────────────────────────────────────┘${C_RESET}"
-
-    echo
-    echo "${C_LABEL}[c]${C_RESET} Mostrar controles"
-    echo
-    echo "${C_TITLE}EMISORAS FAVORITAS${C_RESET}"
-    echo "──────────────────"
-
-    UI_INIT=1
+    [[ "$UI_COLS" =~ ^[0-9]+$ ]] || UI_COLS=80
+    [[ "$UI_LINES" =~ ^[0-9]+$ ]] || UI_LINES=24
 }
 
-##############################################################################
-# CONTROLES
-##############################################################################
+ui_enter() {
+    ((UI_ACTIVE)) && return 0
 
-draw_controls() {
-    tput cup 9 0
-    printf "\033[J"
-
-    echo "${C_TITLE}┌ CONTROLES ────────────────────────────┐${C_RESET}"
-    echo "  W / S   Seleccionar emisora"
-    echo "  A / D   Volumen"
-    echo "  ENTER   Reproducir"
-    echo "  p       Pausa"
-    echo "  f       Favorito"
-    echo "  m       Mover favorito"
-    echo "  e       Todas las emisoras"
-    echo "  q       Salir"
-    echo "${C_TITLE}└───────────────────────────────────────┘${C_RESET}"
-    echo
-    echo "${C_TITLE}EMISORAS FAVORITAS${C_RESET}"
-    echo "──────────────────"
+    tput smcup 2>/dev/null || true
+    tput civis 2>/dev/null || true
+    tput clear 2>/dev/null || true
+    UI_ACTIVE=1
+    UI_SUSPENDED=0
 }
 
-##############################################################################
-# DIBUJO DINÁMICO
-##############################################################################
+ui_suspend() {
+    ((UI_ACTIVE)) || return 0
+    tput cnorm 2>/dev/null || true
+    tput sgr0 2>/dev/null || true
+    tput clear 2>/dev/null || true
+    UI_SUSPENDED=1
+}
 
-menu() {
-    [ "$UI_INIT" -eq 0 ] && ui_init
+ui_resume() {
+    ((UI_ACTIVE)) || return 0
+    tput civis 2>/dev/null || true
+    tput clear 2>/dev/null || true
+    UI_SUSPENDED=0
+}
 
-    # Emisora
-    tput cup 3 12
-    printf "\033[K%s" "$ACTUAL_NOMBRE"
+ui_leave() {
+    ((UI_ACTIVE)) || return 0
 
-    # Volumen
-    tput cup 4 12
-    printf "\033[K"
-    barra_vol "$VOL_ACTUAL"
+    tput cnorm 2>/dev/null || true
+    tput sgr0 2>/dev/null || true
+    tput rmcup 2>/dev/null || true
+    UI_ACTIVE=0
+    UI_SUSPENDED=0
+}
 
-    # Estado (player ya da INFO_STREAM correcto)
-    local linea_estado
-    if [ "$ESTADO" = "Reproduciendo" ]; then
-        linea_estado="${C_OK}${ESTADO} @ ${INFO_STREAM}${C_RESET}"
-    else
-        linea_estado="${C_WARN}${ESTADO}${C_RESET}"
+ui_separator() {
+    local width="$1"
+    local line
+    printf -v line '%*s' "$width" ''
+    printf '%s\n' "${line// /-}"
+}
+
+ui_truncate() {
+    local text="$1"
+    local max="$2"
+
+    if ((max <= 0)); then
+        return 0
     fi
 
-    tput cup 5 12
-    printf "\033[K%s" "$linea_estado"
-
-    # Lista de favoritos
-    local start_line
-    if [ "$SHOW_CONTROLS" = "1" ]; then
-        start_line=19
-    else
-        start_line=11
+    if ((${#text} <= max)); then
+        printf '%s' "$text"
+        return 0
     fi
 
-    tput cup "$start_line" 0
-    printf "\033[J"
+    if ((max <= 3)); then
+        printf '%s' "${text:0:max}"
+        return 0
+    fi
 
-    for i in "${!fav_names[@]}"; do
-        if [ "$i" -eq "$CURSOR_IDX" ]; then
-            printf "${C_SEL} > %2d) %-30s ${C_RESET}\n" \
-                "$((i+1))" "${fav_names[$i]}"
-        else
-            printf "   %2d) %-30s\n" \
-                "$((i+1))" "${fav_names[$i]}"
+    local cut=$((max - 3))
+    printf '%s...' "${text:0:cut}"
+}
+
+ui_volume_bar() {
+    local width="${1:-20}"
+    local filled=$((PLAYER_VOLUME * width / 100))
+    local empty=$((width - filled))
+    local left right
+
+    printf -v left '%*s' "$filled" ''
+    printf -v right '%*s' "$empty" ''
+    left=${left// /#}
+    right=${right// /-}
+
+    printf '[%s%s]' "$left" "$right"
+}
+
+ui_list_height() {
+    local height=$((UI_LINES - 11))
+    ((height < 3)) && height=3
+    printf '%s\n' "$height"
+}
+
+ui_sync_selection() {
+    local count=${#FAVORITE_NAMES[@]}
+
+    if ((count == 0)); then
+        UI_SELECTED_INDEX=0
+        UI_SCROLL_OFFSET=0
+        return 0
+    fi
+
+    ((UI_SELECTED_INDEX < 0)) && UI_SELECTED_INDEX=0
+    ((UI_SELECTED_INDEX >= count)) && UI_SELECTED_INDEX=$((count - 1))
+
+    local height
+    height=$(ui_list_height)
+
+    if ((UI_SELECTED_INDEX < UI_SCROLL_OFFSET)); then
+        UI_SCROLL_OFFSET=$UI_SELECTED_INDEX
+    elif ((UI_SELECTED_INDEX >= UI_SCROLL_OFFSET + height)); then
+        UI_SCROLL_OFFSET=$((UI_SELECTED_INDEX - height + 1))
+    fi
+
+    local max_scroll=$((count - height))
+    ((max_scroll < 0)) && max_scroll=0
+    ((UI_SCROLL_OFFSET > max_scroll)) && UI_SCROLL_OFFSET=$max_scroll
+    ((UI_SCROLL_OFFSET < 0)) && UI_SCROLL_OFFSET=0
+}
+
+ui_select_url() {
+    local url="$1"
+    local i
+
+    [[ -n "$url" ]] || return 1
+
+    for ((i = 0; i < ${#FAVORITE_URLS[@]}; i++)); do
+        if [[ "${FAVORITE_URLS[$i]}" == "$url" ]]; then
+            UI_SELECTED_INDEX=$i
+            ui_sync_selection
+            return 0
         fi
     done
+
+    return 1
+}
+
+ui_move_selection() {
+    local delta="$1"
+    local count=${#FAVORITE_NAMES[@]}
+
+    ((count > 0)) || {
+        UI_MESSAGE="No tienes favoritos guardados. Pulsa B para buscar una emisora."
+        return 1
+    }
+
+    UI_SELECTED_INDEX=$((UI_SELECTED_INDEX + delta))
+    ((UI_SELECTED_INDEX < 0)) && UI_SELECTED_INDEX=0
+    ((UI_SELECTED_INDEX >= count)) && UI_SELECTED_INDEX=$((count - 1))
+    ui_sync_selection
+}
+
+ui_player_status() {
+    if player_is_running; then
+        if ((PLAYER_PAUSED)); then
+            printf 'Pausado'
+        else
+            printf 'Reproduciendo'
+        fi
+    else
+        printf 'Detenido'
+    fi
+}
+
+ui_draw() {
+    ((UI_ACTIVE)) || return 0
+    ((UI_SUSPENDED)) && return 0
+
+    ui_refresh_size
+    ui_sync_selection
+
+    tput cup 0 0 2>/dev/null || true
+    tput ed 2>/dev/null || true
+
+    local width=$UI_COLS
+    ((width > 78)) && width=78
+
+    if ((UI_COLS < 54 || UI_LINES < 15)); then
+        printf 'Keila Radio Player v2\n\n'
+        printf 'La terminal es demasiado pequeña (%sx%s).\n' "$UI_COLS" "$UI_LINES"
+        printf 'Necesito al menos 54 columnas y 15 filas.\n'
+        printf '\nQ = salir\n'
+        return 0
+    fi
+
+    local title='KEILA RADIO PLAYER v2'
+    local pad=$(((width - ${#title}) / 2))
+    ((pad < 0)) && pad=0
+    printf '%*s%s\n' "$pad" '' "$title"
+    ui_separator "$width"
+
+    local status station favorite_status
+    status=$(ui_player_status)
+
+    if player_is_running; then
+        station="$PLAYER_NAME"
+        if favorites_find_url "$PLAYER_URL" >/dev/null 2>&1; then
+            favorite_status=' [favorita]'
+        else
+            favorite_status=''
+        fi
+    elif [[ -n "${STATE_LAST_NAME:-}" ]]; then
+        station="Ultima: $STATE_LAST_NAME"
+        favorite_status=''
+    else
+        station='Ninguna emisora seleccionada'
+        favorite_status=''
+    fi
+
+    local status_text="$status - $station$favorite_status"
+    printf '%s\n' "$(ui_truncate "$status_text" "$width")"
+    printf 'Volumen: %3s%%  ' "$PLAYER_VOLUME"
+    ui_volume_bar 20
+    printf '\n'
+    ui_separator "$width"
+
+    printf 'FAVORITOS (%s)\n' "${#FAVORITE_NAMES[@]}"
+
+    local height
+    height=$(ui_list_height)
+
+    if ((${#FAVORITE_NAMES[@]} == 0)); then
+        printf '  (sin favoritos; pulsa B para buscar)\n'
+        local blank
+        for ((blank = 1; blank < height; blank++)); do
+            printf '\n'
+        done
+    else
+        local row index marker suffix line max_name
+        max_name=$((width - 3))
+
+        for ((row = 0; row < height; row++)); do
+            index=$((UI_SCROLL_OFFSET + row))
+
+            if ((index >= ${#FAVORITE_NAMES[@]})); then
+                printf '\n'
+                continue
+            fi
+
+            marker=' '
+            ((index == UI_SELECTED_INDEX)) && marker='>'
+
+            suffix=''
+            if player_is_running && [[ "${FAVORITE_URLS[$index]}" == "$PLAYER_URL" ]]; then
+                suffix=' [PLAY]'
+            elif [[ -n "${STATE_LAST_URL:-}" && "${FAVORITE_URLS[$index]}" == "$STATE_LAST_URL" ]]; then
+                suffix=' [ULTIMA]'
+            fi
+
+            line="$marker ${FAVORITE_NAMES[$index]}$suffix"
+            line=$(ui_truncate "$line" "$max_name")
+
+            if ((index == UI_SELECTED_INDEX)); then
+                tput rev 2>/dev/null || true
+                printf '%-*s' "$width" "$line"
+                tput sgr0 2>/dev/null || true
+                printf '\n'
+            else
+                printf '%s\n' "$line"
+            fi
+        done
+    fi
+
+    ui_separator "$width"
+    printf 'W/S mover   Enter reproducir   A/D volumen   P pausa\n'
+    printf 'F favorito  B buscar           U actualizar  Q salir\n'
+
+    if [[ -n "$UI_MESSAGE" ]]; then
+        printf '%s\n' "$(ui_truncate "$UI_MESSAGE" "$width")"
+    else
+        printf '\n'
+    fi
+}
+
+ui_read_key() {
+    local key
+    IFS= read -rsn1 key || return 1
+    UI_KEY="$key"
 }
