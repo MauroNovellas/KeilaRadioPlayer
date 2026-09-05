@@ -3,6 +3,8 @@
 set -uo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+source "$ROOT_DIR/lib/version.sh"
+SOURCE_VERSION="$KEILA_VERSION"
 source "$ROOT_DIR/lib/update.sh"
 source "$ROOT_DIR/lib/update-validation.sh"
 
@@ -33,7 +35,7 @@ KEILA_UPDATE_TAGS=$'v2.0.0-rc1'
 result=$(update_check) || fail '--check-update falló con tags locales'
 [[ "$result" == *'versión más reciente'* ]] || fail '--check-update no detectó versión actual'
 
-launcher_result=$(KEILA_UPDATE_TAGS=$'v2.0.0-rc1' bash "$ROOT_DIR/keila-radio" --update) || fail '--update no se despacha desde el launcher'
+launcher_result=$(KEILA_UPDATE_TAGS="v$SOURCE_VERSION" bash "$ROOT_DIR/keila-radio" --update) || fail '--update no se despacha desde el launcher'
 [[ "$launcher_result" == *'versión más reciente'* ]] || fail '--update no llegó al motor de actualización'
 [[ "$launcher_result" != *'todavía no está habilitada'* ]] || fail 'sigue activo el placeholder antiguo de --update'
 
