@@ -98,3 +98,5 @@ ui_box_rule() {
 # visual que importa el launcher después del responsive base.
 # shellcheck source=lib/ui-desktop.sh
 source "$(dirname "${BASH_SOURCE[0]}")/ui-desktop.sh"
+# shellcheck source=lib/ui-desktop-primary.sh
+source "$(dirname "${BASH_SOURCE[0]}")/ui-desktop-primary.sh"
