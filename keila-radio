@@ -1,0 +1,120 @@
+#!/usr/bin/env bash
+
+set -uo pipefail
+
+BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+FAVORITES_FILE="$BASE_DIR/emisorasFavoritas.txt"
+
+# shellcheck source=lib/player.sh
+source "$BASE_DIR/lib/player.sh"
+
+cleanup() {
+    player_stop >/dev/null 2>&1 || true
+}
+trap cleanup EXIT INT TERM
+
+die() {
+    printf 'Error: %s\n' "$*" >&2
+    exit 1
+}
+
+load_test_stations() {
+    STATION_NAMES=()
+    STATION_URLS=()
+
+    [[ -f "$FAVORITES_FILE" ]] || die "No encuentro $FAVORITES_FILE"
+
+    local name url
+    while IFS='|' read -r name url; do
+        [[ -n "${name:-}" && -n "${url:-}" ]] || continue
+        STATION_NAMES+=("$name")
+        STATION_URLS+=("$url")
+    done < "$FAVORITES_FILE"
+
+    ((${#STATION_NAMES[@]} > 0)) || die "No hay emisoras de prueba disponibles"
+}
+
+choose_station() {
+    printf '\nKeila Radio Player v2 — prueba del núcleo\n\n'
+
+    local i
+    for ((i = 0; i < ${#STATION_NAMES[@]}; i++)); do
+        printf '  %2d) %s\n' "$((i + 1))" "${STATION_NAMES[$i]}"
+    done
+
+    printf '\n'
+
+    local choice
+    read -r -p "Emisora [1-${#STATION_NAMES[@]}]: " choice
+
+    [[ "$choice" =~ ^[0-9]+$ ]] || die "Selección no válida"
+    ((choice >= 1 && choice <= ${#STATION_NAMES[@]})) || die "Selección fuera de rango"
+
+    SELECTED_NAME="${STATION_NAMES[$((choice - 1))]}"
+    SELECTED_URL="${STATION_URLS[$((choice - 1))]}"
+}
+
+show_controls() {
+    printf '\nReproduciendo: %s\n' "$PLAYER_NAME"
+    printf 'Volumen: %s%%\n\n' "$PLAYER_VOLUME"
+    printf '[p] pausa/reanudar   [a] -5 volumen   [d] +5 volumen   [q] salir\n'
+}
+
+interactive_loop() {
+    local key
+
+    while IFS= read -rsn1 key; do
+        case "$key" in
+            p|P)
+                if player_toggle_pause; then
+                    if ((PLAYER_PAUSED)); then
+                        printf '\nPausado\n'
+                    else
+                        printf '\nReproduciendo\n'
+                    fi
+                fi
+                ;;
+            a|A)
+                player_change_volume -5 && printf '\nVolumen: %s%%\n' "$PLAYER_VOLUME"
+                ;;
+            d|D)
+                player_change_volume 5 && printf '\nVolumen: %s%%\n' "$PLAYER_VOLUME"
+                ;;
+            q|Q)
+                printf '\nSaliendo de Keila...\n'
+                return 0
+                ;;
+        esac
+
+        if ! player_is_running; then
+            printf '\nEl proceso de mpv ha terminado.\n' >&2
+            return 1
+        fi
+    done
+}
+
+main() {
+    player_require_dependencies || exit 1
+
+    local station_url="${1:-}"
+    local station_name="${2:-Stream de prueba}"
+
+    if [[ -n "$station_url" ]]; then
+        SELECTED_NAME="$station_name"
+        SELECTED_URL="$station_url"
+    else
+        load_test_stations
+        choose_station
+    fi
+
+    printf '\nConectando con %s...\n' "$SELECTED_NAME"
+
+    if ! player_start "$SELECTED_NAME" "$SELECTED_URL"; then
+        die "No se pudo iniciar mpv"
+    fi
+
+    show_controls
+    interactive_loop
+}
+
+main "$@"
