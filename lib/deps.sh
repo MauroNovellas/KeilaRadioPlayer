@@ -109,41 +109,56 @@ deps_termux_needs_repair() {
     return 1
 }
 
+# En Termux usamos apt-get directamente para automatización. pkg es un wrapper
+# pensado para uso interactivo y puede dejar pasar preguntas de dpkg sobre
+# archivos de configuración modificados. Estas opciones conservan siempre la
+# configuración local y aceptan automáticamente la opción por defecto.
+deps_termux_apt_get() {
+    DEBIAN_FRONTEND=noninteractive apt-get \
+        -y \
+        -o Dpkg::Options::="--force-confdef" \
+        -o Dpkg::Options::="--force-confold" \
+        "$@" </dev/null
+}
+
+deps_termux_dpkg_configure() {
+    DEBIAN_FRONTEND=noninteractive dpkg \
+        --force-confdef \
+        --force-confold \
+        --configure -a </dev/null
+}
+
 deps_termux_repair() {
     printf 'Preparando y reparando el entorno de paquetes de Termux...\n'
 
     # Termux recomienda mantener todos los paquetes actualizados conjuntamente:
     # paquetes multimedia como ffmpeg/mpv pueden fallar si quedan mezcladas
     # versiones nuevas y antiguas de sus librerías.
-    if ! DEBIAN_FRONTEND=noninteractive pkg update -y; then
+    if ! DEBIAN_FRONTEND=noninteractive apt-get update </dev/null; then
         printf 'No se pudieron actualizar los índices de Termux.\n' >&2
         return 1
     fi
 
-    if ! DEBIAN_FRONTEND=noninteractive pkg upgrade -y; then
+    if ! deps_termux_apt_get upgrade; then
         printf 'La actualización normal de Termux encontró paquetes rotos; intentando repararlos...\n' >&2
 
-        if command -v apt >/dev/null 2>&1; then
-            DEBIAN_FRONTEND=noninteractive apt --fix-broken install -y || true
-        fi
+        deps_termux_apt_get --fix-broken install || true
 
         if command -v dpkg >/dev/null 2>&1; then
-            dpkg --configure -a || true
+            deps_termux_dpkg_configure || true
         fi
 
         # Tras la reparación hacemos un segundo intento completo. Si vuelve a
         # fallar, dejamos el error visible para no ocultar un problema de mirror
         # o de la propia instalación de Termux.
-        DEBIAN_FRONTEND=noninteractive pkg upgrade -y || return 1
+        deps_termux_apt_get upgrade || return 1
     fi
 
     if command -v dpkg >/dev/null 2>&1; then
-        if ! dpkg --configure -a; then
+        if ! deps_termux_dpkg_configure; then
             printf 'Quedan paquetes sin configurar; intentando una última reparación...\n' >&2
-            if command -v apt >/dev/null 2>&1; then
-                DEBIAN_FRONTEND=noninteractive apt --fix-broken install -y || return 1
-            fi
-            dpkg --configure -a || return 1
+            deps_termux_apt_get --fix-broken install || return 1
+            deps_termux_dpkg_configure || return 1
         fi
     fi
 
@@ -164,10 +179,10 @@ deps_install_packages() {
         pkg)
             deps_termux_repair || return 1
 
-            if ! DEBIAN_FRONTEND=noninteractive pkg install -y "${packages[@]}"; then
+            if ! deps_termux_apt_get install "${packages[@]}"; then
                 printf 'La instalación falló; reparando Termux y reintentando una vez...\n' >&2
                 deps_termux_repair || return 1
-                DEBIAN_FRONTEND=noninteractive pkg install -y "${packages[@]}"
+                deps_termux_apt_get install "${packages[@]}"
             fi
             ;;
         apt)
