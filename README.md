@@ -2,7 +2,7 @@
 
 Keila Radio Player es un reproductor de radio en Bash para terminal, usando `mpv` como motor de reproducción.
 
-La rama `v2` está en desarrollo activo y usa una arquitectura modular, persistencia XDG, búsqueda en TDTChannels, gestión de favoritos y una TUI navegable con teclado.
+La rama `v2` está en desarrollo activo y usa una arquitectura modular, persistencia XDG, búsqueda en TDTChannels, gestión de favoritos, grabación del stream y una TUI navegable con teclado.
 
 La plataforma principal de desarrollo es Linux de escritorio. La compatibilidad con Termux/Android existe, pero por ahora se considera secundaria y se pulirá cuando la versión de PC esté más consolidada.
 
@@ -43,6 +43,14 @@ Los datos personales se guardan fuera del repositorio:
 ~/.cache/keila-radio/radio.json
 ```
 
+Las grabaciones, en cambio, se guardan por comodidad junto al proyecto:
+
+```text
+KeilaRadioPlayer/grabaciones/
+```
+
+La carpeta se crea automáticamente al arrancar y está ignorada por Git.
+
 ## Controles de la TUI
 
 ```text
@@ -52,6 +60,7 @@ Enter              reproducir el favorito seleccionado
 Home / End         ir al primer/último favorito
 PageUp / PageDown  saltar por la lista
 P                  pausa/reanudar
+R                  iniciar/detener grabación del stream actual
 F                  añadir/eliminar la emisora en reproducción de favoritos
 J / K              mover el favorito seleccionado abajo/arriba
 X                  eliminar el favorito seleccionado
@@ -78,5 +87,17 @@ Las filas de información son dinámicas: si una emisora no publica título en e
 El bitrate mostrado procede de la propiedad `audio-bitrate` de `mpv`; Keila ya no intenta estimarlo midiendo el tráfico total de la interfaz de red. Para el título en emisión consulta tanto el objeto general de metadatos como campos ICY específicos y `media-title`, de modo que los cambios de canción puedan reflejarse mientras el stream sigue reproduciéndose.
 
 Las consultas de información se agrupan en una sola conexión IPC y la TUI solo se redibuja cuando algún dato cambia.
+
+## Grabaciones
+
+`R` activa o desactiva la grabación del stream que ya está recibiendo el mismo proceso de `mpv`; no se abre una segunda conexión a la emisora. Mientras está activa aparece `[REC]` en la línea de estado.
+
+Los archivos usan contenedor Matroska Audio (`.mka`) para poder guardar distintos codecs de las emisoras sin forzar una conversión. El nombre se genera con la emisora y la fecha/hora de inicio, por ejemplo:
+
+```text
+Rock_FM_2026-09-05_20-31-42.mka
+```
+
+Si cambias de emisora mientras estás grabando, Keila cierra primero la grabación actual. Al salir también intenta cerrar la grabación antes de detener `mpv`, para que el fichero quede finalizado correctamente.
 
 Al salir, Keila detiene `mpv`, restaura el cursor, abandona la pantalla alternativa de la TUI y limpia la pantalla principal para no dejar restos visuales.
