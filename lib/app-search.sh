@@ -52,6 +52,46 @@ search_prepare_results() {
     search_apply_pending_filter || true
 }
 
+# Modifica Favoritos usando el resultado activo sin abandonar la búsqueda ni
+# alterar la reproducción. Solo F mayúscula se reserva como comando; la f
+# minúscula sigue siendo texto normal para consultas como "fm" o "francia".
+search_toggle_selected_favorite() {
+    search_prepare_results
+    if ! search_selected_load; then
+        app_message "No hay ningún resultado para modificar en favoritos." 5
+        return 1
+    fi
+
+    local name="$SELECTED_NAME" url="$SELECTED_URL"
+    if ! favorites_toggle "$name" "$url"; then
+        app_message "No se pudo modificar favoritos: $name" 6
+        return 1
+    fi
+
+    # favorites_toggle recarga y modifica las listas en memoria bajo lock. La
+    # recarga final deja la mitad superior sincronizada incluso si otro proceso
+    # hubiera cambiado el archivo justo antes de esta operación.
+    favorites_load || {
+        app_message "Favoritos modificados, pero no se pudieron recargar." 6
+        return 1
+    }
+
+    case "${FAVORITES_TOGGLE_ACTION:-}" in
+        added)
+            ui_select_url "$url" >/dev/null 2>&1 || true
+            app_message "Añadida a favoritos: $name" 4
+            ;;
+        removed)
+            ui_sync_selection
+            app_message "Eliminada de favoritos: $name" 4
+            ;;
+        *)
+            app_message "Favoritos actualizados: $name" 4
+            ;;
+    esac
+    return 0
+}
+
 search_desktop_available() {
     ui_refresh_size
     local mode
@@ -154,10 +194,13 @@ stations_select_fzf() {
                 redraw=1
                 ;;
             KEY)
-                # search_append/backspace solo modifican el texto y marcan el
-                # filtro pendiente: esta misma iteración redibuja la tecla sin
-                # esperar a recorrer todo el catálogo.
-                if search_handle_key "$INPUT_KEY"; then
+                if [[ "$INPUT_KEY" == 'F' ]]; then
+                    search_toggle_selected_favorite || true
+                    redraw=1
+                # El resto de caracteres, incluida f minúscula, siguen siendo
+                # texto. append/backspace solo marcan el filtro pendiente para
+                # que esta misma iteración pueda pintar el teclado al instante.
+                elif search_handle_key "$INPUT_KEY"; then
                     redraw=1
                 fi
                 ;;
