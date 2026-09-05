@@ -80,14 +80,15 @@ config_expand_path() {
         '~')
             printf '%s' "$HOME"
             ;;
-        '~/'*)
-            printf '%s/%s' "$HOME" "${value#~/}"
-            ;;
         /*)
             printf '%s' "$value"
             ;;
         *)
-            printf '%s/%s' "$HOME" "$value"
+            if [[ "${value:0:2}" == '~/' ]]; then
+                printf '%s/%s' "$HOME" "${value:2}"
+            else
+                printf '%s/%s' "$HOME" "$value"
+            fi
             ;;
     esac
 }

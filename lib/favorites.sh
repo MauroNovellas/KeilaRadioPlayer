@@ -115,13 +115,13 @@ favorites_move() {
     ((target >= 0 && target < ${#FAVORITE_NAMES[@]})) || return 1
 
     local tmp
-    tmp="${FAVORITE_NAMES[$index]}"
-    FAVORITE_NAMES[$index]="${FAVORITE_NAMES[$target]}"
-    FAVORITE_NAMES[$target]="$tmp"
+    tmp="${FAVORITE_NAMES[index]}"
+    FAVORITE_NAMES[index]="${FAVORITE_NAMES[target]}"
+    FAVORITE_NAMES[target]="$tmp"
 
-    tmp="${FAVORITE_URLS[$index]}"
-    FAVORITE_URLS[$index]="${FAVORITE_URLS[$target]}"
-    FAVORITE_URLS[$target]="$tmp"
+    tmp="${FAVORITE_URLS[index]}"
+    FAVORITE_URLS[index]="${FAVORITE_URLS[target]}"
+    FAVORITE_URLS[target]="$tmp"
 
     favorites_save
 }

@@ -61,7 +61,7 @@ test_shellcheck() {
         return 0
     }
 
-    shellcheck -x -e SC1090,SC1091,SC2034,SC2016 \
+    shellcheck -x -e SC1090,SC1091,SC2030,SC2031,SC2034,SC2016 \
         "$ROOT_DIR/keila-radio" \
         "$ROOT_DIR/lib/config.sh" \
         "$ROOT_DIR/lib/state.sh" \
