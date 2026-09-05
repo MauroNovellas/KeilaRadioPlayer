@@ -1,65 +1,117 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-##############################################################################
-# DEPENDENCIAS
-# formato:
-# bin:paquete_linux:paquete_termux
-##############################################################################
-
-DEPENDENCIAS=(
-    "mpv:mpv:mpv"
-    "fzf:fzf:fzf"
-    "ip:iproute2:iproute2"
-    "tput:ncurses-bin:ncurses"
-    "socat:socat:socat"
+# Dependencias de ejecución de Keila Radio Player v2.
+# Formato: comando|debian|termux|arch|fedora
+KEILA_DEPENDENCIES=(
+    "mpv|mpv|mpv|mpv|mpv"
+    "socat|socat|socat|socat|socat"
+    "curl|curl|curl|curl|curl"
+    "jq|jq|jq|jq|jq"
+    "fzf|fzf|fzf|fzf|fzf"
+    "tput|ncurses-bin|ncurses-utils|ncurses|ncurses"
 )
 
-##############################################################################
-# DETECCIÓN DE ENTORNO
-##############################################################################
-
-es_termux() {
-    [ -n "$TERMUX_VERSION" ] || command -v termux-info >/dev/null
+deps_is_termux() {
+    [[ -n "${TERMUX_VERSION:-}" ]] || [[ "${PREFIX:-}" == *com.termux* ]]
 }
 
-##############################################################################
-# DETECCIÓN DE GESTOR DE PAQUETES
-##############################################################################
-
-detectar_gestor_paquetes() {
-    if es_termux; then
-        echo "pkg"
-    elif command -v apt >/dev/null; then
-        echo "apt"
-    elif command -v pacman >/dev/null; then
-        echo "pacman"
-    elif command -v dnf >/dev/null; then
-        echo "dnf"
+deps_detect_manager() {
+    if deps_is_termux && command -v pkg >/dev/null 2>&1; then
+        printf 'pkg\n'
+    elif command -v apt-get >/dev/null 2>&1; then
+        printf 'apt\n'
+    elif command -v pacman >/dev/null 2>&1; then
+        printf 'pacman\n'
+    elif command -v dnf >/dev/null 2>&1; then
+        printf 'dnf\n'
     else
-        echo ""
+        printf '\n'
     fi
 }
 
-##############################################################################
-# INSTALACIÓN
-##############################################################################
+deps_package_for_manager() {
+    local spec="$1"
+    local manager="$2"
+    local command_name debian termux arch fedora
 
-instalar_paquete() {
-    local gestor="$1"
-    local paquete="$2"
+    IFS='|' read -r command_name debian termux arch fedora <<< "$spec"
 
-    case "$gestor" in
+    case "$manager" in
+        pkg) printf '%s\n' "$termux" ;;
+        apt) printf '%s\n' "$debian" ;;
+        pacman) printf '%s\n' "$arch" ;;
+        dnf) printf '%s\n' "$fedora" ;;
+        *) return 1 ;;
+    esac
+}
+
+deps_run_root() {
+    if ((EUID == 0)); then
+        "$@"
+    elif command -v sudo >/dev/null 2>&1; then
+        sudo "$@"
+    else
+        printf 'Keila necesita privilegios de administrador para instalar dependencias.\n' >&2
+        return 1
+    fi
+}
+
+deps_collect_missing() {
+    KEILA_MISSING_COMMANDS=()
+    KEILA_MISSING_PACKAGES=()
+
+    local spec command_name package
+    local manager="$1"
+
+    for spec in "${KEILA_DEPENDENCIES[@]}"; do
+        IFS='|' read -r command_name _ <<< "$spec"
+
+        if command -v "$command_name" >/dev/null 2>&1; then
+            continue
+        fi
+
+        KEILA_MISSING_COMMANDS+=("$command_name")
+        package=$(deps_package_for_manager "$spec" "$manager") || continue
+
+        local already=0 existing
+        for existing in "${KEILA_MISSING_PACKAGES[@]}"; do
+            if [[ "$existing" == "$package" ]]; then
+                already=1
+                break
+            fi
+        done
+
+        ((already)) || KEILA_MISSING_PACKAGES+=("$package")
+    done
+}
+
+deps_install_packages() {
+    local manager="$1"
+    shift
+    local -a packages=("$@")
+
+    ((${#packages[@]} > 0)) || return 0
+
+    case "$manager" in
         pkg)
-            pkg install -y "$paquete"
+            # Termux no necesita root. Actualizamos índices solo cuando falta algo.
+            DEBIAN_FRONTEND=noninteractive pkg update -y &&
+                DEBIAN_FRONTEND=noninteractive pkg install -y "${packages[@]}"
             ;;
         apt)
-            sudo apt update && sudo apt install -y "$paquete"
+            if ((EUID == 0)); then
+                apt-get update &&
+                    DEBIAN_FRONTEND=noninteractive apt-get install -y "${packages[@]}"
+            else
+                deps_run_root apt-get update &&
+                    deps_run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y "${packages[@]}"
+            fi
             ;;
         pacman)
-            sudo pacman -Sy --noconfirm "$paquete"
+            deps_run_root pacman -S --needed --noconfirm "${packages[@]}"
             ;;
         dnf)
-            sudo dnf install -y "$paquete"
+            deps_run_root dnf install -y "${packages[@]}"
             ;;
         *)
             return 1
@@ -67,53 +119,49 @@ instalar_paquete() {
     esac
 }
 
-##############################################################################
-# COMPROBACIÓN
-##############################################################################
+deps_verify() {
+    local spec command_name missing=0
 
-comprobar_dependencias() {
-    local gestor
-    gestor=$(detectar_gestor_paquetes)
+    for spec in "${KEILA_DEPENDENCIES[@]}"; do
+        IFS='|' read -r command_name _ <<< "$spec"
+        if ! command -v "$command_name" >/dev/null 2>&1; then
+            printf 'Dependencia no disponible después de la instalación: %s\n' "$command_name" >&2
+            missing=1
+        fi
+    done
 
-    if [ -z "$gestor" ]; then
-        echo "No se pudo detectar un gestor de paquetes compatible."
-        echo "Instala manualmente las dependencias."
+    ((missing == 0))
+}
+
+deps_ensure() {
+    local manager
+    manager=$(deps_detect_manager)
+
+    deps_collect_missing "$manager"
+    ((${#KEILA_MISSING_COMMANDS[@]} == 0)) && return 0
+
+    printf 'Keila necesita instalar: %s\n' "${KEILA_MISSING_COMMANDS[*]}"
+
+    if [[ -z "$manager" ]]; then
+        printf 'No encuentro un gestor de paquetes compatible para instalarlas automáticamente.\n' >&2
         return 1
     fi
 
-    for dep in "${DEPENDENCIAS[@]}"; do
-        IFS=":" read -sr bin pkg_linux pkg_termux <<< "$dep"
+    if ((${#KEILA_MISSING_PACKAGES[@]} == 0)); then
+        printf 'No conozco los paquetes necesarios para este sistema.\n' >&2
+        return 1
+    fi
 
-        if command -v "$bin" >/dev/null; then
-            continue
-        fi
+    printf 'Instalando automáticamente con %s: %s\n' "$manager" "${KEILA_MISSING_PACKAGES[*]}"
 
-        echo "Dependencia faltante: $bin"
+    if ! deps_install_packages "$manager" "${KEILA_MISSING_PACKAGES[@]}"; then
+        printf 'No se pudieron instalar todas las dependencias de Keila.\n' >&2
+        return 1
+    fi
 
-        if es_termux; then
-            paquete="$pkg_termux"
-        else
-            paquete="$pkg_linux"
-        fi
-
-        if [ -z "$paquete" ]; then
-            echo "No hay paquete conocido para instalar $bin en este entorno."
-            return 1
-        fi
-
-        echo "Instalando paquete: $paquete"
-
-        if ! instalar_paquete "$gestor" "$paquete"; then
-            echo "No se pudo instalar $paquete"
-            return 1
-        fi
-    done
+    deps_verify
 }
 
-##############################################################################
-# EJECUCIÓN DIRECTA
-##############################################################################
-
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
-    comprobar_dependencias
+    deps_ensure
 fi
