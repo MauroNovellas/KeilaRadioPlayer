@@ -78,6 +78,10 @@ UI_UPDATE_DESKTOP_ROW=0
 favorite_line=$(ui_desktop_row '' '' '' '' "$UI_SELECT F1" '' '' '' 1)
 [[ "$favorite_line" != *"$UI_SELECT F1"* ]] || fail 'favorito conserva foco mientras se escribe en búsqueda'
 
+search_controls=$(ui_draw_responsive_controls 119)
+[[ "$search_controls" == *'Esc favoritos'* ]] || fail 'el pie no anuncia cómo volver a Favoritos'
+[[ "$search_controls" != *'Q salir'* ]] || fail 'el pie muestra atajos inactivos durante la búsqueda'
+
 SEARCH_ACTIVE=0
 SEARCH_QUERY=''
 SEARCH_MATCHES=()
@@ -85,5 +89,8 @@ SEARCH_SCROLL_OFFSET=0
 UI_UPDATE_DESKTOP_ROW=7
 idle_line=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
 [[ "$idle_line" == *'B  Buscar emisoras'* ]] || fail 'panel de búsqueda inactivo no invita a pulsar B'
+
+normal_controls=$(ui_draw_responsive_controls 119)
+[[ "$normal_controls" == *'Q salir'* ]] || fail 'el pie normal no vuelve al salir de búsqueda'
 
 printf 'ok   TUI desktop: favoritos arriba, búsqueda abajo y focos independientes\n'
