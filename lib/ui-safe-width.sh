@@ -94,6 +94,11 @@ ui_box_rule() {
     fi
 }
 
+# Endurecimiento del auto-update: se carga después del motor base para que la
+# validación completa del árbol candidato sustituya a la validación mínima.
+# shellcheck source=lib/update-validation.sh
+source "$(dirname "${BASH_SOURCE[0]}")/update-validation.sh"
+
 # La capa desktop se carga aquí porque este módulo ya es el último refinamiento
 # visual que importa el launcher después del responsive base.
 # shellcheck source=lib/ui-desktop.sh
