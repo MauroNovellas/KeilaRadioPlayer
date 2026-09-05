@@ -102,3 +102,5 @@ source "$(dirname "${BASH_SOURCE[0]}")/ui-desktop.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/ui-desktop-primary.sh"
 # shellcheck source=lib/ui-desktop-balance.sh
 source "$(dirname "${BASH_SOURCE[0]}")/ui-desktop-balance.sh"
+# shellcheck source=lib/ui-update-status.sh
+source "$(dirname "${BASH_SOURCE[0]}")/ui-update-status.sh"
