@@ -11,21 +11,30 @@ source "$BASE_DIR/lib/config.sh"
 source "$BASE_DIR/lib/state.sh"
 # shellcheck source=lib/favorites.sh
 source "$BASE_DIR/lib/favorites.sh"
+# shellcheck source=lib/stations.sh
+source "$BASE_DIR/lib/stations.sh"
 # shellcheck source=lib/player.sh
 source "$BASE_DIR/lib/player.sh"
 
 cleanup() {
     player_stop >/dev/null 2>&1 || true
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 die() {
     printf 'Error: %s\n' "$*" >&2
     exit 1
 }
 
-choose_station() {
-    printf '\nKeila Radio Player v2\n\n'
+choose_favorite() {
+    ((${#FAVORITE_NAMES[@]} > 0)) || {
+        printf 'No tienes favoritos guardados.\n' >&2
+        return 1
+    }
+
+    printf '\nFavoritos\n\n'
 
     local i default_choice=""
     for ((i = 0; i < ${#FAVORITE_NAMES[@]}; i++)); do
@@ -41,22 +50,99 @@ choose_station() {
 
     local choice prompt
     if [[ -n "$default_choice" ]]; then
-        prompt="Emisora [1-${#FAVORITE_NAMES[@]}, Enter=$default_choice]: "
+        prompt="Emisora [1-${#FAVORITE_NAMES[@]}, Enter=$default_choice, q=volver]: "
     else
-        prompt="Emisora [1-${#FAVORITE_NAMES[@]}]: "
+        prompt="Emisora [1-${#FAVORITE_NAMES[@]}, q=volver]: "
     fi
 
-    read -r -p "$prompt" choice || die "No se pudo leer la selección"
+    read -r -p "$prompt" choice || return 1
+
+    [[ "$choice" =~ ^[qQ]$ ]] && return 1
 
     if [[ -z "$choice" && -n "$default_choice" ]]; then
         choice="$default_choice"
     fi
 
-    [[ "$choice" =~ ^[0-9]+$ ]] || die "Selección no válida"
-    ((choice >= 1 && choice <= ${#FAVORITE_NAMES[@]})) || die "Selección fuera de rango"
+    if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+        printf 'Selección no válida.\n' >&2
+        return 1
+    fi
+
+    if ((choice < 1 || choice > ${#FAVORITE_NAMES[@]})); then
+        printf 'Selección fuera de rango.\n' >&2
+        return 1
+    fi
 
     SELECTED_NAME="${FAVORITE_NAMES[$((choice - 1))]}"
     SELECTED_URL="${FAVORITE_URLS[$((choice - 1))]}"
+}
+
+choose_catalog_station() {
+    if ! stations_select_fzf; then
+        printf '\nBúsqueda cancelada o catálogo no disponible.\n'
+        return 1
+    fi
+
+    printf '\nSeleccionada: %s' "$SELECTED_NAME"
+    [[ -n "${SELECTED_AMBIT:-}" ]] && printf ' · %s' "$SELECTED_AMBIT"
+    [[ -n "${SELECTED_FORMAT:-}" ]] && printf ' · %s' "$SELECTED_FORMAT"
+    printf '\n'
+}
+
+resume_last_station() {
+    [[ -n "$STATE_LAST_URL" ]] || return 1
+
+    SELECTED_NAME="${STATE_LAST_NAME:-Última emisora}"
+    SELECTED_URL="$STATE_LAST_URL"
+}
+
+show_start_menu() {
+    printf '\nKeila Radio Player v2\n\n'
+
+    if [[ -n "$STATE_LAST_URL" ]]; then
+        printf '  Enter) Reanudar: %s\n' "${STATE_LAST_NAME:-Última emisora}"
+    fi
+
+    printf '  b) Buscar en TDTChannels\n'
+    printf '  f) Favoritos\n'
+    printf '  u) Actualizar catálogo\n'
+    printf '  q) Salir\n\n'
+}
+
+choose_station() {
+    local choice
+
+    while true; do
+        show_start_menu
+        read -r -p 'Opción: ' choice || return 2
+
+        if [[ -z "$choice" && -n "$STATE_LAST_URL" ]]; then
+            resume_last_station && return 0
+        fi
+
+        case "$choice" in
+            b|B)
+                choose_catalog_station && return 0
+                ;;
+            f|F)
+                choose_favorite && return 0
+                ;;
+            u|U)
+                printf '\n'
+                if stations_update_catalog; then
+                    printf '\n'
+                else
+                    printf '\nNo se pudo actualizar el catálogo.\n\n' >&2
+                fi
+                ;;
+            q|Q)
+                return 2
+                ;;
+            *)
+                printf '\nOpción no válida.\n'
+                ;;
+        esac
+    done
 }
 
 save_current_state() {
@@ -121,8 +207,6 @@ main() {
     favorites_load
     state_load
 
-    ((${#FAVORITE_NAMES[@]} > 0)) || die "No hay favoritos en $KEILA_FAVORITES_FILE"
-
     PLAYER_VOLUME="$STATE_VOLUME"
 
     player_require_dependencies || exit 1
@@ -135,6 +219,19 @@ main() {
         SELECTED_URL="$station_url"
     else
         choose_station
+        local choice_status=$?
+
+        case "$choice_status" in
+            0)
+                ;;
+            2)
+                printf '\nHasta luego.\n'
+                return 0
+                ;;
+            *)
+                die "No se pudo seleccionar una emisora"
+                ;;
+        esac
     fi
 
     printf '\nConectando con %s...\n' "$SELECTED_NAME"
