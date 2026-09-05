@@ -25,11 +25,15 @@ assert_eq minimal "$(ui_layout_mode 45 12)" 'modo minimal'
 assert_eq tiny "$(ui_layout_mode 40 10)" 'modo tiny'
 
 UI_LAYOUT_MODE=wide
-assert_eq 92 "$(ui_layout_width 120)" 'wide limita el ancho máximo'
-assert_eq 91 "$(ui_layout_width 92)" 'wide reserva columna al tocar el borde'
+assert_eq 119 "$(ui_layout_width 120)" 'wide aprovecha todo el ancho útil de PC'
+assert_eq 199 "$(ui_layout_width 200)" 'wide escala con terminales muy anchas'
+assert_eq 79 "$(ui_layout_width 80)" 'wide conserva columna física de seguridad'
+assert_eq 48 "$(ui_volume_bar_width 119)" 'wide amplía la barra de volumen con límite legible'
+assert_eq 31 "$(ui_volume_bar_width 79)" 'wide adapta la barra en el umbral de escritorio'
 UI_LAYOUT_MODE=standard
 assert_eq 78 "$(ui_layout_width 90)" 'standard conserva ancho clásico'
 assert_eq 69 "$(ui_layout_width 70)" 'standard evita autowrap al usar todo el terminal'
+assert_eq 28 "$(ui_volume_bar_width 78)" 'standard conserva barra clásica'
 UI_LAYOUT_MODE=compact
 assert_eq 54 "$(ui_layout_width 55)" 'compact reserva una columna de seguridad'
 UI_LAYOUT_MODE=minimal
@@ -83,4 +87,4 @@ ui_responsive_badges '[● REC 00:42]' '[★ FAVORITA]' '[PAUSA]'
 assert_eq '' "$UI_RESP_RECORDING" 'minimal prioriza estado sobre REC'
 assert_eq '[PAUSA]' "$UI_RESP_STATE" 'minimal conserva el estado prioritario'
 
-printf 'ok   composición TUI responsive, ancho y scroll seguros\n'
+printf 'ok   composición TUI responsive, ancho completo y scroll seguros\n'
