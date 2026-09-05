@@ -7,18 +7,21 @@ SEARCH_ACTIVE=0
 SEARCH_QUERY=''
 SEARCH_SELECTED_INDEX=0
 SEARCH_SCROLL_OFFSET=0
+SEARCH_FILTER_DIRTY=0
 
 SEARCH_NAMES=()
 SEARCH_AMBITS=()
 SEARCH_COUNTRIES=()
 SEARCH_FORMATS=()
 SEARCH_URLS=()
+SEARCH_INDEX_TEXTS=()
 SEARCH_MATCHES=()
 
 search_reset() {
     SEARCH_QUERY=''
     SEARCH_SELECTED_INDEX=0
     SEARCH_SCROLL_OFFSET=0
+    SEARCH_FILTER_DIRTY=0
     SEARCH_MATCHES=()
 }
 
@@ -28,6 +31,7 @@ search_load_catalog() {
     SEARCH_COUNTRIES=()
     SEARCH_FORMATS=()
     SEARCH_URLS=()
+    SEARCH_INDEX_TEXTS=()
 
     local name ambit country format url
     while IFS=$'\t' read -r name ambit country format url; do
@@ -37,6 +41,9 @@ search_load_catalog() {
         SEARCH_COUNTRIES+=("$country")
         SEARCH_FORMATS+=("$format")
         SEARCH_URLS+=("$url")
+        # Precalculamos el texto normalizado una sola vez al abrir la búsqueda.
+        # Así cada filtro no vuelve a concatenar y convertir todo el catálogo.
+        SEARCH_INDEX_TEXTS+=("${name,,} ${ambit,,} ${country,,} ${format,,}")
     done < <(stations_emit_tsv)
 
     ((${#SEARCH_NAMES[@]} > 0))
@@ -46,11 +53,9 @@ search_filter() {
     SEARCH_MATCHES=()
 
     local query="${SEARCH_QUERY,,}"
-    local i haystack
-    for ((i = 0; i < ${#SEARCH_NAMES[@]}; i++)); do
-        haystack="${SEARCH_NAMES[$i]} ${SEARCH_AMBITS[$i]} ${SEARCH_COUNTRIES[$i]} ${SEARCH_FORMATS[$i]}"
-        haystack="${haystack,,}"
-        if [[ -z "$query" || "$haystack" == *"$query"* ]]; then
+    local i
+    for ((i = 0; i < ${#SEARCH_INDEX_TEXTS[@]}; i++)); do
+        if [[ -z "$query" || "${SEARCH_INDEX_TEXTS[$i]}" == *"$query"* ]]; then
             SEARCH_MATCHES+=("$i")
         fi
     done
@@ -62,6 +67,14 @@ search_filter() {
         ((SEARCH_SELECTED_INDEX >= ${#SEARCH_MATCHES[@]})) && SEARCH_SELECTED_INDEX=$((${#SEARCH_MATCHES[@]} - 1))
         ((SEARCH_SELECTED_INDEX < 0)) && SEARCH_SELECTED_INDEX=0
     fi
+
+    SEARCH_FILTER_DIRTY=0
+}
+
+search_apply_pending_filter() {
+    ((SEARCH_FILTER_DIRTY)) || return 1
+    search_filter
+    return 0
 }
 
 search_open() {
@@ -74,6 +87,7 @@ search_open() {
 search_close() {
     SEARCH_ACTIVE=0
     SEARCH_SCROLL_OFFSET=0
+    SEARCH_FILTER_DIRTY=0
 }
 
 search_append() {
@@ -84,7 +98,7 @@ search_append() {
     SEARCH_QUERY+="$char"
     SEARCH_SELECTED_INDEX=0
     SEARCH_SCROLL_OFFSET=0
-    search_filter
+    SEARCH_FILTER_DIRTY=1
 }
 
 search_backspace() {
@@ -92,7 +106,7 @@ search_backspace() {
     SEARCH_QUERY="${SEARCH_QUERY%?}"
     SEARCH_SELECTED_INDEX=0
     SEARCH_SCROLL_OFFSET=0
-    search_filter
+    SEARCH_FILTER_DIRTY=1
 }
 
 search_clear() {
@@ -100,7 +114,7 @@ search_clear() {
     SEARCH_QUERY=''
     SEARCH_SELECTED_INDEX=0
     SEARCH_SCROLL_OFFSET=0
-    search_filter
+    SEARCH_FILTER_DIRTY=1
 }
 
 search_move() {
