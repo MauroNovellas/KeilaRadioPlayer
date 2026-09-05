@@ -78,3 +78,51 @@ ui_leave() {
     ui_terminal_guard_restore >/dev/null 2>&1 || true
     ui_leave_without_terminal_guard
 }
+
+# input.sh agrupa las repeticiones que ya estaban esperando en el buffer. Estas
+# tres acciones son las únicas que deben aprovechar el contador agrupado. Al
+# aplicar varios pasos en una sola operación evitamos un redibujado por byte y,
+# sobre todo, eliminamos la larga "cola" visible después de soltar una tecla.
+ui_input_repeat_count() {
+    local count="${INPUT_REPEAT_COUNT:-1}"
+    [[ "$count" =~ ^[0-9]+$ ]] || count=1
+    ((count < 1)) && count=1
+    ((count > 8)) && count=8
+    printf '%s\n' "$count"
+}
+
+if ! declare -F ui_move_selection_without_input_repeat >/dev/null 2>&1; then
+    UI_INPUT_REPEAT_DEF=$(declare -f ui_move_selection)
+    UI_INPUT_REPEAT_DEF=${UI_INPUT_REPEAT_DEF/ui_move_selection ()/ui_move_selection_without_input_repeat ()}
+    eval "$UI_INPUT_REPEAT_DEF"
+
+    UI_INPUT_REPEAT_DEF=$(declare -f player_change_volume)
+    UI_INPUT_REPEAT_DEF=${UI_INPUT_REPEAT_DEF/player_change_volume ()/player_change_volume_without_input_repeat ()}
+    eval "$UI_INPUT_REPEAT_DEF"
+
+    UI_INPUT_REPEAT_DEF=$(declare -f search_move)
+    UI_INPUT_REPEAT_DEF=${UI_INPUT_REPEAT_DEF/search_move ()/search_move_without_input_repeat ()}
+    eval "$UI_INPUT_REPEAT_DEF"
+    unset UI_INPUT_REPEAT_DEF
+fi
+
+ui_move_selection() {
+    local delta="$1"
+    local repeat
+    repeat=$(ui_input_repeat_count)
+    ui_move_selection_without_input_repeat "$((delta * repeat))"
+}
+
+player_change_volume() {
+    local delta="$1"
+    local repeat
+    repeat=$(ui_input_repeat_count)
+    player_change_volume_without_input_repeat "$((delta * repeat))"
+}
+
+search_move() {
+    local delta="$1"
+    local repeat
+    repeat=$(ui_input_repeat_count)
+    search_move_without_input_repeat "$((delta * repeat))"
+}
