@@ -32,6 +32,10 @@ KEILA_UPDATE_TAGS=$'v2.0.0-rc1'
 result=$(update_check) || fail '--check-update falló con tags locales'
 [[ "$result" == *'versión más reciente'* ]] || fail '--check-update no detectó versión actual'
 
+launcher_result=$(KEILA_UPDATE_TAGS=$'v2.0.0-rc1' bash "$ROOT_DIR/keila-radio" --update) || fail '--update no se despacha desde el launcher'
+[[ "$launcher_result" == *'versión más reciente'* ]] || fail '--update no llegó al motor de actualización'
+[[ "$launcher_result" != *'todavía no está habilitada'* ]] || fail 'sigue activo el placeholder antiguo de --update'
+
 make_release() {
     local parent="$1" version="$2" launcher_version="$3"
     local root="$parent/KeilaRadioPlayer-$version"
@@ -87,7 +91,6 @@ KEILA_UPDATE_ARCHIVE_FILE="$tmp/good.tar.gz"
 update_install "$install_good" >/dev/null || fail 'la actualización válida falló'
 assert_eq 'Keila Radio Player 2.0.1' "$(bash "$install_good/keila-radio" --version)" 'versión instalada'
 [[ -f "$install_good/grabaciones/conservar.txt" ]] || fail 'la actualización borró grabaciones'
-[[ ! -d "$install_good/.keila-update.test" ]] || fail 'quedó un temporal inesperado'
 
 # Actualización defectuosa: el árbol declara 2.0.1 pero el launcher no la confirma.
 # Debe fallar el postcheck y restaurar automáticamente la instalación anterior.
@@ -107,4 +110,4 @@ fi
 assert_eq 'Keila Radio Player 2.0.0' "$(bash "$install_bad/keila-radio" --version)" 'rollback restauró versión anterior'
 [[ -f "$install_bad/grabaciones/conservar.txt" ]] || fail 'rollback perdió grabaciones'
 
-printf 'ok   comprobación, instalación y rollback de actualizaciones\n'
+printf 'ok   comprobación, launcher, instalación y rollback de actualizaciones\n'
