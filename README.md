@@ -35,6 +35,14 @@ Para `tput`, Keila instala `ncurses-bin` en Debian y `ncurses-utils` en Termux.
 ./keila-radio
 ```
 
+También existe un smoke check de inicialización que no abre TUI, red ni `mpv`:
+
+```bash
+./keila-radio --check
+```
+
+Comprueba que la configuración, favoritos, estado y carpeta de grabaciones pueden inicializarse correctamente.
+
 Los datos personales se guardan fuera del repositorio:
 
 ```text
@@ -85,18 +93,22 @@ J / K              mover el favorito seleccionado abajo/arriba
 X                  eliminar el favorito seleccionado
 B                  buscar una emisora en TDTChannels con fzf
 U                  actualizar el catálogo de TDTChannels
-?                  abrir/cerrar la ayuda completa
+H                  abrir/cerrar la ayuda completa
 Esc                cerrar la ayuda completa
 Q                  salir
 ```
 
 La navegación de favoritos es circular y tiene scroll automático. Al buscar con `B`, Keila suspende temporalmente la TUI, abre `fzf` y vuelve a la interfaz al seleccionar o cancelar.
 
-Por defecto la zona de controles ocupa una sola fila para dejar más espacio a favoritos. `?` despliega cuatro filas con todos los atajos y la lista ajusta automáticamente su altura; `?` o `Esc` vuelven a compactarla.
+Por defecto la zona de controles ocupa una sola fila para dejar más espacio a favoritos. `H` despliega cuatro filas con todos los atajos y la lista ajusta automáticamente su altura; `H` o `Esc` vuelven a compactarla.
 
 Los mensajes de acciones y errores son temporales: avisos como el cambio de volumen, una búsqueda cancelada o una grabación guardada desaparecen solos después de unos segundos, mientras que el estado real de reproducción permanece en las líneas superiores de la TUI.
 
-La entrada de teclado vive en `lib/input.sh`: reconoce WASD y secuencias ANSI de flechas, reacciona a cambios de tamaño de la terminal y despierta periódicamente para detectar si `mpv` termina por su cuenta sin necesidad de pulsar una tecla.
+## Persistencia y concurrencia
+
+Cada instancia de Keila usa su propio socket IPC de `mpv`, por lo que dos reproductores abiertos no se pisan entre sí.
+
+Las escrituras de `state` y `favorites` también están protegidas con mutex basados en `mkdir`, sin depender de `flock`. En favoritos se bloquea la operación completa leer → modificar → guardar, no solo el `mv` final. Las operaciones por índice conservan además la identidad de la emisora por URL para evitar actuar sobre otro favorito si una segunda instancia cambia el orden simultáneamente.
 
 ## Información del stream
 
@@ -110,8 +122,6 @@ Audio: AAC · 128 kbps · 44.1 kHz · stereo
 Las filas son dinámicas: si una emisora no publica título en emisión, no se reserva una línea vacía para `Ahora:`; si tampoco hay información técnica disponible, tampoco aparece `Audio:`.
 
 El bitrate mostrado procede de `audio-bitrate` de `mpv`. Para el título en emisión Keila consulta tanto el objeto general de metadatos como campos ICY específicos y `media-title`, de modo que los cambios de canción puedan reflejarse mientras el stream sigue reproduciéndose.
-
-Cada instancia de Keila usa su propio socket IPC, por lo que dos reproductores abiertos no se pisan entre sí.
 
 ## Grabaciones
 
@@ -151,16 +161,17 @@ La carpeta está ignorada por Git. Al detener una grabación Keila espera a que 
 
 ## Comprobaciones
 
-La rama `v2` incluye pruebas de regresión para configuración, estado, favoritos, helpers de grabación, formatos de grabación y estado visual de la TUI, además de comprobación de sintaxis Bash.
+La rama `v2` incluye pruebas de regresión para configuración, estado, favoritos, helpers/formato de grabación y estado visual de la TUI. La batería pre-RC añade un smoke test real de inicialización y una prueba con varios procesos escribiendo favoritos simultáneamente.
 
 Ejecutarlas localmente:
 
 ```bash
 ./tests/run.sh
-./tests/recording-formats.sh
+bash ./tests/recording-formats.sh
+bash ./tests/pre-rc.sh
 ```
 
-Si `shellcheck` está instalado, el runner principal también lo ejecuta sobre los módulos principales. El workflow `.github/workflows/checks.yml` instala ShellCheck y ejecuta estas comprobaciones automáticamente en GitHub.
+Si `shellcheck` está instalado, el runner principal también lo ejecuta sobre los módulos principales. El workflow `.github/workflows/checks.yml` instala ShellCheck y ejecuta todas estas comprobaciones automáticamente en GitHub.
 
 ## Estructura v2
 
@@ -174,12 +185,14 @@ KeilaRadioPlayer/
 │   ├── deps.sh
 │   ├── favorites.sh
 │   ├── input.sh
+│   ├── lock.sh
 │   ├── player.sh
 │   ├── recording.sh
 │   ├── state.sh
 │   ├── stations.sh
 │   └── ui.sh
 ├── tests/
+│   ├── pre-rc.sh
 │   ├── recording-formats.sh
 │   └── run.sh
 └── README.md
