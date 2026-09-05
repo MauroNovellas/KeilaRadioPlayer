@@ -66,6 +66,7 @@ make_release() {
         ui-search.sh
         app-search.sh
         ui-desktop-search-pane.sh
+        ui-terminal-guard.sh
     )
 
     mkdir -p "$root/lib" "$root/defaults"
