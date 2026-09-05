@@ -17,10 +17,13 @@ source "$BASE_DIR/lib/favorites.sh"
 source "$BASE_DIR/lib/stations.sh"
 # shellcheck source=lib/player.sh
 source "$BASE_DIR/lib/player.sh"
+# shellcheck source=lib/input.sh
+source "$BASE_DIR/lib/input.sh"
 # shellcheck source=lib/ui.sh
 source "$BASE_DIR/lib/ui.sh"
 
 cleanup() {
+    input_shutdown >/dev/null 2>&1 || true
     player_stop >/dev/null 2>&1 || true
     ui_leave >/dev/null 2>&1 || true
 }
@@ -126,6 +129,69 @@ app_toggle_favorite() {
     esac
 }
 
+app_move_selected_favorite() {
+    local delta="$1"
+
+    favorites_load
+    ui_sync_selection
+
+    local count=${#FAVORITE_NAMES[@]}
+    if ((count == 0)); then
+        UI_MESSAGE="No tienes favoritos para reordenar."
+        return 1
+    fi
+
+    local index=$UI_SELECTED_INDEX
+    local target=$((index + delta))
+    local name="${FAVORITE_NAMES[$index]}"
+
+    if ((target < 0 || target >= count)); then
+        if ((delta < 0)); then
+            UI_MESSAGE="Ese favorito ya está arriba del todo."
+        else
+            UI_MESSAGE="Ese favorito ya está abajo del todo."
+        fi
+        return 1
+    fi
+
+    if favorites_move "$index" "$delta"; then
+        UI_SELECTED_INDEX=$target
+        ui_sync_selection
+        UI_MESSAGE="Nuevo orden guardado: $name"
+        return 0
+    fi
+
+    UI_MESSAGE="No se pudo reordenar el favorito."
+    return 1
+}
+
+app_remove_selected_favorite() {
+    favorites_load
+    ui_sync_selection
+
+    if ((${#FAVORITE_NAMES[@]} == 0)); then
+        UI_MESSAGE="No tienes favoritos para eliminar."
+        return 1
+    fi
+
+    local index=$UI_SELECTED_INDEX
+    local name="${FAVORITE_NAMES[$index]}"
+    local url="${FAVORITE_URLS[$index]}"
+
+    if ! favorites_remove_index "$index"; then
+        UI_MESSAGE="No se pudo eliminar el favorito."
+        return 1
+    fi
+
+    ui_sync_selection
+
+    if player_is_running && [[ "$PLAYER_URL" == "$url" ]]; then
+        UI_MESSAGE="Quitada de favoritos; sigue sonando: $name"
+    else
+        UI_MESSAGE="Favorito eliminado: $name"
+    fi
+}
+
 app_search_catalog() {
     ui_suspend
 
@@ -162,54 +228,130 @@ app_check_player() {
         PLAYER_PID=""
         PLAYER_PAUSED=0
         UI_MESSAGE="La reproducción se ha detenido."
+        return 0
     fi
+
+    return 1
+}
+
+app_handle_key() {
+    local key="$1"
+
+    case "$key" in
+        w|W)
+            ui_move_selection -1 || true
+            ;;
+        s|S)
+            ui_move_selection 1 || true
+            ;;
+        a|A)
+            app_change_volume -5
+            ;;
+        d|D)
+            app_change_volume 5
+            ;;
+        p|P)
+            app_toggle_pause || true
+            ;;
+        f|F)
+            app_toggle_favorite || true
+            ;;
+        j|J)
+            app_move_selected_favorite 1 || true
+            ;;
+        k|K)
+            app_move_selected_favorite -1 || true
+            ;;
+        x|X)
+            app_remove_selected_favorite || true
+            ;;
+        b|B)
+            app_search_catalog || true
+            ;;
+        u|U)
+            app_update_catalog || true
+            ;;
+        q|Q)
+            UI_MESSAGE="Hasta luego."
+            return 2
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+
+    return 0
 }
 
 app_loop() {
+    input_init
     ui_enter
+    ui_draw
 
     while true; do
-        app_check_player
-        ui_draw
-
-        if ! ui_read_key; then
+        if ! input_read; then
             return 0
         fi
 
-        case "$UI_KEY" in
-            w|W)
+        local redraw=0
+
+        case "$INPUT_EVENT" in
+            TICK)
+                app_check_player && redraw=1
+                ;;
+            RESIZE)
+                redraw=1
+                ;;
+            UP)
                 ui_move_selection -1 || true
+                redraw=1
                 ;;
-            s|S)
+            DOWN)
                 ui_move_selection 1 || true
+                redraw=1
                 ;;
-            a|A)
+            LEFT)
                 app_change_volume -5
+                redraw=1
                 ;;
-            d|D)
+            RIGHT)
                 app_change_volume 5
+                redraw=1
                 ;;
-            '')
+            HOME)
+                ui_select_first || true
+                redraw=1
+                ;;
+            END)
+                ui_select_last || true
+                redraw=1
+                ;;
+            PAGE_UP)
+                ui_move_selection -5 || true
+                redraw=1
+                ;;
+            PAGE_DOWN)
+                ui_move_selection 5 || true
+                redraw=1
+                ;;
+            ENTER)
                 app_play_selected || true
+                redraw=1
                 ;;
-            p|P)
-                app_toggle_pause || true
-                ;;
-            f|F)
-                app_toggle_favorite || true
-                ;;
-            b|B)
-                app_search_catalog || true
-                ;;
-            u|U)
-                app_update_catalog || true
-                ;;
-            q|Q)
-                UI_MESSAGE="Hasta luego."
-                ui_draw
-                return 0
+            KEY)
+                app_handle_key "$INPUT_KEY"
+                local key_status=$?
+
+                if ((key_status == 2)); then
+                    ui_draw
+                    return 0
+                elif ((key_status == 0)); then
+                    redraw=1
+                fi
                 ;;
         esac
+
+        ((redraw)) && ui_draw
     done
 }
 
@@ -239,7 +381,7 @@ main() {
     elif [[ -n "$STATE_LAST_NAME" ]]; then
         UI_MESSAGE="Última emisora: $STATE_LAST_NAME"
     else
-        UI_MESSAGE="W/S para elegir un favorito o B para buscar en TDTChannels."
+        UI_MESSAGE="W/S o flechas para elegir un favorito; B busca en TDTChannels."
     fi
 
     app_loop
