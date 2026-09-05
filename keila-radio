@@ -5,6 +5,8 @@ set -uo pipefail
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LEGACY_FAVORITES_FILE="$BASE_DIR/emisorasFavoritas.txt"
 
+# shellcheck source=lib/deps.sh
+source "$BASE_DIR/lib/deps.sh"
 # shellcheck source=lib/config.sh
 source "$BASE_DIR/lib/config.sh"
 # shellcheck source=lib/state.sh
@@ -19,8 +21,8 @@ source "$BASE_DIR/lib/player.sh"
 source "$BASE_DIR/lib/ui.sh"
 
 cleanup() {
-    ui_leave >/dev/null 2>&1 || true
     player_stop >/dev/null 2>&1 || true
+    ui_leave >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 trap 'exit 130' INT
@@ -212,6 +214,10 @@ app_loop() {
 }
 
 main() {
+    # Keila es actualmente una herramienta personal: si falta una dependencia,
+    # se instala automáticamente antes de iniciar la interfaz.
+    deps_ensure || exit 1
+
     keila_init_paths
     favorites_init "$LEGACY_FAVORITES_FILE"
     favorites_load
@@ -219,6 +225,7 @@ main() {
 
     PLAYER_VOLUME="$STATE_VOLUME"
 
+    # Comprobaciones de seguridad después del bootstrap automático.
     player_require_dependencies || exit 1
     ui_require_dependencies || exit 1
 
