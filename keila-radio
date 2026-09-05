@@ -9,6 +9,8 @@ DEFAULT_FAVORITES_FILE="$BASE_DIR/defaults/favorites"
 source "$BASE_DIR/lib/deps.sh"
 # shellcheck source=lib/config.sh
 source "$BASE_DIR/lib/config.sh"
+# shellcheck source=lib/lock.sh
+source "$BASE_DIR/lib/lock.sh"
 # shellcheck source=lib/state.sh
 source "$BASE_DIR/lib/state.sh"
 # shellcheck source=lib/favorites.sh
@@ -54,12 +56,32 @@ save_player_state() {
     state_save
 }
 
+app_init_data() {
+    if ! config_load "$BASE_DIR/grabaciones"; then
+        printf 'No se pudo cargar la configuración: %s\n' "$KEILA_CONFIG_FILE" >&2
+        return 1
+    fi
+
+    favorites_init "$DEFAULT_FAVORITES_FILE" || {
+        printf 'No se pudo inicializar favoritos: %s\n' "$KEILA_FAVORITES_FILE" >&2
+        return 1
+    }
+    favorites_load || return 1
+    state_load || return 1
+
+    if ! recording_init "$KEILA_RECORDINGS_DIR"; then
+        printf 'No se pudo crear la carpeta de grabaciones: %s\n' "$KEILA_RECORDINGS_DIR" >&2
+        return 1
+    fi
+
+    PLAYER_VOLUME="$STATE_VOLUME"
+    PLAYER_INFO_INTERVAL="$KEILA_PLAYER_INFO_INTERVAL"
+}
+
 app_play() {
     local name="$1"
     local url="$2"
 
-    # Cambiar de emisora cierra primero cualquier grabación activa para que el
-    # fichero quede finalizado antes de reemplazar el stream de mpv.
     if ((RECORDING_ACTIVE)); then
         recording_stop >/dev/null 2>&1 || true
     fi
@@ -96,8 +118,11 @@ app_change_volume() {
     local delta="$1"
 
     if player_change_volume "$delta"; then
-        save_player_state >/dev/null 2>&1 || true
-        app_message "Volumen: ${PLAYER_VOLUME}%" 2
+        if save_player_state >/dev/null 2>&1; then
+            app_message "Volumen: ${PLAYER_VOLUME}%" 2
+        else
+            app_message "Volumen: ${PLAYER_VOLUME}% (no se pudo guardar el estado)." 7
+        fi
     else
         app_message "No se pudo cambiar el volumen." 6
     fi
@@ -207,8 +232,8 @@ app_move_selected_favorite() {
     fi
 
     if favorites_move "$index" "$delta"; then
-        UI_SELECTED_INDEX=$target
-        ui_sync_selection
+        favorites_load
+        ui_select_url "${FAVORITE_URLS[$target]:-}" >/dev/null 2>&1 || true
         app_message "Nuevo orden guardado: $name" 4
         return 0
     fi
@@ -275,8 +300,6 @@ app_update_catalog() {
     fi
 }
 
-# Comprueba tanto la vida del proceso como los metadatos técnicos del stream.
-# Devuelve 0 solo si hay un cambio que justifique redibujar la TUI.
 app_poll_player() {
     if [[ -n "${PLAYER_PID:-}" ]] && ! player_is_running; then
         local was_recording=$RECORDING_ACTIVE
@@ -318,8 +341,6 @@ app_poll_player() {
         changed=0
     fi
 
-    # Mientras grabamos, fuerza como máximo un redibujado por segundo para el
-    # contador [REC HH:MM:SS]. No afecta a la fluidez del lector de teclado.
     if recording_tick_changed; then
         changed=0
     fi
@@ -331,52 +352,24 @@ app_handle_key() {
     local key="$1"
 
     case "$key" in
-        w|W)
-            ui_move_selection -1 || true
-            ;;
-        s|S)
-            ui_move_selection 1 || true
-            ;;
-        a|A)
-            app_change_volume "$((-KEILA_VOLUME_STEP))"
-            ;;
-        d|D)
-            app_change_volume "$KEILA_VOLUME_STEP"
-            ;;
-        p|P)
-            app_toggle_pause || true
-            ;;
-        r|R)
-            app_toggle_recording || true
-            ;;
-        f|F)
-            app_toggle_favorite || true
-            ;;
-        j|J)
-            app_move_selected_favorite 1 || true
-            ;;
-        k|K)
-            app_move_selected_favorite -1 || true
-            ;;
-        x|X)
-            app_remove_selected_favorite || true
-            ;;
-        b|B)
-            app_search_catalog || true
-            ;;
-        u|U)
-            app_update_catalog || true
-            ;;
-        \?)
-            ui_toggle_help
-            ;;
+        w|W) ui_move_selection -1 || true ;;
+        s|S) ui_move_selection 1 || true ;;
+        a|A) app_change_volume "$((-KEILA_VOLUME_STEP))" ;;
+        d|D) app_change_volume "$KEILA_VOLUME_STEP" ;;
+        p|P) app_toggle_pause || true ;;
+        r|R) app_toggle_recording || true ;;
+        f|F) app_toggle_favorite || true ;;
+        j|J) app_move_selected_favorite 1 || true ;;
+        k|K) app_move_selected_favorite -1 || true ;;
+        x|X) app_remove_selected_favorite || true ;;
+        b|B) app_search_catalog || true ;;
+        u|U) app_update_catalog || true ;;
+        h|H) ui_toggle_help ;;
         q|Q)
             app_message "Hasta luego." 0
             return 2
             ;;
-        *)
-            return 1
-            ;;
+        *) return 1 ;;
     esac
 
     return 0
@@ -399,51 +392,22 @@ app_loop() {
                 app_poll_player && redraw=1
                 ui_message_tick && redraw=1
                 ;;
-            RESIZE)
-                redraw=1
-                ;;
+            RESIZE) redraw=1 ;;
             ESC)
                 if ((UI_HELP_VISIBLE)); then
                     ui_toggle_help
                     redraw=1
                 fi
                 ;;
-            UP)
-                ui_move_selection -1 || true
-                redraw=1
-                ;;
-            DOWN)
-                ui_move_selection 1 || true
-                redraw=1
-                ;;
-            LEFT)
-                app_change_volume "$((-KEILA_VOLUME_STEP))"
-                redraw=1
-                ;;
-            RIGHT)
-                app_change_volume "$KEILA_VOLUME_STEP"
-                redraw=1
-                ;;
-            HOME)
-                ui_select_first || true
-                redraw=1
-                ;;
-            END)
-                ui_select_last || true
-                redraw=1
-                ;;
-            PAGE_UP)
-                ui_move_selection -5 || true
-                redraw=1
-                ;;
-            PAGE_DOWN)
-                ui_move_selection 5 || true
-                redraw=1
-                ;;
-            ENTER)
-                app_play_selected || true
-                redraw=1
-                ;;
+            UP) ui_move_selection -1 || true; redraw=1 ;;
+            DOWN) ui_move_selection 1 || true; redraw=1 ;;
+            LEFT) app_change_volume "$((-KEILA_VOLUME_STEP))"; redraw=1 ;;
+            RIGHT) app_change_volume "$KEILA_VOLUME_STEP"; redraw=1 ;;
+            HOME) ui_select_first || true; redraw=1 ;;
+            END) ui_select_last || true; redraw=1 ;;
+            PAGE_UP) ui_move_selection -5 || true; redraw=1 ;;
+            PAGE_DOWN) ui_move_selection 5 || true; redraw=1 ;;
+            ENTER) app_play_selected || true; redraw=1 ;;
             KEY)
                 app_handle_key "$INPUT_KEY"
                 local key_status=$?
@@ -462,26 +426,20 @@ app_loop() {
 }
 
 main() {
-    # Keila es actualmente una herramienta personal: si falta una dependencia,
-    # se instala automáticamente antes de iniciar la interfaz.
+    # --check valida inicialización/rutas/escritura sin abrir TUI, red ni mpv.
+    if [[ "${1:-}" == '--check' ]]; then
+        app_init_data || return 1
+        printf 'Keila Radio Player: inicialización OK\n'
+        printf 'Configuración: %s\n' "$KEILA_CONFIG_FILE"
+        printf 'Favoritos: %s\n' "$KEILA_FAVORITES_FILE"
+        printf 'Estado: %s\n' "$KEILA_STATE_FILE"
+        printf 'Grabaciones: %s\n' "$KEILA_RECORDINGS_DIR"
+        return 0
+    fi
+
     deps_ensure || exit 1
+    app_init_data || exit 1
 
-    if ! config_load "$BASE_DIR/grabaciones"; then
-        die "No se pudo cargar la configuración: $KEILA_CONFIG_FILE"
-    fi
-
-    favorites_init "$DEFAULT_FAVORITES_FILE"
-    favorites_load
-    state_load
-
-    if ! recording_init "$KEILA_RECORDINGS_DIR"; then
-        die "No se pudo crear la carpeta de grabaciones: $KEILA_RECORDINGS_DIR"
-    fi
-
-    PLAYER_VOLUME="$STATE_VOLUME"
-    PLAYER_INFO_INTERVAL="$KEILA_PLAYER_INFO_INTERVAL"
-
-    # Comprobaciones de seguridad después del bootstrap automático.
     player_require_dependencies || exit 1
     ui_require_dependencies || exit 1
 
