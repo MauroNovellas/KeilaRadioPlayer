@@ -39,6 +39,10 @@ die() {
     exit 1
 }
 
+app_message() {
+    ui_set_message "$1" "${2:-5}"
+}
+
 save_player_state() {
     STATE_VOLUME="$PLAYER_VOLUME"
 
@@ -62,15 +66,15 @@ app_play() {
 
     if ! player_start "$name" "$url"; then
         if [[ -n "${PLAYER_LAST_EXIT_STATUS:-}" ]]; then
-            UI_MESSAGE="No se pudo iniciar $name (mpv: código $PLAYER_LAST_EXIT_STATUS)."
+            app_message "No se pudo iniciar $name (mpv: código $PLAYER_LAST_EXIT_STATUS)." 8
         else
-            UI_MESSAGE="No se pudo iniciar la emisora: $name"
+            app_message "No se pudo iniciar la emisora: $name" 8
         fi
         return 1
     fi
 
     save_player_state >/dev/null 2>&1 || true
-    UI_MESSAGE="Conectando: $name"
+    app_message "Conectando: $name" 5
     return 0
 }
 
@@ -79,7 +83,7 @@ app_play_selected() {
     ui_sync_selection
 
     if ((${#FAVORITE_NAMES[@]} == 0)); then
-        UI_MESSAGE="No tienes favoritos. Pulsa B para buscar una emisora."
+        app_message "No tienes favoritos. Pulsa B para buscar una emisora." 6
         return 1
     fi
 
@@ -93,26 +97,26 @@ app_change_volume() {
 
     if player_change_volume "$delta"; then
         save_player_state >/dev/null 2>&1 || true
-        UI_MESSAGE="Volumen: ${PLAYER_VOLUME}%"
+        app_message "Volumen: ${PLAYER_VOLUME}%" 2
     else
-        UI_MESSAGE="No se pudo cambiar el volumen."
+        app_message "No se pudo cambiar el volumen." 6
     fi
 }
 
 app_toggle_pause() {
     if ! player_is_running; then
-        UI_MESSAGE="No hay ninguna emisora en reproducción."
+        app_message "No hay ninguna emisora en reproducción." 5
         return 1
     fi
 
     if player_toggle_pause; then
         if ((PLAYER_PAUSED)); then
-            UI_MESSAGE="Reproducción pausada."
+            app_message "Reproducción pausada." 3
         else
-            UI_MESSAGE="Reproducción reanudada."
+            app_message "Reproducción reanudada." 3
         fi
     else
-        UI_MESSAGE="No se pudo cambiar la pausa."
+        app_message "No se pudo cambiar la pausa." 6
         return 1
     fi
 }
@@ -127,51 +131,51 @@ app_toggle_recording() {
             saved_size=$(recording_size_human)
 
             if [[ -n "${RECORDING_LAST_ERROR:-}" ]]; then
-                UI_MESSAGE="Grabación conservada: $saved_file ($saved_size)."
+                app_message "Grabación conservada: $saved_file ($saved_size)." 8
             else
-                UI_MESSAGE="Grabación guardada: $saved_file ($saved_size)."
+                app_message "Grabación guardada: $saved_file ($saved_size)." 8
             fi
             return 0
         fi
 
-        UI_MESSAGE="Grabación no válida: ${RECORDING_LAST_ERROR:-error desconocido}"
+        app_message "Grabación no válida: ${RECORDING_LAST_ERROR:-error desconocido}" 9
         return 1
     fi
 
     if ! player_is_running; then
-        UI_MESSAGE="No hay ninguna emisora en reproducción para grabar."
+        app_message "No hay ninguna emisora en reproducción para grabar." 6
         return 1
     fi
 
     if recording_start "$PLAYER_NAME"; then
-        UI_MESSAGE="Grabando: $(recording_filename)"
+        app_message "Grabando: $(recording_filename)" 4
         return 0
     fi
 
-    UI_MESSAGE="No se pudo iniciar la grabación."
+    app_message "No se pudo iniciar la grabación." 7
     return 1
 }
 
 app_toggle_favorite() {
     if ! player_is_running; then
-        UI_MESSAGE="No hay ninguna emisora en reproducción."
+        app_message "No hay ninguna emisora en reproducción." 5
         return 1
     fi
 
     favorites_load
 
     if ! favorites_toggle "$PLAYER_NAME" "$PLAYER_URL"; then
-        UI_MESSAGE="No se pudo modificar favoritos."
+        app_message "No se pudo modificar favoritos." 6
         return 1
     fi
 
     case "${FAVORITES_TOGGLE_ACTION:-}" in
         added)
-            UI_MESSAGE="Añadida a favoritos: $PLAYER_NAME"
+            app_message "Añadida a favoritos: $PLAYER_NAME" 5
             ui_select_url "$PLAYER_URL" >/dev/null 2>&1 || true
             ;;
         removed)
-            UI_MESSAGE="Eliminada de favoritos: $PLAYER_NAME"
+            app_message "Eliminada de favoritos: $PLAYER_NAME" 5
             ui_sync_selection
             ;;
     esac
@@ -185,7 +189,7 @@ app_move_selected_favorite() {
 
     local count=${#FAVORITE_NAMES[@]}
     if ((count == 0)); then
-        UI_MESSAGE="No tienes favoritos para reordenar."
+        app_message "No tienes favoritos para reordenar." 5
         return 1
     fi
 
@@ -195,9 +199,9 @@ app_move_selected_favorite() {
 
     if ((target < 0 || target >= count)); then
         if ((delta < 0)); then
-            UI_MESSAGE="Ese favorito ya está arriba del todo."
+            app_message "Ese favorito ya está arriba del todo." 4
         else
-            UI_MESSAGE="Ese favorito ya está abajo del todo."
+            app_message "Ese favorito ya está abajo del todo." 4
         fi
         return 1
     fi
@@ -205,11 +209,11 @@ app_move_selected_favorite() {
     if favorites_move "$index" "$delta"; then
         UI_SELECTED_INDEX=$target
         ui_sync_selection
-        UI_MESSAGE="Nuevo orden guardado: $name"
+        app_message "Nuevo orden guardado: $name" 4
         return 0
     fi
 
-    UI_MESSAGE="No se pudo reordenar el favorito."
+    app_message "No se pudo reordenar el favorito." 6
     return 1
 }
 
@@ -218,7 +222,7 @@ app_remove_selected_favorite() {
     ui_sync_selection
 
     if ((${#FAVORITE_NAMES[@]} == 0)); then
-        UI_MESSAGE="No tienes favoritos para eliminar."
+        app_message "No tienes favoritos para eliminar." 5
         return 1
     fi
 
@@ -227,16 +231,16 @@ app_remove_selected_favorite() {
     local url="${FAVORITE_URLS[$index]}"
 
     if ! favorites_remove_index "$index"; then
-        UI_MESSAGE="No se pudo eliminar el favorito."
+        app_message "No se pudo eliminar el favorito." 6
         return 1
     fi
 
     ui_sync_selection
 
     if player_is_running && [[ "$PLAYER_URL" == "$url" ]]; then
-        UI_MESSAGE="Quitada de favoritos; sigue sonando: $name"
+        app_message "Quitada de favoritos; sigue sonando: $name" 5
     else
-        UI_MESSAGE="Favorito eliminado: $name"
+        app_message "Favorito eliminado: $name" 5
     fi
 }
 
@@ -249,7 +253,7 @@ app_search_catalog() {
     ui_resume
 
     if ((status != 0)); then
-        UI_MESSAGE="Búsqueda cancelada."
+        app_message "Búsqueda cancelada." 3
         return 0
     fi
 
@@ -265,9 +269,9 @@ app_update_catalog() {
     ui_resume
 
     if ((status == 0)); then
-        UI_MESSAGE="Catálogo de TDTChannels actualizado."
+        app_message "Catálogo de TDTChannels actualizado." 5
     else
-        UI_MESSAGE="No se pudo actualizar el catálogo."
+        app_message "No se pudo actualizar el catálogo." 7
     fi
 }
 
@@ -287,12 +291,12 @@ app_poll_player() {
             saved_file=$(recording_filename)
 
             if recording_finalize_after_player_exit; then
-                UI_MESSAGE="mpv se detuvo; grabación recuperada: $saved_file ($(recording_size_human))."
+                app_message "mpv se detuvo; grabación recuperada: $saved_file ($(recording_size_human))." 9
             else
-                UI_MESSAGE="mpv se detuvo (código $exit_status) y la grabación quedó incompleta."
+                app_message "mpv se detuvo (código $exit_status) y la grabación quedó incompleta." 9
             fi
         else
-            UI_MESSAGE="La reproducción se detuvo inesperadamente (mpv: código $exit_status)."
+            app_message "La reproducción se detuvo inesperadamente (mpv: código $exit_status)." 9
         fi
         return 0
     fi
@@ -305,11 +309,11 @@ app_poll_player() {
 
     if player_refresh_info; then
         if ((!was_ready && PLAYER_INFO_READY)); then
-            UI_MESSAGE="Reproduciendo: $PLAYER_NAME"
+            app_message "Reproduciendo: $PLAYER_NAME" 3
         elif ((!was_buffering && PLAYER_BUFFERING)); then
-            UI_MESSAGE="Esperando datos del stream..."
+            app_message "Esperando datos del stream..." 5
         elif ((was_buffering && !PLAYER_BUFFERING && PLAYER_INFO_READY)); then
-            UI_MESSAGE="Reproducción reanudada."
+            app_message "Reproducción reanudada." 3
         fi
         changed=0
     fi
@@ -363,8 +367,11 @@ app_handle_key() {
         u|U)
             app_update_catalog || true
             ;;
+        \?)
+            ui_toggle_help
+            ;;
         q|Q)
-            UI_MESSAGE="Hasta luego."
+            app_message "Hasta luego." 0
             return 2
             ;;
         *)
@@ -390,9 +397,16 @@ app_loop() {
         case "$INPUT_EVENT" in
             TICK)
                 app_poll_player && redraw=1
+                ui_message_tick && redraw=1
                 ;;
             RESIZE)
                 redraw=1
+                ;;
+            ESC)
+                if ((UI_HELP_VISIBLE)); then
+                    ui_toggle_help
+                    redraw=1
+                fi
                 ;;
             UP)
                 ui_move_selection -1 || true
@@ -479,9 +493,9 @@ main() {
     if [[ -n "$station_url" ]]; then
         app_play "$station_name" "$station_url" || die "No se pudo iniciar mpv"
     elif [[ -n "$STATE_LAST_NAME" ]]; then
-        UI_MESSAGE="Última emisora: $STATE_LAST_NAME"
+        app_message "Última emisora: $STATE_LAST_NAME" 7
     else
-        UI_MESSAGE="W/S o flechas para elegir un favorito; B busca en TDTChannels."
+        app_message "W/S o flechas para elegir un favorito; B busca en TDTChannels." 8
     fi
 
     app_loop
