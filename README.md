@@ -1,27 +1,53 @@
-**Keila Radio Player** is a minimalist terminal radio station player, entirely written in Bash, featuring a lightweight TUI, favorites management, and volume control.
+# Keila Radio Player
 
-### Features
+Keila Radio Player es un reproductor de radio en Bash para terminal, usando `mpv` como motor de reproducción.
 
-- Clear and easy-to-use terminal interface (TUI).
-- List of favorite radio stations.
-- Visual and functional volume control.
-- Connection status information.
-- Explorer for stations downloaded from GitHub.
-- Automatic state saving (last station and volume).
-- Compatible with MPV as playback backend.
-- Favorites management.
-- Works on Linux and other Bash-compatible systems.
-##
-**Keila Radio Player** es un reproductor minimalista de emisoras de radio por terminal, completamente en Bash, con TUI ligera, gestión de favoritos y control de volumen.
+La rama `v2` está en desarrollo activo y añade una arquitectura modular, persistencia XDG, búsqueda en TDTChannels y gestión de favoritos.
 
-### Características
+## Requisitos
 
-- Interfaz de terminal (TUI) clara y fácil de usar.
-- Lista de emisoras favoritas.
-- Control de volumen visual y funcional.
-- Información del estado de conexión.
-- Explorador de emisoras descargadas de GitHub.
-- Guardado automático de estado (última emisora y volumen).
-- Compatible con MPV como backend de reproducción.
-- Gestión de emisoras favoritas.
-- Funciona en Linux y otros sistemas compatibles con Bash.
+- bash
+- mpv
+- socat
+- curl
+- jq
+- fzf
+
+En Debian:
+
+```bash
+sudo apt install mpv socat curl jq fzf
+```
+
+## Ejecutar v2
+
+```bash
+./keila-radio
+```
+
+Los datos personales se guardan fuera del repositorio:
+
+```text
+~/.config/keila-radio/favorites
+~/.local/state/keila-radio/state
+~/.cache/keila-radio/radio.json
+```
+
+Durante la reproducción:
+
+```text
+p       pausa/reanudar
+a / d   bajar/subir volumen
+f       añadir/eliminar la emisora actual de favoritos
+q       salir
+```
+
+En el menú de favoritos:
+
+```text
+N       reproducir favorito N
+d N     eliminar favorito N
+k N     mover favorito N hacia arriba
+j N     mover favorito N hacia abajo
+q       volver
+```
