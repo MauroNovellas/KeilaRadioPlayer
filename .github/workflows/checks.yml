@@ -14,7 +14,7 @@ jobs:
       - name: Run checks
         run: |
           ./tests/run.sh
-          shellcheck -x -e SC1090,SC1091,SC2030,SC2031,SC2034,SC2016 lib/ui-responsive.sh lib/ui-safe-width.sh lib/ui-desktop.sh lib/ui-desktop-primary.sh lib/ui-desktop-balance.sh lib/ui-update-status.sh lib/ui-search.sh lib/ui-desktop-search-pane.sh lib/search.sh lib/app-search.sh lib/update.sh lib/update-validation.sh tests/ui-responsive.sh tests/ui-desktop.sh tests/ui-update-status.sh tests/search-integrated.sh tests/search-favorites.sh tests/ui-desktop-search-pane.sh tests/update-check.sh
+          shellcheck -x -e SC1090,SC1091,SC2030,SC2031,SC2034,SC2016 lib/ui-responsive.sh lib/ui-safe-width.sh lib/ui-desktop.sh lib/ui-desktop-primary.sh lib/ui-desktop-balance.sh lib/ui-update-status.sh lib/ui-search.sh lib/ui-desktop-search-pane.sh lib/ui-terminal-guard.sh lib/search.sh lib/app-search.sh lib/update.sh lib/update-validation.sh tests/ui-responsive.sh tests/ui-desktop.sh tests/ui-update-status.sh tests/search-integrated.sh tests/search-favorites.sh tests/ui-desktop-search-pane.sh tests/ui-terminal-guard.sh tests/update-check.sh
           bash ./tests/recording-formats.sh
           bash ./tests/pre-rc.sh
           bash ./tests/ui-theme.sh
@@ -24,4 +24,5 @@ jobs:
           bash ./tests/search-integrated.sh
           bash ./tests/search-favorites.sh
           bash ./tests/ui-desktop-search-pane.sh
+          bash ./tests/ui-terminal-guard.sh
           bash ./tests/update-check.sh
