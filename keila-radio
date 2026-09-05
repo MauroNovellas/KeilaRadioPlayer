@@ -4,7 +4,7 @@ set -uo pipefail
 
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LEGACY_FAVORITES_FILE="$BASE_DIR/emisorasFavoritas.txt"
-RECORDINGS_DIR="$BASE_DIR/grabaciones"
+KEILA_RECORDINGS_DIR="$BASE_DIR/grabaciones"
 
 # shellcheck source=lib/deps.sh
 source "$BASE_DIR/lib/deps.sh"
@@ -433,8 +433,8 @@ main() {
     favorites_load
     state_load
 
-    if ! recording_init "$RECORDINGS_DIR"; then
-        die "No se pudo crear la carpeta de grabaciones: $RECORDINGS_DIR"
+    if ! recording_init "$KEILA_RECORDINGS_DIR"; then
+        die "No se pudo crear la carpeta de grabaciones: $KEILA_RECORDINGS_DIR"
     fi
 
     PLAYER_VOLUME="$STATE_VOLUME"
