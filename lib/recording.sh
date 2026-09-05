@@ -28,23 +28,137 @@ recording_sanitize_name() {
     printf '%s' "$safe"
 }
 
+# mpv/FFmpeg suele necesitar que stream-record escriba un formato compatible
+# con el stream de entrada. Forzar siempre Matroska puede producir archivos de
+# 0 bytes, especialmente con HLS. Esta función elige una extensión conservadora
+# a partir del demuxer, la URL y, como último recurso, el codec de audio.
+recording_extension_for_stream() {
+    local format="${1:-}"
+    local codec="${2:-}"
+    local url="${3:-}"
+    local clean_url
+
+    format="${format,,}"
+    codec="${codec,,}"
+    clean_url="${url%%#*}"
+    clean_url="${clean_url%%\?*}"
+    clean_url="${clean_url,,}"
+
+    case "$format" in
+        hls|mpegts|mpeg-ts)
+            printf 'ts'
+            return 0
+            ;;
+        mp3)
+            printf 'mp3'
+            return 0
+            ;;
+        aac|adts)
+            printf 'aac'
+            return 0
+            ;;
+        ogg|oga|opus)
+            printf 'ogg'
+            return 0
+            ;;
+        flac)
+            printf 'flac'
+            return 0
+            ;;
+        wav|wave)
+            printf 'wav'
+            return 0
+            ;;
+        matroska|webm)
+            printf 'mka'
+            return 0
+            ;;
+    esac
+
+    case "$clean_url" in
+        *.m3u8|*.m3u)
+            printf 'ts'
+            return 0
+            ;;
+        *.mp3)
+            printf 'mp3'
+            return 0
+            ;;
+        *.aac)
+            printf 'aac'
+            return 0
+            ;;
+        *.ogg|*.oga|*.opus)
+            printf 'ogg'
+            return 0
+            ;;
+        *.flac)
+            printf 'flac'
+            return 0
+            ;;
+        *.wav)
+            printf 'wav'
+            return 0
+            ;;
+    esac
+
+    case "$codec" in
+        mp3)
+            printf 'mp3'
+            ;;
+        aac|aac_*|*aac*)
+            printf 'aac'
+            ;;
+        opus|vorbis)
+            printf 'ogg'
+            ;;
+        flac)
+            printf 'flac'
+            ;;
+        *)
+            # La mayoría de radios sin extensión visible que llegan por HLS
+            # pueden almacenarse de forma segura como MPEG-TS.
+            printf 'ts'
+            ;;
+    esac
+}
+
+# Pregunta a mpv qué demuxer/formato está usando para la entrada actual.
+# Si la consulta falla, recording_extension_for_stream todavía puede decidir
+# usando la URL o el codec ya conocido por la TUI.
+recording_stream_format() {
+    [[ -S "${PLAYER_SOCKET:-}" ]] || return 1
+
+    local response
+    response=$(
+        printf '%s\n' '{"command":["get_property","file-format"],"request_id":71}' |
+            socat -t 1 - UNIX-CONNECT:"$PLAYER_SOCKET" 2>/dev/null
+    ) || return 1
+
+    jq -r 'select(.request_id == 71 and .error == "success") | .data // empty' <<< "$response" |
+        head -n 1
+}
+
 recording_next_file() {
     local station_name="$1"
+    local extension="${2:-mka}"
     local safe timestamp base file counter
 
     [[ -n "$RECORDINGS_DIR" ]] || return 1
     mkdir -p "$RECORDINGS_DIR" || return 1
 
+    [[ "$extension" =~ ^[a-z0-9]+$ ]] || extension='ts'
+
     safe=$(recording_sanitize_name "$station_name")
     timestamp=$(date '+%Y-%m-%d_%H-%M-%S')
     base="$RECORDINGS_DIR/${safe}_${timestamp}"
-    file="${base}.mka"
+    file="${base}.${extension}"
     counter=2
 
     # No sobreescribimos una grabación si por casualidad se inicia otra en el
     # mismo segundo con el mismo nombre de emisora.
     while [[ -e "$file" ]]; do
-        file="${base}_${counter}.mka"
+        file="${base}_${counter}.${extension}"
         ((counter += 1))
     done
 
@@ -101,9 +215,10 @@ recording_verify_file() {
         return 1
     fi
 
-    # stream-record puede tardar unas décimas en cerrar y vaciar buffers.
+    # Algunos muxers tardan algo más en cerrar cabeceras/buffers. Damos hasta
+    # 1,5 s antes de considerar el archivo realmente vacío.
     local attempt
-    for ((attempt = 0; attempt < 10; attempt++)); do
+    for ((attempt = 0; attempt < 30; attempt++)); do
         [[ -s "$file" ]] && break
         sleep 0.05
     done
@@ -151,8 +266,11 @@ recording_start() {
     player_is_running || return 1
     ((RECORDING_ACTIVE)) && return 0
 
-    local file payload
-    file=$(recording_next_file "$station_name") || return 1
+    local stream_format extension file payload
+    stream_format=$(recording_stream_format 2>/dev/null || true)
+    extension=$(recording_extension_for_stream "$stream_format" "${PLAYER_CODEC:-}" "${PLAYER_URL:-}")
+
+    file=$(recording_next_file "$station_name" "$extension") || return 1
     payload=$(jq -cn --arg path "$file" '{command:["set_property","stream-record",$path]}') || return 1
 
     player_ipc "$payload" || return 1
