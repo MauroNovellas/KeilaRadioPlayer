@@ -5,6 +5,8 @@ set -uo pipefail
 BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEFAULT_FAVORITES_FILE="$BASE_DIR/defaults/favorites"
 
+# shellcheck source=lib/version.sh
+source "$BASE_DIR/lib/version.sh"
 # shellcheck source=lib/deps.sh
 source "$BASE_DIR/lib/deps.sh"
 # shellcheck source=lib/config.sh
@@ -291,9 +293,14 @@ app_loop() {
 }
 
 main() {
+    if [[ "${1:-}" == '--version' ]]; then
+        printf 'Keila Radio Player %s\n' "$KEILA_VERSION"
+        return 0
+    fi
+
     if [[ "${1:-}" == '--check' ]]; then
         app_init_data || return 1
-        printf 'Keila Radio Player: inicialización OK\n'
+        printf 'Keila Radio Player %s: inicialización OK\n' "$KEILA_VERSION"
         printf 'Configuración: %s\n' "$KEILA_CONFIG_FILE"
         printf 'Favoritos: %s\n' "$KEILA_FAVORITES_FILE"
         printf 'Estado: %s\n' "$KEILA_STATE_FILE"
