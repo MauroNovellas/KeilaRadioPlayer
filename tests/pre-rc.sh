@@ -9,6 +9,11 @@ trap 'rm -rf "$TMP_ROOT"' EXIT
 # shellcheck source=lib/version.sh
 source "$ROOT_DIR/lib/version.sh"
 
+[[ "$KEILA_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[[:alnum:].-]+)?$ ]] || {
+    printf 'FAIL formato de versión no válido: %s\n' "$KEILA_VERSION" >&2
+    exit 1
+}
+
 version_output=$("$ROOT_DIR/keila-radio" --version) || {
     printf 'FAIL --version no respondió\n' >&2
     exit 1
@@ -20,6 +25,16 @@ expected_version="Keila Radio Player $KEILA_VERSION"
     exit 1
 }
 printf 'ok   versión centralizada: %s\n' "$KEILA_VERSION"
+
+grep -Fq "Keila Radio Player $KEILA_VERSION" "$ROOT_DIR/README.md" || {
+    printf 'FAIL README no refleja la versión %s\n' "$KEILA_VERSION" >&2
+    exit 1
+}
+grep -Fq "## [$KEILA_VERSION]" "$ROOT_DIR/CHANGELOG.md" || {
+    printf 'FAIL CHANGELOG no contiene la release %s\n' "$KEILA_VERSION" >&2
+    exit 1
+}
+printf 'ok   documentación sincronizada con %s\n' "$KEILA_VERSION"
 
 export HOME="$TMP_ROOT/home"
 export XDG_CONFIG_HOME="$TMP_ROOT/config"
