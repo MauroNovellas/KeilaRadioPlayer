@@ -27,6 +27,8 @@ source "$BASE_DIR/lib/recording.sh"
 source "$BASE_DIR/lib/input.sh"
 # shellcheck source=lib/ui.sh
 source "$BASE_DIR/lib/ui.sh"
+# shellcheck source=lib/ui-responsive.sh
+source "$BASE_DIR/lib/ui-responsive.sh"
 
 cleanup() {
     recording_stop >/dev/null 2>&1 || true
