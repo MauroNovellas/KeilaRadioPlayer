@@ -57,24 +57,32 @@ exec 5<&-
 SEARCH_ACTIVE=0
 
 # Prueba los wrappers finales que convierten el contador agrupado en un único
-# movimiento/cambio de volumen por frame.
+# movimiento/cambio de volumen por frame. Se invocan indirectamente al clonar
+# sus definiciones con declare -f/eval, algo que ShellCheck no puede seguir.
+# shellcheck disable=SC2317
 ui_enter() { return 0; }
+# shellcheck disable=SC2317
 ui_suspend() { return 0; }
+# shellcheck disable=SC2317
 ui_resume() { return 0; }
+# shellcheck disable=SC2317
 ui_leave() { return 0; }
 
 UI_MOVE_TOTAL=0
 PLAYER_VOLUME_TOTAL=50
 SEARCH_MOVE_TOTAL=0
 
+# shellcheck disable=SC2317
 ui_move_selection() {
     UI_MOVE_TOTAL=$((UI_MOVE_TOTAL + $1))
 }
 
+# shellcheck disable=SC2317
 player_change_volume() {
     PLAYER_VOLUME_TOTAL=$((PLAYER_VOLUME_TOTAL + $1))
 }
 
+# shellcheck disable=SC2317
 search_move() {
     SEARCH_MOVE_TOTAL=$((SEARCH_MOVE_TOTAL + $1))
 }
