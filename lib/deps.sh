@@ -85,6 +85,45 @@ deps_collect_missing() {
     done
 }
 
+deps_termux_repair() {
+    printf 'Preparando y reparando el entorno de paquetes de Termux...\n'
+
+    # Termux no soporta upgrades parciales de forma fiable: paquetes multimedia
+    # como ffmpeg/mpv pueden quedar enlazados contra versiones antiguas de sus
+    # librerías. Antes de instalar Keila dejamos todo el entorno consistente.
+    if ! DEBIAN_FRONTEND=noninteractive pkg update -y; then
+        printf 'No se pudieron actualizar los índices de Termux.\n' >&2
+        return 1
+    fi
+
+    if ! DEBIAN_FRONTEND=noninteractive pkg upgrade -y; then
+        printf 'La actualización normal de Termux encontró paquetes rotos; intentando repararlos...\n' >&2
+
+        if command -v apt >/dev/null 2>&1; then
+            DEBIAN_FRONTEND=noninteractive apt --fix-broken install -y || true
+        fi
+
+        if command -v dpkg >/dev/null 2>&1; then
+            dpkg --configure -a || true
+        fi
+
+        # Tras la reparación hacemos un segundo intento completo. Si vuelve a
+        # fallar, dejamos el error visible para no ocultar un problema de mirror
+        # o de la propia instalación de Termux.
+        DEBIAN_FRONTEND=noninteractive pkg upgrade -y || return 1
+    fi
+
+    if command -v dpkg >/dev/null 2>&1; then
+        if ! dpkg --configure -a; then
+            printf 'Quedan paquetes sin configurar; intentando una última reparación...\n' >&2
+            if command -v apt >/dev/null 2>&1; then
+                DEBIAN_FRONTEND=noninteractive apt --fix-broken install -y || return 1
+            fi
+            dpkg --configure -a || return 1
+        fi
+    fi
+}
+
 deps_install_packages() {
     local manager="$1"
     shift
@@ -94,9 +133,13 @@ deps_install_packages() {
 
     case "$manager" in
         pkg)
-            # Termux no necesita root. Actualizamos índices solo cuando falta algo.
-            DEBIAN_FRONTEND=noninteractive pkg update -y &&
+            deps_termux_repair || return 1
+
+            if ! DEBIAN_FRONTEND=noninteractive pkg install -y "${packages[@]}"; then
+                printf 'La instalación falló; reparando Termux y reintentando una vez...\n' >&2
+                deps_termux_repair || return 1
                 DEBIAN_FRONTEND=noninteractive pkg install -y "${packages[@]}"
+            fi
             ;;
         apt)
             if ((EUID == 0)); then
@@ -156,6 +199,9 @@ deps_ensure() {
 
     if ! deps_install_packages "$manager" "${KEILA_MISSING_PACKAGES[@]}"; then
         printf 'No se pudieron instalar todas las dependencias de Keila.\n' >&2
+        if [[ "$manager" == "pkg" ]]; then
+            printf 'Si Termux sigue fallando, ejecuta termux-change-repo y cambia el mirror principal; después vuelve a abrir Keila.\n' >&2
+        fi
         return 1
     fi
 
