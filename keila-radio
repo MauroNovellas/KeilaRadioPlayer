@@ -62,7 +62,11 @@ app_play() {
     fi
 
     if ! player_start "$name" "$url"; then
-        UI_MESSAGE="No se pudo iniciar la emisora: $name"
+        if [[ -n "${PLAYER_LAST_EXIT_STATUS:-}" ]]; then
+            UI_MESSAGE="No se pudo iniciar $name (mpv: código $PLAYER_LAST_EXIT_STATUS)."
+        else
+            UI_MESSAGE="No se pudo iniciar la emisora: $name"
+        fi
         return 1
     fi
 
@@ -120,11 +124,18 @@ app_toggle_recording() {
         saved_file=$(recording_filename)
 
         if recording_stop; then
-            UI_MESSAGE="Grabación guardada: $saved_file"
+            local saved_size
+            saved_size=$(recording_size_human)
+
+            if [[ -n "${RECORDING_LAST_ERROR:-}" ]]; then
+                UI_MESSAGE="Grabación conservada: $saved_file ($saved_size)."
+            else
+                UI_MESSAGE="Grabación guardada: $saved_file ($saved_size)."
+            fi
             return 0
         fi
 
-        UI_MESSAGE="La grabación se detuvo, pero mpv informó de un error al cerrarla."
+        UI_MESSAGE="Grabación no válida: ${RECORDING_LAST_ERROR:-error desconocido}"
         return 1
     fi
 
@@ -266,22 +277,30 @@ app_update_catalog() {
 app_poll_player() {
     if [[ -n "${PLAYER_PID:-}" ]] && ! player_is_running; then
         local was_recording=$RECORDING_ACTIVE
+        local exit_status='?'
 
-        PLAYER_PID=""
-        PLAYER_PAUSED=0
-        player_reset_info
-        recording_reset
+        if player_collect_exit_status; then
+            exit_status="${PLAYER_LAST_EXIT_STATUS:-?}"
+        fi
 
         if ((was_recording)); then
-            UI_MESSAGE="La reproducción y la grabación se han detenido."
+            local saved_file
+            saved_file=$(recording_filename)
+
+            if recording_finalize_after_player_exit; then
+                UI_MESSAGE="mpv se detuvo; grabación recuperada: $saved_file ($(recording_size_human))."
+            else
+                UI_MESSAGE="mpv se detuvo (código $exit_status) y la grabación quedó incompleta."
+            fi
         else
-            UI_MESSAGE="La reproducción se ha detenido."
+            UI_MESSAGE="La reproducción se detuvo inesperadamente (mpv: código $exit_status)."
         fi
         return 0
     fi
 
     player_is_running || return 1
 
+    local changed=1
     local was_ready=$PLAYER_INFO_READY
     local was_buffering=$PLAYER_BUFFERING
 
@@ -293,10 +312,16 @@ app_poll_player() {
         elif ((was_buffering && !PLAYER_BUFFERING && PLAYER_INFO_READY)); then
             UI_MESSAGE="Reproducción reanudada."
         fi
-        return 0
+        changed=0
     fi
 
-    return 1
+    # Mientras grabamos, fuerza como máximo un redibujado por segundo para el
+    # contador [REC HH:MM:SS]. No afecta a la fluidez del lector de teclado.
+    if recording_tick_changed; then
+        changed=0
+    fi
+
+    return "$changed"
 }
 
 app_handle_key() {

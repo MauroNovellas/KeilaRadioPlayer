@@ -331,7 +331,7 @@ ui_draw() {
     fi
 
     if ((RECORDING_ACTIVE)); then
-        recording_status=' [REC]'
+        recording_status=" [REC $(recording_elapsed_display)]"
     else
         recording_status=''
     fi

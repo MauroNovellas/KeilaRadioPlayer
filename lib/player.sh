@@ -8,6 +8,7 @@ PLAYER_NAME=""
 PLAYER_URL=""
 PLAYER_VOLUME="${KEILA_VOLUME:-50}"
 PLAYER_PAUSED=0
+PLAYER_LAST_EXIT_STATUS=""
 
 # Información real del stream obtenida desde mpv por JSON IPC.
 PLAYER_STREAM_TITLE=""
@@ -26,7 +27,10 @@ else
     PLAYER_RUNTIME_DIR="${TMPDIR:-/tmp}/keila-radio-${UID:-$(id -u)}"
 fi
 
-PLAYER_SOCKET="$PLAYER_RUNTIME_DIR/mpv.sock"
+# Cada instancia usa su propio socket. Dos Keila abiertas por el mismo usuario
+# ya no compiten por /tmp o por el mismo socket dentro de XDG_RUNTIME_DIR.
+PLAYER_INSTANCE_ID="${KEILA_INSTANCE_ID:-${UID:-$(id -u)}-$$}"
+PLAYER_SOCKET="$PLAYER_RUNTIME_DIR/mpv-${PLAYER_INSTANCE_ID}.sock"
 
 player_require_dependencies() {
     local missing=0
@@ -65,6 +69,26 @@ player_reset_info() {
     PLAYER_BUFFERING=0
     PLAYER_INFO_READY=0
     PLAYER_INFO_LAST_REFRESH=0
+}
+
+# Recoge el estado de salida de un mpv que ya ha terminado. Esto permite a la
+# aplicación distinguir una caída inesperada de un proceso que todavía vive.
+player_collect_exit_status() {
+    [[ -n "$PLAYER_PID" ]] || return 1
+    player_is_running && return 1
+
+    local pid="$PLAYER_PID"
+    local status=0
+
+    wait "$pid" 2>/dev/null || status=$?
+
+    PLAYER_LAST_EXIT_STATUS="$status"
+    PLAYER_PID=""
+    PLAYER_PAUSED=0
+    player_reset_info
+    rm -f "$PLAYER_SOCKET"
+
+    return 0
 }
 
 # Consulta varias propiedades en una única conexión IPC. Además del objeto
@@ -225,6 +249,7 @@ player_start() {
     PLAYER_NAME="$name"
     PLAYER_URL="$url"
     PLAYER_PAUSED=0
+    PLAYER_LAST_EXIT_STATUS=""
     player_reset_info
 
     mpv \
@@ -240,8 +265,17 @@ player_start() {
     PLAYER_PID=$!
 
     if ! player_wait_for_socket; then
+        local failed_pid="$PLAYER_PID"
+        local failed_status=0
+
+        wait "$failed_pid" 2>/dev/null || failed_status=$?
+        PLAYER_LAST_EXIT_STATUS="$failed_status"
+        PLAYER_PID=""
+        PLAYER_PAUSED=0
+        player_reset_info
+        rm -f "$PLAYER_SOCKET"
+
         printf 'mpv terminó antes de crear el socket IPC.\n' >&2
-        player_stop >/dev/null 2>&1 || true
         return 1
     fi
 }
@@ -285,19 +319,24 @@ player_change_volume() {
 }
 
 player_stop() {
-    if player_is_running; then
-        player_ipc '{"command":["quit"]}' >/dev/null 2>&1 || true
-
-        local attempt
-        for ((attempt = 0; attempt < 20; attempt++)); do
-            player_is_running || break
-            sleep 0.05
-        done
+    if [[ -n "$PLAYER_PID" ]]; then
+        local pid="$PLAYER_PID"
 
         if player_is_running; then
-            kill "$PLAYER_PID" 2>/dev/null || true
-            wait "$PLAYER_PID" 2>/dev/null || true
+            player_ipc '{"command":["quit"]}' >/dev/null 2>&1 || true
+
+            local attempt
+            for ((attempt = 0; attempt < 20; attempt++)); do
+                kill -0 "$pid" 2>/dev/null || break
+                sleep 0.05
+            done
+
+            if kill -0 "$pid" 2>/dev/null; then
+                kill "$pid" 2>/dev/null || true
+            fi
         fi
+
+        wait "$pid" 2>/dev/null || true
     fi
 
     PLAYER_PID=""
