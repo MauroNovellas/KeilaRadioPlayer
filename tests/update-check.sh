@@ -4,6 +4,7 @@ set -uo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$ROOT_DIR/lib/update.sh"
+source "$ROOT_DIR/lib/update-validation.sh"
 
 fail() {
     printf 'FAIL %s\n' "$1" >&2
@@ -39,6 +40,28 @@ launcher_result=$(KEILA_UPDATE_TAGS=$'v2.0.0-rc1' bash "$ROOT_DIR/keila-radio" -
 make_release() {
     local parent="$1" version="$2" launcher_version="$3"
     local root="$parent/KeilaRadioPlayer-$version"
+    local module
+    local -a runtime_modules=(
+        update.sh
+        update-validation.sh
+        deps.sh
+        config.sh
+        lock.sh
+        state.sh
+        favorites.sh
+        stations.sh
+        player.sh
+        recording.sh
+        input.sh
+        ui.sh
+        ui-responsive.sh
+        ui-safe-width.sh
+        ui-desktop.sh
+        ui-desktop-primary.sh
+        ui-desktop-balance.sh
+        ui-update-status.sh
+    )
+
     mkdir -p "$root/lib" "$root/defaults"
     cat > "$root/keila-radio" <<EOF
 #!/usr/bin/env bash
@@ -49,9 +72,9 @@ esac
 EOF
     chmod +x "$root/keila-radio"
     printf 'KEILA_VERSION="%s"\n' "$version" > "$root/lib/version.sh"
-    printf ':\n' > "$root/lib/update.sh"
-    printf ':\n' > "$root/lib/player.sh"
-    printf ':\n' > "$root/lib/ui.sh"
+    for module in "${runtime_modules[@]}"; do
+        printf ':\n' > "$root/lib/$module"
+    done
     printf 'Radio Test|https://example.invalid/test\n' > "$root/defaults/favorites"
     printf '# README\n' > "$root/README.md"
     printf '# CHANGELOG\n' > "$root/CHANGELOG.md"
@@ -76,6 +99,25 @@ EOF
 
 tmp=$(mktemp -d) || fail 'no se pudo crear temporal'
 trap 'rm -rf "$tmp"' EXIT
+
+# Paquete incompleto: debe rechazarse durante la validación, antes de mover
+# ningún componente de la instalación actual.
+incomplete_parent="$tmp/incomplete-release"
+mkdir -p "$incomplete_parent"
+make_release "$incomplete_parent" '2.0.1' '2.0.1'
+rm -f "$incomplete_parent/KeilaRadioPlayer-2.0.1/lib/ui-update-status.sh"
+tar -czf "$tmp/incomplete.tar.gz" -C "$incomplete_parent" 'KeilaRadioPlayer-2.0.1'
+
+install_incomplete="$tmp/install-incomplete"
+make_install "$install_incomplete" '2.0.0'
+KEILA_VERSION='2.0.0'
+KEILA_UPDATE_TAGS=$'v2.0.1'
+KEILA_UPDATE_ARCHIVE_FILE="$tmp/incomplete.tar.gz"
+if update_install "$install_incomplete" >/dev/null 2>&1; then
+    fail 'un paquete incompleto fue aceptado'
+fi
+assert_eq 'Keila Radio Player 2.0.0' "$(bash "$install_incomplete/keila-radio" --version)" 'validación previa conservó versión anterior'
+[[ -f "$install_incomplete/grabaciones/conservar.txt" ]] || fail 'validación previa perdió grabaciones'
 
 # Actualización válida: instala código nuevo y conserva datos ajenos al programa.
 release_parent="$tmp/good-release"
@@ -110,4 +152,4 @@ fi
 assert_eq 'Keila Radio Player 2.0.0' "$(bash "$install_bad/keila-radio" --version)" 'rollback restauró versión anterior'
 [[ -f "$install_bad/grabaciones/conservar.txt" ]] || fail 'rollback perdió grabaciones'
 
-printf 'ok   comprobación, launcher, instalación y rollback de actualizaciones\n'
+printf 'ok   comprobación, validación completa, instalación y rollback de actualizaciones\n'
