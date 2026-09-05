@@ -9,6 +9,8 @@ UI_SUSPENDED=0
 UI_SELECTED_INDEX=0
 UI_SCROLL_OFFSET=0
 UI_MESSAGE=""
+UI_MESSAGE_EXPIRES=0
+UI_HELP_VISIBLE=0
 UI_COLS=80
 UI_LINES=24
 
@@ -26,6 +28,54 @@ ui_refresh_size() {
 
     [[ "$UI_COLS" =~ ^[0-9]+$ ]] || UI_COLS=80
     [[ "$UI_LINES" =~ ^[0-9]+$ ]] || UI_LINES=24
+}
+
+ui_set_message() {
+    local text="$1"
+    local ttl="${2:-5}"
+
+    UI_MESSAGE="$text"
+    UI_MESSAGE_EXPIRES=0
+
+    if [[ "$ttl" =~ ^[0-9]+$ ]] && ((ttl > 0)); then
+        local now="${EPOCHSECONDS:-$(date +%s)}"
+        UI_MESSAGE_EXPIRES=$((now + ttl))
+    fi
+}
+
+ui_clear_message() {
+    UI_MESSAGE=""
+    UI_MESSAGE_EXPIRES=0
+}
+
+# Devuelve 0 únicamente cuando acaba de expirar un mensaje visible.
+ui_message_tick() {
+    [[ -n "$UI_MESSAGE" ]] || return 1
+    ((UI_MESSAGE_EXPIRES > 0)) || return 1
+
+    local now="${EPOCHSECONDS:-$(date +%s)}"
+    if ((now >= UI_MESSAGE_EXPIRES)); then
+        ui_clear_message
+        return 0
+    fi
+
+    return 1
+}
+
+ui_toggle_help() {
+    if ((UI_HELP_VISIBLE)); then
+        UI_HELP_VISIBLE=0
+    else
+        UI_HELP_VISIBLE=1
+    fi
+}
+
+ui_control_line_count() {
+    if ((UI_HELP_VISIBLE)); then
+        printf '4\n'
+    else
+        printf '1\n'
+    fi
 }
 
 ui_enter() {
@@ -176,12 +226,13 @@ ui_stream_info_line_count() {
 }
 
 ui_list_height() {
-    local info_lines
+    local info_lines control_lines
     info_lines=$(ui_stream_info_line_count)
+    control_lines=$(ui_control_line_count)
 
-    # 12 líneas son la estructura fija fuera de la lista. Las filas de metadata
-    # se descuentan solo cuando realmente aparecen.
-    local height=$((UI_LINES - 12 - info_lines))
+    # La ayuda compacta ocupa una sola fila; al abrir ? aparecen cuatro filas y
+    # la lista cede ese espacio automáticamente. El resto del layout es fijo.
+    local height=$((UI_LINES - 9 - info_lines - control_lines))
     ((height < 3)) && height=3
     printf '%s\n' "$height"
 }
@@ -235,7 +286,7 @@ ui_move_selection() {
     local count=${#FAVORITE_NAMES[@]}
 
     ((count > 0)) || {
-        UI_MESSAGE="No tienes favoritos guardados. Pulsa B para buscar una emisora."
+        ui_set_message "No tienes favoritos guardados. Pulsa B para buscar una emisora." 6
         return 1
     }
 
@@ -289,9 +340,10 @@ ui_draw() {
     local width=$UI_COLS
     ((width > 78)) && width=78
 
-    local info_lines min_lines
+    local info_lines control_lines min_lines
     info_lines=$(ui_stream_info_line_count)
-    min_lines=$((15 + info_lines))
+    control_lines=$(ui_control_line_count)
+    min_lines=$((12 + info_lines + control_lines))
 
     if ((UI_COLS < 54 || UI_LINES < min_lines)); then
         ui_print_line "$width" 'Keila Radio Player v2'
@@ -406,9 +458,15 @@ ui_draw() {
     fi
 
     ui_separator "$width"
-    ui_print_line "$width" 'W/S o flechas mover   Enter reproducir   A/D o flechas volumen'
-    ui_print_line "$width" 'F favorito actual     J/K reordenar      X quitar seleccionado'
-    ui_print_line "$width" 'B buscar   R grabar   P pausa   U actualizar catálogo   Q salir'
+
+    if ((UI_HELP_VISIBLE)); then
+        ui_print_line "$width" 'W/S o ↑/↓ mover   Home/End extremos   PgUp/PgDn saltar'
+        ui_print_line "$width" 'Enter reproducir   A/D o ←/→ volumen   P pausa'
+        ui_print_line "$width" 'F favorito actual   J/K reordenar   X quitar seleccionado'
+        ui_print_line "$width" 'B buscar   R grabar   U actualizar   Q salir   ? cerrar ayuda'
+    else
+        ui_print_line "$width" '↑/↓ mover  Enter reproducir  ←/→ volumen  B buscar  R grabar  ? ayuda  Q salir'
+    fi
 
     if [[ -n "$UI_MESSAGE" ]]; then
         ui_print_line "$width" "$UI_MESSAGE"
@@ -417,6 +475,6 @@ ui_draw() {
     fi
 
     # Borra únicamente restos de un frame anterior más alto, después de que el
-    # nuevo ya esté visible. Es importante cuando aparece/desaparece Ahora:.
+    # nuevo ya esté visible. También limpia la ayuda cuando se vuelve a compactar.
     tput ed 2>/dev/null || true
 }
