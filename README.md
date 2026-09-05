@@ -4,7 +4,11 @@ Keila Radio Player es un reproductor de radio en Bash para terminal, usando `mpv
 
 La rama `v2` está en desarrollo activo y usa una arquitectura modular, persistencia XDG, búsqueda en TDTChannels, gestión de favoritos y una TUI navegable con teclado.
 
-## Requisitos
+## Dependencias
+
+Keila comprueba sus dependencias al arrancar. En esta fase de desarrollo personal, si falta alguna intenta instalarla automáticamente sin pedir confirmación.
+
+Dependencias de ejecución:
 
 - bash
 - mpv
@@ -12,13 +16,16 @@ La rama `v2` está en desarrollo activo y usa una arquitectura modular, persiste
 - curl
 - jq
 - fzf
-- tput (`ncurses-bin` en Debian)
+- tput
 
-En Debian:
+Gestores soportados por el instalador automático:
 
-```bash
-sudo apt install mpv socat curl jq fzf ncurses-bin
-```
+- Debian/Ubuntu: `apt-get`
+- Termux/Android: `pkg`
+- Arch Linux: `pacman`
+- Fedora: `dnf`
+
+Para `tput`, Keila instala `ncurses-bin` en Debian y `ncurses-utils` en Termux.
 
 ## Ejecutar v2
 
@@ -34,6 +41,8 @@ Los datos personales se guardan fuera del repositorio:
 ~/.cache/keila-radio/radio.json
 ```
 
+En Termux esas rutas se resuelven dentro del `$HOME` de Termux.
+
 ## Controles de la TUI
 
 ```text
@@ -48,3 +57,5 @@ Q        salir
 ```
 
 La lista de favoritos tiene scroll automático. Al buscar con `B`, Keila suspende temporalmente la TUI, abre `fzf` y vuelve a la interfaz al seleccionar o cancelar.
+
+Al salir, Keila detiene `mpv`, restaura el cursor, abandona la pantalla alternativa de la TUI y limpia la pantalla principal para no dejar restos visuales.
