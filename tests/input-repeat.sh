@@ -43,6 +43,11 @@ assert_eq 'DOWN' "$INPUT_EVENT" 'cursor abajo reconocido'
 assert_eq '3' "$INPUT_REPEAT_COUNT" 'cursor abajo limitado a tres pasos'
 assert_eq 'KEY' "$INPUT_PENDING_EVENT" 'tecla tras cursores queda pendiente'
 assert_eq 'q' "$INPUT_PENDING_KEY" 'tecla tras cursores conservada'
+
+input_read <&4 || fail 'no devolvió tecla tras cursores'
+assert_eq 'KEY' "$INPUT_EVENT" 'evento tras cursores recuperado'
+assert_eq 'q' "$INPUT_KEY" 'tecla tras cursores recuperada'
+assert_eq '1' "$INPUT_REPEAT_COUNT" 'tecla distinta tras cursores no hereda repetición'
 exec 4<&-
 
 # Dentro del buscador las letras son contenido de la consulta, no acciones de
