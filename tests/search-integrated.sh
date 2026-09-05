@@ -90,6 +90,29 @@ SEARCH_SELECTED_INDEX=3
 search_sync_scroll 2
 assert_eq 2 "$SEARCH_SCROLL_OFFSET" 'scroll sigue la selección'
 
+# Estabilización: Esc deja la consulta visible como "B editar". Reabrir debe
+# conservarla de verdad y recalcular resultados con el catálogo recién cargado.
+search_clear || true
+search_append z
+search_append z
+search_append z
+search_apply_pending_filter || fail 'no aplicó consulta sin resultados'
+assert_eq 0 "${#SEARCH_MATCHES[@]}" 'consulta inexistente produce cero resultados'
+search_close
+assert_eq 0 "$SEARCH_ACTIVE" 'cerrar búsqueda desactiva el foco'
+assert_eq 'zzz' "$SEARCH_QUERY" 'cerrar conserva la consulta visible'
+assert_eq 0 "$SEARCH_SCROLL_OFFSET" 'cerrar normaliza scroll'
+
+search_open || fail 'no pudo reabrir búsqueda conservada'
+assert_eq 1 "$SEARCH_ACTIVE" 'reabrir recupera foco'
+assert_eq 'zzz' "$SEARCH_QUERY" 'B editar conserva la consulta anterior'
+assert_eq 0 "${#SEARCH_MATCHES[@]}" 'reabrir recalcula la consulta conservada'
+assert_eq 0 "$SEARCH_SELECTED_INDEX" 'sin resultados mantiene selección segura'
+
+search_clear || fail 'no pudo limpiar consulta reabierta'
+search_apply_pending_filter || fail 'no restauró catálogo tras reabrir'
+assert_eq 4 "${#SEARCH_MATCHES[@]}" 'limpiar tras reabrir restaura catálogo'
+
 # Comprueba que la capa visual existe y mantiene geometría desktop exacta en el
 # modo Unicode real. El fallback ASCII tiene todos los vértices como '+' y se
 # prueba por separado de la protección de scroll del borde final.
@@ -130,4 +153,4 @@ declare -F stations_select_fzf_external >/dev/null || fail 'falta fallback fzf'
 declare -F stations_select_fzf >/dev/null || fail 'falta selector integrado'
 declare -F search_prepare_results >/dev/null || fail 'falta sincronización antes de navegar/reproducir'
 
-printf 'ok   búsqueda integrada: input inmediato, filtrado diferido, navegación y TUI\n'
+printf 'ok   búsqueda integrada: input, reapertura, filtrado, navegación y TUI\n'
