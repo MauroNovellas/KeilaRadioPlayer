@@ -73,7 +73,9 @@ Ahora: Artista - Canción / programa en emisión
 Audio: AAC · 128 kbps · 44.1 kHz · stereo
 ```
 
-El bitrate mostrado procede de la propiedad `audio-bitrate` de `mpv`; Keila ya no intenta estimarlo midiendo el tráfico total de la interfaz de red. También usa los metadatos dinámicos del stream para mostrar el título en emisión y puede indicar estados como `Conectando` o `Buffering`.
+Las filas de información son dinámicas: si una emisora no publica título en emisión, no se reserva una línea vacía para `Ahora:`; si tampoco hay información técnica disponible, tampoco aparece `Audio:`.
+
+El bitrate mostrado procede de la propiedad `audio-bitrate` de `mpv`; Keila ya no intenta estimarlo midiendo el tráfico total de la interfaz de red. Para el título en emisión consulta tanto el objeto general de metadatos como campos ICY específicos y `media-title`, de modo que los cambios de canción puedan reflejarse mientras el stream sigue reproduciéndose.
 
 Las consultas de información se agrupan en una sola conexión IPC y la TUI solo se redibuja cuando algún dato cambia.
 

@@ -154,8 +154,34 @@ ui_audio_info() {
     printf '%s' "$output"
 }
 
+ui_has_audio_info() {
+    [[ -n "${PLAYER_CODEC:-}" ]] && return 0
+    [[ "${PLAYER_BITRATE_KBPS:-}" =~ ^[0-9]+$ ]] && ((PLAYER_BITRATE_KBPS > 0)) && return 0
+    [[ "${PLAYER_SAMPLE_RATE:-}" =~ ^[0-9]+$ ]] && ((PLAYER_SAMPLE_RATE > 0)) && return 0
+    [[ -n "${PLAYER_CHANNELS:-}" ]] && return 0
+    return 1
+}
+
+# Las líneas de información del stream solo existen cuando tenemos algo real que
+# mostrar. Así una radio sin título de canción no deja un hueco vacío en la TUI.
+ui_stream_info_line_count() {
+    local count=0
+
+    if player_is_running; then
+        [[ -n "${PLAYER_STREAM_TITLE:-}" ]] && ((count += 1))
+        ui_has_audio_info && ((count += 1))
+    fi
+
+    printf '%s\n' "$count"
+}
+
 ui_list_height() {
-    local height=$((UI_LINES - 14))
+    local info_lines
+    info_lines=$(ui_stream_info_line_count)
+
+    # 12 líneas son la estructura fija fuera de la lista. Las filas de metadata
+    # se descuentan solo cuando realmente aparecen.
+    local height=$((UI_LINES - 12 - info_lines))
     ((height < 3)) && height=3
     printf '%s\n' "$height"
 }
@@ -263,11 +289,15 @@ ui_draw() {
     local width=$UI_COLS
     ((width > 78)) && width=78
 
-    if ((UI_COLS < 54 || UI_LINES < 17)); then
+    local info_lines min_lines
+    info_lines=$(ui_stream_info_line_count)
+    min_lines=$((15 + info_lines))
+
+    if ((UI_COLS < 54 || UI_LINES < min_lines)); then
         ui_print_line "$width" 'Keila Radio Player v2'
         ui_print_line "$width" ''
         ui_print_line "$width" "La terminal es demasiado pequeña (${UI_COLS}x${UI_LINES})."
-        ui_print_line "$width" 'Necesito al menos 54 columnas y 17 filas.'
+        ui_print_line "$width" "Necesito al menos 54 columnas y ${min_lines} filas."
         ui_print_line "$width" ''
         ui_print_line "$width" 'Q = salir'
         tput ed 2>/dev/null || true
@@ -303,17 +333,19 @@ ui_draw() {
     local status_text="$status - $station$favorite_status"
     ui_print_line "$width" "$status_text"
 
-    local now_line="" audio_line="" audio_info=""
+    # Estas filas son opcionales. Si una emisora no publica título dinámico, el
+    # volumen aparece inmediatamente debajo del estado sin reservar huecos.
     if player_is_running; then
-        [[ -n "${PLAYER_STREAM_TITLE:-}" ]] && now_line="Ahora: $PLAYER_STREAM_TITLE"
-        audio_info=$(ui_audio_info)
-        [[ -n "$audio_info" ]] && audio_line="Audio: $audio_info"
-    fi
+        if [[ -n "${PLAYER_STREAM_TITLE:-}" ]]; then
+            ui_print_line "$width" "Ahora: $PLAYER_STREAM_TITLE"
+        fi
 
-    # Reservamos estas dos líneas siempre para que la lista no salte cuando
-    # aparezcan metadatos nuevos durante la reproducción.
-    ui_print_line "$width" "$now_line"
-    ui_print_line "$width" "$audio_line"
+        local audio_info
+        audio_info=$(ui_audio_info)
+        if [[ -n "$audio_info" ]]; then
+            ui_print_line "$width" "Audio: $audio_info"
+        fi
+    fi
 
     local volume_line
     volume_line="Volumen: $(printf '%3s' "$PLAYER_VOLUME")%  $(ui_volume_bar 20)"
@@ -379,6 +411,6 @@ ui_draw() {
     fi
 
     # Borra únicamente restos de un frame anterior más alto, después de que el
-    # nuevo ya esté visible. Así evitamos el parpadeo producido por clear/ed.
+    # nuevo ya esté visible. Es importante cuando aparece/desaparece Ahora:.
     tput ed 2>/dev/null || true
 }

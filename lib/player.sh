@@ -67,8 +67,10 @@ player_reset_info() {
     PLAYER_INFO_LAST_REFRESH=0
 }
 
-# Consulta varias propiedades en una única conexión IPC. Cada petición lleva un
-# request_id para poder reconstruir el snapshot aunque mpv responda en otro orden.
+# Consulta varias propiedades en una única conexión IPC. Además del objeto
+# metadata pedimos directamente campos ICY y media-title porque algunos streams
+# actualizan esos valores durante la reproducción sin reflejarlos igual en todos
+# los demuxers/versiones de mpv.
 player_query_snapshot() {
     [[ -S "$PLAYER_SOCKET" ]] || return 1
 
@@ -78,6 +80,10 @@ player_query_snapshot() {
         printf '%s\n' '{"command":["get_property","audio-bitrate"],"request_id":3}'
         printf '%s\n' '{"command":["get_property","audio-params"],"request_id":4}'
         printf '%s\n' '{"command":["get_property","paused-for-cache"],"request_id":5}'
+        printf '%s\n' '{"command":["get_property","metadata/by-key/icy-title"],"request_id":6}'
+        printf '%s\n' '{"command":["get_property","metadata/by-key/StreamTitle"],"request_id":7}'
+        printf '%s\n' '{"command":["get_property","metadata/by-key/title"],"request_id":8}'
+        printf '%s\n' '{"command":["get_property","media-title"],"request_id":9}'
     } | socat -t 1 - UNIX-CONNECT:"$PLAYER_SOCKET" 2>/dev/null |
         jq -cs '
             reduce .[] as $response ({};
@@ -111,30 +117,44 @@ player_refresh_info() {
     local -a fields=()
     mapfile -t fields < <(
         jq -r '
-            def metadata_title:
+            def clean:
+                (if . == null then ""
+                 elif type == "string" then .
+                 else tostring
+                 end)
+                | gsub("[\\r\\n\\t]+"; " ")
+                | gsub("^ +| +$"; "");
+
+            def metadata_value($names):
                 (. ["1"] // {}) as $metadata
                 | if ($metadata | type) == "object" then
                     ($metadata
                         | to_entries
                         | map(select(
-                            ((.key | ascii_downcase) == "icy-title") or
-                            ((.key | ascii_downcase) == "streamtitle") or
-                            ((.key | ascii_downcase) == "stream-title") or
-                            ((.key | ascii_downcase) == "now-playing") or
-                            ((.key | ascii_downcase) == "now_playing") or
-                            ((.key | ascii_downcase) == "title")
+                            (.key | ascii_downcase) as $key
+                            | ($names | index($key)) != null
                         ))
                         | .[0].value // "")
                   else ""
-                  end
-                | tostring
-                | gsub("[\\r\\n\\t]+"; " ");
+                  end;
 
-            metadata_title,
-            ((.["2"] // "") | if type == "string" then . else tostring end),
+            def stream_title:
+                [
+                    .["6"],
+                    .["7"],
+                    metadata_value(["icy-title", "streamtitle", "stream-title", "now-playing", "now_playing"]),
+                    .["8"],
+                    metadata_value(["title"]),
+                    .["9"]
+                ]
+                | map(clean | select(length > 0))
+                | .[0] // "";
+
+            stream_title,
+            ((.["2"] // "") | clean),
             ((.["3"] // 0) | if type == "number" and . > 0 then ((. / 1000) | round | tostring) else "" end),
             ((.["4"].samplerate // "") | if type == "number" then tostring else . end),
-            ((.["4"]["hr-channels"] // .["4"].channels // "") | if type == "string" then . else tostring end),
+            ((.["4"]["hr-channels"] // .["4"].channels // "") | clean),
             ((.["5"] // false) | if . == true then "1" else "0" end)
         ' <<< "$snapshot"
     )
@@ -151,10 +171,13 @@ player_refresh_info() {
         new_ready=1
     fi
 
-    # No repetimos el nombre de la emisora como si fuese una canción.
-    if [[ -n "$new_title" && "$new_title" == "$PLAYER_NAME" ]]; then
-        new_title=""
-    fi
+    # media-title puede caer al nombre/URL del stream si no hay metadatos de la
+    # canción. No mostramos ese fallback como si fuese el tema en emisión.
+    case "$new_title" in
+        ""|"$PLAYER_NAME"|"$PLAYER_URL"|http://*|https://*)
+            new_title=""
+            ;;
+    esac
 
     local old_state
     old_state="$PLAYER_STREAM_TITLE|$PLAYER_CODEC|$PLAYER_BITRATE_KBPS|$PLAYER_SAMPLE_RATE|$PLAYER_CHANNELS|$PLAYER_BUFFERING|$PLAYER_INFO_READY"
