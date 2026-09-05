@@ -38,13 +38,13 @@ ui_configure_glyphs() {
         UI_V='│'; UI_H='─'; UI_ML='├'; UI_MR='┤'
         UI_PLAY='▶'; UI_PAUSE='Ⅱ'; UI_BUFFER='◌'; UI_STOP='■'
         UI_FAVORITE='★'; UI_RECORD='●'; UI_NOTE='♪'; UI_SELECT='›'
-        UI_BAR_FULL='█'; UI_BAR_EMPTY='░'
+        UI_BAR_FULL='█'; UI_BAR_EMPTY='░'; UI_SEP='·'
     else
         UI_TL='+'; UI_TR='+'; UI_BL='+'; UI_BR='+'
         UI_V='|'; UI_H='-'; UI_ML='+'; UI_MR='+'
         UI_PLAY='>'; UI_PAUSE='||'; UI_BUFFER='~'; UI_STOP='x'
         UI_FAVORITE='*'; UI_RECORD='o'; UI_NOTE='>'; UI_SELECT='>'
-        UI_BAR_FULL='#'; UI_BAR_EMPTY='-'
+        UI_BAR_FULL='#'; UI_BAR_EMPTY='-'; UI_SEP='|'
     fi
 }
 
@@ -120,6 +120,21 @@ ui_refresh_size() {
 
     [[ "$UI_COLS" =~ ^[0-9]+$ ]] || UI_COLS=80
     [[ "$UI_LINES" =~ ^[0-9]+$ ]] || UI_LINES=24
+}
+
+ui_layout_width() {
+    local cols="${1:-$UI_COLS}"
+    [[ "$cols" =~ ^[0-9]+$ ]] || cols=80
+    ((cols > 92)) && cols=92
+    printf '%s\n' "$cols"
+}
+
+ui_volume_bar_width() {
+    local width="$1"
+    local bar=$((width - 42))
+    ((bar < 12)) && bar=12
+    ((bar > 28)) && bar=28
+    printf '%s\n' "$bar"
 }
 
 ui_set_message() {
@@ -288,6 +303,7 @@ ui_box_rule() {
     local left="$2"
     local right="$3"
     local label="${4:-}"
+    local label_style="${5:-muted}"
     local inner=$((width - 2))
 
     ui_style_begin muted
@@ -295,10 +311,17 @@ ui_box_rule() {
     if [[ -z "$label" ]]; then
         ui_repeat_char "$UI_H" "$inner"
     else
-        local prefix="$UI_H $label "
-        prefix=$(ui_truncate "$prefix" "$inner")
-        printf '%s' "$prefix"
-        ui_repeat_char "$UI_H" "$((inner - ${#prefix}))"
+        printf '%s ' "$UI_H"
+        ui_style_end
+        local label_max=$((inner - 3))
+        ((label_max < 1)) && label_max=1
+        label=$(ui_truncate "$label" "$label_max")
+        ui_style_begin "$label_style"
+        printf '%s' "$label"
+        ui_style_end
+        ui_style_begin muted
+        printf ' '
+        ui_repeat_char "$UI_H" "$((inner - ${#label} - 3))"
     fi
     printf '%s' "$right"
     ui_style_end
@@ -564,8 +587,8 @@ ui_draw() {
     ui_sync_selection
     tput cup 0 0 2>/dev/null || true
 
-    local width=$UI_COLS
-    ((width > 78)) && width=78
+    local width
+    width=$(ui_layout_width "$UI_COLS")
     local info_lines control_lines min_lines
     info_lines=$(ui_stream_info_line_count)
     control_lines=$(ui_control_line_count)
@@ -589,14 +612,14 @@ ui_draw() {
     local title="KEILA RADIO PLAYER  $version"
     ui_box_rule "$width" "$UI_TL" "$UI_TR"
     ui_box_center_line "$width" "$title" title
-    ui_box_rule "$width" "$UI_ML" "$UI_MR"
+    ui_box_rule "$width" "$UI_ML" "$UI_MR" 'AHORA SUENA' accent
 
     local station favorite_badge recording_badge state_badge marker station_style
     marker=$(ui_player_marker)
     if player_is_running; then
         station="$PLAYER_NAME"
         station_style='playing'
-        if favorites_find_url "$PLAYER_URL" >/dev/null 2>&1; then favorite_badge="$UI_FAVORITE FAVORITA"; else favorite_badge=''; fi
+        if favorites_find_url "$PLAYER_URL" >/dev/null 2>&1; then favorite_badge="[$UI_FAVORITE FAVORITA]"; else favorite_badge=''; fi
     elif [[ -n "${STATE_LAST_NAME:-}" ]]; then
         station="Última: $STATE_LAST_NAME"
         station_style='muted'
@@ -607,12 +630,12 @@ ui_draw() {
         favorite_badge=''
     fi
 
-    if ((RECORDING_ACTIVE)); then recording_badge="$UI_RECORD REC $(recording_elapsed_display)"; else recording_badge=''; fi
+    if ((RECORDING_ACTIVE)); then recording_badge="[$UI_RECORD REC $(recording_elapsed_display)]"; else recording_badge=''; fi
     state_badge=''
     if player_is_running && ((PLAYER_PAUSED)); then
-        state_badge='PAUSA'
+        state_badge='[PAUSA]'
     elif player_is_running && ((PLAYER_BUFFERING)); then
-        state_badge='BUFFERING'
+        state_badge='[BUFFERING]'
     fi
 
     ui_box_player_line "$width" "$marker $station" "$station_style" "$recording_badge" "$favorite_badge" "$state_badge"
@@ -624,8 +647,12 @@ ui_draw() {
         [[ -n "$audio_info" ]] && ui_box_line "$width" "  $audio_info" muted
     fi
 
-    ui_box_line "$width" "Volumen  $(printf '%3s' "$PLAYER_VOLUME")%   $(ui_volume_bar 20)" accent
-    ui_box_rule "$width" "$UI_ML" "$UI_MR" "FAVORITOS (${#FAVORITE_NAMES[@]})"
+    local volume_bar_width volume_left volume_hint
+    volume_bar_width=$(ui_volume_bar_width "$width")
+    volume_left="VOL $(printf '%3s' "$PLAYER_VOLUME")%  $(ui_volume_bar "$volume_bar_width")"
+    volume_hint='A/D  ←/→'
+    ui_box_split_line "$width" "$volume_left" "$volume_hint" 0 accent muted
+    ui_box_rule "$width" "$UI_ML" "$UI_MR" "FAVORITOS (${#FAVORITE_NAMES[@]})" accent
 
     local height
     height=$(ui_list_height)
@@ -645,12 +672,12 @@ ui_draw() {
             left_style=''
             right_style=''
             if player_is_running && [[ "${FAVORITE_URLS[$index]}" == "$PLAYER_URL" ]]; then
-                right_badge='PLAY'
+                right_badge='[PLAY]'
                 left_style='playing'
                 right_style='playing'
                 [[ "$marker_prefix" == '  ' ]] && marker_prefix="$UI_PLAY "
             elif [[ -n "${STATE_LAST_URL:-}" && "${FAVORITE_URLS[$index]}" == "$STATE_LAST_URL" ]]; then
-                right_badge='ÚLTIMA'
+                right_badge='[ÚLTIMA]'
                 right_style='muted'
             fi
 
@@ -668,7 +695,7 @@ ui_draw() {
         ui_box_line "$width" 'F favorito actual   J/K reordenar   X quitar seleccionado' muted
         ui_box_line "$width" 'B buscar   R grabar   U actualizar   Q salir   H cerrar ayuda' muted
     else
-        ui_box_line "$width" '↑↓ mover  Enter reproducir  ←→ volumen  B buscar  R grabar  H ayuda  Q salir' muted
+        ui_box_line "$width" "↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  B buscar  $UI_SEP  R grabar  $UI_SEP  H ayuda  $UI_SEP  Q salir" muted
     fi
 
     if [[ -n "$UI_MESSAGE" ]]; then ui_box_line "$width" "$UI_MESSAGE"; else ui_box_line "$width" ''; fi
