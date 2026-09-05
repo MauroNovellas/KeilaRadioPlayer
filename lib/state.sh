@@ -1,41 +1,48 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-##############################################################################
-# VALORES POR DEFECTO (solo asignaciones)
-##############################################################################
+# Persistencia segura: este archivo se lee como datos, nunca con `source`.
 
-VOL_ACTUAL=40
-LAST_NAME=""
-LAST_URL=""
+STATE_VOLUME="${KEILA_DEFAULT_VOLUME:-50}"
+STATE_LAST_NAME=""
+STATE_LAST_URL=""
 
-##############################################################################
-# INICIALIZACIÓN (segura)
-##############################################################################
+state_load() {
+    STATE_VOLUME="${KEILA_DEFAULT_VOLUME:-50}"
+    STATE_LAST_NAME=""
+    STATE_LAST_URL=""
 
-init_state() {
-    : "${VOL_ACTUAL:=40}"
-    : "${LAST_NAME:=}"
-    : "${LAST_URL:=}"
+    [[ -f "$KEILA_STATE_FILE" ]] || return 0
+
+    local key value
+    while IFS=$'\t' read -r key value; do
+        case "$key" in
+            volume)
+                if [[ "$value" =~ ^[0-9]+$ ]] && ((value >= 0 && value <= 100)); then
+                    STATE_VOLUME="$value"
+                fi
+                ;;
+            last_name)
+                STATE_LAST_NAME="$value"
+                ;;
+            last_url)
+                STATE_LAST_URL="$value"
+                ;;
+        esac
+    done < "$KEILA_STATE_FILE"
 }
 
-##############################################################################
-# CARGA / GUARDADO (seguro con set -u)
-##############################################################################
+state_save() {
+    keila_init_paths
 
-load_state() {
-    [ -z "${STATE:-}" ] && return
-    [ -f "$STATE" ] || return
-    source "$STATE"
-}
+    local tmp="${KEILA_STATE_FILE}.tmp.$$"
+    umask 077
 
-save_state() {
-    [ -z "${STATE:-}" ] && return
+    {
+        printf 'volume\t%s\n' "$STATE_VOLUME"
+        printf 'last_name\t%s\n' "$STATE_LAST_NAME"
+        printf 'last_url\t%s\n' "$STATE_LAST_URL"
+    } > "$tmp"
 
-    mkdir -p "$(dirname "$STATE")"
-
-    cat > "$STATE" <<EOF
-VOL_ACTUAL=$VOL_ACTUAL
-LAST_NAME="$ACTUAL_NOMBRE"
-LAST_URL="$ACTUAL_URL"
-EOF
+    mv -f "$tmp" "$KEILA_STATE_FILE"
+    chmod 600 "$KEILA_STATE_FILE" 2>/dev/null || true
 }
