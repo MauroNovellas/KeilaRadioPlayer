@@ -100,3 +100,5 @@ ui_box_rule() {
 source "$(dirname "${BASH_SOURCE[0]}")/ui-desktop.sh"
 # shellcheck source=lib/ui-desktop-primary.sh
 source "$(dirname "${BASH_SOURCE[0]}")/ui-desktop-primary.sh"
+# shellcheck source=lib/ui-desktop-balance.sh
+source "$(dirname "${BASH_SOURCE[0]}")/ui-desktop-balance.sh"
