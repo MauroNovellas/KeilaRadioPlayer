@@ -115,3 +115,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/ui-update-status.sh"
 # selector fzf con KEILA_FZF_SEARCH=1 durante la transición.
 # shellcheck source=lib/app-search.sh
 source "$(dirname "${BASH_SOURCE[0]}")/app-search.sh"
+
+# En desktop, Favoritos y búsqueda comparten la columna de navegación. Esta capa
+# se carga la última porque envuelve la fila ya refinada por el aviso de update.
+# shellcheck source=lib/ui-desktop-search-pane.sh
+source "$(dirname "${BASH_SOURCE[0]}")/ui-desktop-search-pane.sh"
