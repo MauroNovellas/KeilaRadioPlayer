@@ -7,8 +7,18 @@ DEFAULT_FAVORITES_FILE="$BASE_DIR/defaults/favorites"
 
 # shellcheck source=lib/version.sh
 source "$BASE_DIR/lib/version.sh"
+
+# lib/update.sh conserva compatibilidad con el primer prototipo de --update,
+# que podía interceptar el argumento al cargarse. El launcher actual despacha
+# las opciones explícitamente desde main(), así que ocultamos temporalmente los
+# argumentos durante el source y los restauramos inmediatamente después.
+KEILA_ORIGINAL_ARGS=("$@")
+set --
 # shellcheck source=lib/update.sh
 source "$BASE_DIR/lib/update.sh"
+set -- "${KEILA_ORIGINAL_ARGS[@]}"
+unset KEILA_ORIGINAL_ARGS
+
 # shellcheck source=lib/deps.sh
 source "$BASE_DIR/lib/deps.sh"
 # shellcheck source=lib/config.sh
@@ -318,12 +328,12 @@ main() {
             return $?
             ;;
         --update)
-            printf 'La instalación automática todavía no está habilitada. Usa --check-update para comprobar versiones.\n'
-            return 2
+            update_install "$BASE_DIR"
+            return $?
             ;;
         --*)
             printf 'Opción desconocida: %s\n' "$1" >&2
-            printf 'Opciones: --version, --check, --check-update\n' >&2
+            printf 'Opciones: --version, --check, --check-update, --update\n' >&2
             return 2
             ;;
     esac
