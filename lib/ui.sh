@@ -92,6 +92,14 @@ ui_truncate() {
     printf '%s...' "${text:0:cut}"
 }
 
+ui_print_line() {
+    local width="$1"
+    local text="${2:-}"
+
+    text=$(ui_truncate "$text" "$width")
+    printf '%-*s\n' "$width" "$text"
+}
+
 ui_volume_bar() {
     local width="${1:-20}"
     local filled=$((PLAYER_VOLUME * width / 100))
@@ -190,24 +198,31 @@ ui_draw() {
     ui_refresh_size
     ui_sync_selection
 
+    # No limpiamos la pantalla antes de dibujar: hacerlo producía un flash
+    # visible en cada pulsación. Reescribimos el frame desde la esquina superior
+    # y limpiamos únicamente lo que quede por debajo al terminar.
     tput cup 0 0 2>/dev/null || true
-    tput ed 2>/dev/null || true
 
     local width=$UI_COLS
     ((width > 78)) && width=78
 
     if ((UI_COLS < 54 || UI_LINES < 15)); then
-        printf 'Keila Radio Player v2\n\n'
-        printf 'La terminal es demasiado pequeña (%sx%s).\n' "$UI_COLS" "$UI_LINES"
-        printf 'Necesito al menos 54 columnas y 15 filas.\n'
-        printf '\nQ = salir\n'
+        ui_print_line "$width" 'Keila Radio Player v2'
+        ui_print_line "$width" ''
+        ui_print_line "$width" "La terminal es demasiado pequeña (${UI_COLS}x${UI_LINES})."
+        ui_print_line "$width" 'Necesito al menos 54 columnas y 15 filas.'
+        ui_print_line "$width" ''
+        ui_print_line "$width" 'Q = salir'
+        tput ed 2>/dev/null || true
         return 0
     fi
 
     local title='KEILA RADIO PLAYER v2'
     local pad=$(((width - ${#title}) / 2))
+    local title_line
     ((pad < 0)) && pad=0
-    printf '%*s%s\n' "$pad" '' "$title"
+    printf -v title_line '%*s%s' "$pad" '' "$title"
+    ui_print_line "$width" "$title_line"
     ui_separator "$width"
 
     local status station favorite_status
@@ -229,22 +244,23 @@ ui_draw() {
     fi
 
     local status_text="$status - $station$favorite_status"
-    printf '%s\n' "$(ui_truncate "$status_text" "$width")"
-    printf 'Volumen: %3s%%  ' "$PLAYER_VOLUME"
-    ui_volume_bar 20
-    printf '\n'
+    ui_print_line "$width" "$status_text"
+
+    local volume_line
+    volume_line="Volumen: $(printf '%3s' "$PLAYER_VOLUME")%  $(ui_volume_bar 20)"
+    ui_print_line "$width" "$volume_line"
     ui_separator "$width"
 
-    printf 'FAVORITOS (%s)\n' "${#FAVORITE_NAMES[@]}"
+    ui_print_line "$width" "FAVORITOS (${#FAVORITE_NAMES[@]})"
 
     local height
     height=$(ui_list_height)
 
     if ((${#FAVORITE_NAMES[@]} == 0)); then
-        printf '  (sin favoritos; pulsa B para buscar)\n'
+        ui_print_line "$width" '  (sin favoritos; pulsa B para buscar)'
         local blank
         for ((blank = 1; blank < height; blank++)); do
-            printf '\n'
+            ui_print_line "$width" ''
         done
     else
         local row index marker suffix line max_name
@@ -254,7 +270,7 @@ ui_draw() {
             index=$((UI_SCROLL_OFFSET + row))
 
             if ((index >= ${#FAVORITE_NAMES[@]})); then
-                printf '\n'
+                ui_print_line "$width" ''
                 continue
             fi
 
@@ -277,20 +293,24 @@ ui_draw() {
                 tput sgr0 2>/dev/null || true
                 printf '\n'
             else
-                printf '%s\n' "$line"
+                ui_print_line "$width" "$line"
             fi
         done
     fi
 
     ui_separator "$width"
-    printf 'W/S mover   Enter reproducir   A/D volumen   P pausa\n'
-    printf 'F favorito  B buscar           U actualizar  Q salir\n'
+    ui_print_line "$width" 'W/S mover   Enter reproducir   A/D volumen   P pausa'
+    ui_print_line "$width" 'F favorito  B buscar           U actualizar  Q salir'
 
     if [[ -n "$UI_MESSAGE" ]]; then
-        printf '%s\n' "$(ui_truncate "$UI_MESSAGE" "$width")"
+        ui_print_line "$width" "$UI_MESSAGE"
     else
-        printf '\n'
+        ui_print_line "$width" ''
     fi
+
+    # Borra únicamente restos de un frame anterior más alto, después de que el
+    # nuevo ya esté visible. Así evitamos el parpadeo producido por clear/ed.
+    tput ed 2>/dev/null || true
 }
 
 ui_read_key() {
