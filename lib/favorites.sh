@@ -97,10 +97,19 @@ favorites_add_unlocked() {
 
 favorites_add() {
     local name="$1" url="$2" lock_dir="${KEILA_FAVORITES_FILE}.lock"
+    local -a previous_names=() previous_urls=()
     lock_acquire "$lock_dir" || return 1
     local status=0
     favorites_load || status=1
-    if ((status == 0)); then favorites_add_unlocked "$name" "$url" || status=$?; fi
+    if ((status == 0)); then
+        previous_names=("${FAVORITE_NAMES[@]}")
+        previous_urls=("${FAVORITE_URLS[@]}")
+        favorites_add_unlocked "$name" "$url" || status=$?
+        if ((status != 0)); then
+            FAVORITE_NAMES=("${previous_names[@]}")
+            FAVORITE_URLS=("${previous_urls[@]}")
+        fi
+    fi
     lock_release "$lock_dir" || status=1
     return "$status"
 }
@@ -127,14 +136,21 @@ favorites_remove_index() {
     ((index >= 0 && index < ${#FAVORITE_URLS[@]})) || return 1
     local target_url="${FAVORITE_URLS[$index]}"
     local lock_dir="${KEILA_FAVORITES_FILE}.lock"
+    local -a previous_names=() previous_urls=()
     lock_acquire "$lock_dir" || return 1
     local status=0 current_index
     favorites_load || status=1
     if ((status == 0)); then
+        previous_names=("${FAVORITE_NAMES[@]}")
+        previous_urls=("${FAVORITE_URLS[@]}")
         if current_index=$(favorites_find_url "$target_url"); then
             favorites_remove_index_unlocked "$current_index" || status=$?
         else
             status=1
+        fi
+        if ((status != 0)); then
+            FAVORITE_NAMES=("${previous_names[@]}")
+            FAVORITE_URLS=("${previous_urls[@]}")
         fi
     fi
     lock_release "$lock_dir" || status=1
@@ -147,10 +163,13 @@ favorites_move() {
     ((index >= 0 && index < ${#FAVORITE_URLS[@]})) || return 1
     local target_url="${FAVORITE_URLS[$index]}"
     local lock_dir="${KEILA_FAVORITES_FILE}.lock"
+    local -a previous_names=() previous_urls=()
     lock_acquire "$lock_dir" || return 1
     local status=0 current target tmp
     favorites_load || status=1
     if ((status == 0)); then
+        previous_names=("${FAVORITE_NAMES[@]}")
+        previous_urls=("${FAVORITE_URLS[@]}")
         if current=$(favorites_find_url "$target_url"); then
             target=$((current + delta))
             if ((target < 0 || target >= ${#FAVORITE_NAMES[@]})); then
@@ -167,6 +186,10 @@ favorites_move() {
         else
             status=1
         fi
+        if ((status != 0)); then
+            FAVORITE_NAMES=("${previous_names[@]}")
+            FAVORITE_URLS=("${previous_urls[@]}")
+        fi
     fi
     lock_release "$lock_dir" || status=1
     return "$status"
@@ -174,14 +197,23 @@ favorites_move() {
 
 favorites_toggle() {
     local name="$1" url="$2" lock_dir="${KEILA_FAVORITES_FILE}.lock"
+    local -a previous_names=() previous_urls=()
+    FAVORITES_TOGGLE_ACTION=''
     lock_acquire "$lock_dir" || return 1
     local status=0 index
     favorites_load || status=1
     if ((status == 0)); then
+        previous_names=("${FAVORITE_NAMES[@]}")
+        previous_urls=("${FAVORITE_URLS[@]}")
         if index=$(favorites_find_url "$url"); then
             if favorites_remove_index_unlocked "$index"; then FAVORITES_TOGGLE_ACTION="removed"; else status=1; fi
         else
             if favorites_add_unlocked "$name" "$url"; then FAVORITES_TOGGLE_ACTION="added"; else status=$?; fi
+        fi
+        if ((status != 0)); then
+            FAVORITE_NAMES=("${previous_names[@]}")
+            FAVORITE_URLS=("${previous_urls[@]}")
+            FAVORITES_TOGGLE_ACTION=''
         fi
     fi
     lock_release "$lock_dir" || status=1
