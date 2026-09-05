@@ -78,7 +78,12 @@ search_apply_pending_filter() {
 }
 
 search_open() {
+    # Cerrar la búsqueda deja la consulta visible en el panel desktop con
+    # "B editar". Al volver a entrar conservamos esa consulta de verdad, pero
+    # reiniciamos selección/scroll y recargamos el catálogo por si cambió.
+    local previous_query="$SEARCH_QUERY"
     search_reset
+    SEARCH_QUERY="$previous_query"
     search_load_catalog || return 1
     search_filter
     SEARCH_ACTIVE=1
