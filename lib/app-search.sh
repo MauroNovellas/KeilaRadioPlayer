@@ -47,6 +47,10 @@ search_handle_key() {
     return 0
 }
 
+search_prepare_results() {
+    search_apply_pending_filter || true
+}
+
 stations_select_fzf() {
     if [[ "${KEILA_FZF_SEARCH:-0}" == '1' ]]; then
         stations_select_fzf_external
@@ -77,6 +81,11 @@ stations_select_fzf() {
         local redraw=0
         case "$INPUT_EVENT" in
             TICK)
+                # El teclado se pinta inmediatamente. El filtro pesado se aplica
+                # después de una breve pausa natural de input (timeout/TICK).
+                if search_apply_pending_filter; then
+                    redraw=1
+                fi
                 app_poll_player && redraw=1
                 ui_message_tick && redraw=1
                 ;;
@@ -88,30 +97,37 @@ stations_select_fzf() {
                 return 1
                 ;;
             UP)
+                search_prepare_results
                 search_move -1 || true
                 redraw=1
                 ;;
             DOWN)
+                search_prepare_results
                 search_move 1 || true
                 redraw=1
                 ;;
             HOME)
+                search_prepare_results
                 search_select_first || true
                 redraw=1
                 ;;
             END)
+                search_prepare_results
                 search_select_last || true
                 redraw=1
                 ;;
             PAGE_UP)
+                search_prepare_results
                 search_move -5 || true
                 redraw=1
                 ;;
             PAGE_DOWN)
+                search_prepare_results
                 search_move 5 || true
                 redraw=1
                 ;;
             ENTER)
+                search_prepare_results
                 if search_selected_load; then
                     search_close
                     return 0
@@ -120,6 +136,9 @@ stations_select_fzf() {
                 redraw=1
                 ;;
             KEY)
+                # search_append/backspace solo modifican el texto y marcan el
+                # filtro pendiente: esta misma iteración redibuja la tecla sin
+                # esperar a recorrer todo el catálogo.
                 if search_handle_key "$INPUT_KEY"; then
                     redraw=1
                 fi
