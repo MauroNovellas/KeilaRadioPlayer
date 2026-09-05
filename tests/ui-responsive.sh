@@ -35,6 +35,14 @@ assert_eq 54 "$(ui_layout_width 55)" 'compact reserva una columna de seguridad'
 UI_LAYOUT_MODE=minimal
 assert_eq 44 "$(ui_layout_width 45)" 'minimal reserva una columna de seguridad'
 
+# Las reglas intermedias deben avanzar de fila, pero el borde inferior no puede
+# emitir un salto final: hacerlo cuando ocupa la última fila provoca scroll y
+# deja restos del frame anterior en la parte superior de la terminal.
+top_render="$(ui_box_rule 12 "$UI_TL" "$UI_TR"; printf 'X')"
+[[ "$top_render" == *$'\nX' ]] || fail 'el borde superior dejó de avanzar de fila'
+bottom_render="$(ui_box_rule 12 "$UI_BL" "$UI_BR"; printf 'X')"
+[[ "$bottom_render" != *$'\nX' ]] || fail 'el borde inferior todavía provoca scroll vertical'
+
 UI_HELP_VISIBLE=1
 UI_LAYOUT_MODE=wide
 assert_eq 4 "$(ui_control_line_count)" 'ayuda wide'
@@ -75,4 +83,4 @@ ui_responsive_badges '[● REC 00:42]' '[★ FAVORITA]' '[PAUSA]'
 assert_eq '' "$UI_RESP_RECORDING" 'minimal prioriza estado sobre REC'
 assert_eq '[PAUSA]' "$UI_RESP_STATE" 'minimal conserva el estado prioritario'
 
-printf 'ok   composición TUI responsive y ancho seguro\n'
+printf 'ok   composición TUI responsive, ancho y scroll seguros\n'
