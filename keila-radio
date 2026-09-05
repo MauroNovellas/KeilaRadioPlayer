@@ -36,23 +36,15 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 
-die() {
-    printf 'Error: %s\n' "$*" >&2
-    exit 1
-}
-
-app_message() {
-    ui_set_message "$1" "${2:-5}"
-}
+die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
+app_message() { ui_set_message "$1" "${2:-5}"; }
 
 save_player_state() {
     STATE_VOLUME="$PLAYER_VOLUME"
-
     if [[ -n "${PLAYER_URL:-}" ]]; then
         STATE_LAST_NAME="$PLAYER_NAME"
         STATE_LAST_URL="$PLAYER_URL"
     fi
-
     state_save
 }
 
@@ -61,31 +53,23 @@ app_init_data() {
         printf 'No se pudo cargar la configuración: %s\n' "$KEILA_CONFIG_FILE" >&2
         return 1
     fi
-
     favorites_init "$DEFAULT_FAVORITES_FILE" || {
         printf 'No se pudo inicializar favoritos: %s\n' "$KEILA_FAVORITES_FILE" >&2
         return 1
     }
     favorites_load || return 1
     state_load || return 1
-
     if ! recording_init "$KEILA_RECORDINGS_DIR"; then
         printf 'No se pudo crear la carpeta de grabaciones: %s\n' "$KEILA_RECORDINGS_DIR" >&2
         return 1
     fi
-
     PLAYER_VOLUME="$STATE_VOLUME"
     PLAYER_INFO_INTERVAL="$KEILA_PLAYER_INFO_INTERVAL"
 }
 
 app_play() {
-    local name="$1"
-    local url="$2"
-
-    if ((RECORDING_ACTIVE)); then
-        recording_stop >/dev/null 2>&1 || true
-    fi
-
+    local name="$1" url="$2"
+    if ((RECORDING_ACTIVE)); then recording_stop >/dev/null 2>&1 || true; fi
     if ! player_start "$name" "$url"; then
         if [[ -n "${PLAYER_LAST_EXIT_STATUS:-}" ]]; then
             app_message "No se pudo iniciar $name (mpv: código $PLAYER_LAST_EXIT_STATUS)." 8
@@ -94,29 +78,19 @@ app_play() {
         fi
         return 1
     fi
-
     save_player_state >/dev/null 2>&1 || true
     app_message "Conectando: $name" 5
-    return 0
 }
 
 app_play_selected() {
     favorites_load
     ui_sync_selection
-
-    if ((${#FAVORITE_NAMES[@]} == 0)); then
-        app_message "No tienes favoritos. Pulsa B para buscar una emisora." 6
-        return 1
-    fi
-
-    local name="${FAVORITE_NAMES[$UI_SELECTED_INDEX]}"
-    local url="${FAVORITE_URLS[$UI_SELECTED_INDEX]}"
-    app_play "$name" "$url"
+    if ((${#FAVORITE_NAMES[@]} == 0)); then app_message "No tienes favoritos. Pulsa B para buscar una emisora." 6; return 1; fi
+    app_play "${FAVORITE_NAMES[$UI_SELECTED_INDEX]}" "${FAVORITE_URLS[$UI_SELECTED_INDEX]}"
 }
 
 app_change_volume() {
     local delta="$1"
-
     if player_change_volume "$delta"; then
         if save_player_state >/dev/null 2>&1; then
             app_message "Volumen: ${PLAYER_VOLUME}%" 2
@@ -129,17 +103,9 @@ app_change_volume() {
 }
 
 app_toggle_pause() {
-    if ! player_is_running; then
-        app_message "No hay ninguna emisora en reproducción." 5
-        return 1
-    fi
-
+    if ! player_is_running; then app_message "No hay ninguna emisora en reproducción." 5; return 1; fi
     if player_toggle_pause; then
-        if ((PLAYER_PAUSED)); then
-            app_message "Reproducción pausada." 3
-        else
-            app_message "Reproducción reanudada." 3
-        fi
+        if ((PLAYER_PAUSED)); then app_message "Reproducción pausada." 3; else app_message "Reproducción reanudada." 3; fi
     else
         app_message "No se pudo cambiar la pausa." 6
         return 1
@@ -150,11 +116,9 @@ app_toggle_recording() {
     if ((RECORDING_ACTIVE)); then
         local saved_file
         saved_file=$(recording_filename)
-
         if recording_stop; then
             local saved_size
             saved_size=$(recording_size_human)
-
             if [[ -n "${RECORDING_LAST_ERROR:-}" ]]; then
                 app_message "Grabación conservada: $saved_file ($saved_size)." 8
             else
@@ -162,82 +126,47 @@ app_toggle_recording() {
             fi
             return 0
         fi
-
         app_message "Grabación no válida: ${RECORDING_LAST_ERROR:-error desconocido}" 9
         return 1
     fi
-
-    if ! player_is_running; then
-        app_message "No hay ninguna emisora en reproducción para grabar." 6
-        return 1
-    fi
-
-    if recording_start "$PLAYER_NAME"; then
-        app_message "Grabando: $(recording_filename)" 4
-        return 0
-    fi
-
+    if ! player_is_running; then app_message "No hay ninguna emisora en reproducción para grabar." 6; return 1; fi
+    if recording_start "$PLAYER_NAME"; then app_message "Grabando: $(recording_filename)" 4; return 0; fi
     app_message "No se pudo iniciar la grabación." 7
     return 1
 }
 
 app_toggle_favorite() {
-    if ! player_is_running; then
-        app_message "No hay ninguna emisora en reproducción." 5
-        return 1
-    fi
-
+    if ! player_is_running; then app_message "No hay ninguna emisora en reproducción." 5; return 1; fi
     favorites_load
-
-    if ! favorites_toggle "$PLAYER_NAME" "$PLAYER_URL"; then
-        app_message "No se pudo modificar favoritos." 6
-        return 1
-    fi
-
+    if ! favorites_toggle "$PLAYER_NAME" "$PLAYER_URL"; then app_message "No se pudo modificar favoritos." 6; return 1; fi
     case "${FAVORITES_TOGGLE_ACTION:-}" in
-        added)
-            app_message "Añadida a favoritos: $PLAYER_NAME" 5
-            ui_select_url "$PLAYER_URL" >/dev/null 2>&1 || true
-            ;;
-        removed)
-            app_message "Eliminada de favoritos: $PLAYER_NAME" 5
-            ui_sync_selection
-            ;;
+        added) app_message "Añadida a favoritos: $PLAYER_NAME" 5; ui_select_url "$PLAYER_URL" >/dev/null 2>&1 || true ;;
+        removed) app_message "Eliminada de favoritos: $PLAYER_NAME" 5; ui_sync_selection ;;
     esac
 }
 
 app_move_selected_favorite() {
     local delta="$1"
-
     favorites_load
     ui_sync_selection
-
     local count=${#FAVORITE_NAMES[@]}
-    if ((count == 0)); then
-        app_message "No tienes favoritos para reordenar." 5
-        return 1
-    fi
+    if ((count == 0)); then app_message "No tienes favoritos para reordenar." 5; return 1; fi
 
     local index=$UI_SELECTED_INDEX
     local target=$((index + delta))
     local name="${FAVORITE_NAMES[$index]}"
-
+    local selected_url="${FAVORITE_URLS[$index]}"
     if ((target < 0 || target >= count)); then
-        if ((delta < 0)); then
-            app_message "Ese favorito ya está arriba del todo." 4
-        else
-            app_message "Ese favorito ya está abajo del todo." 4
-        fi
+        if ((delta < 0)); then app_message "Ese favorito ya está arriba del todo." 4; else app_message "Ese favorito ya está abajo del todo." 4; fi
         return 1
     fi
 
     if favorites_move "$index" "$delta"; then
         favorites_load
-        ui_select_url "${FAVORITE_URLS[$target]:-}" >/dev/null 2>&1 || true
+        ui_select_url "$selected_url" >/dev/null 2>&1 || ui_sync_selection
         app_message "Nuevo orden guardado: $name" 4
         return 0
     fi
-
     app_message "No se pudo reordenar el favorito." 6
     return 1
 }
@@ -245,23 +174,12 @@ app_move_selected_favorite() {
 app_remove_selected_favorite() {
     favorites_load
     ui_sync_selection
-
-    if ((${#FAVORITE_NAMES[@]} == 0)); then
-        app_message "No tienes favoritos para eliminar." 5
-        return 1
-    fi
-
+    if ((${#FAVORITE_NAMES[@]} == 0)); then app_message "No tienes favoritos para eliminar." 5; return 1; fi
     local index=$UI_SELECTED_INDEX
     local name="${FAVORITE_NAMES[$index]}"
     local url="${FAVORITE_URLS[$index]}"
-
-    if ! favorites_remove_index "$index"; then
-        app_message "No se pudo eliminar el favorito." 6
-        return 1
-    fi
-
+    if ! favorites_remove_index "$index"; then app_message "No se pudo eliminar el favorito." 6; return 1; fi
     ui_sync_selection
-
     if player_is_running && [[ "$PLAYER_URL" == "$url" ]]; then
         app_message "Quitada de favoritos; sigue sonando: $name" 5
     else
@@ -271,48 +189,28 @@ app_remove_selected_favorite() {
 
 app_search_catalog() {
     ui_suspend
-
     local status=0
     stations_select_fzf || status=$?
-
     ui_resume
-
-    if ((status != 0)); then
-        app_message "Búsqueda cancelada." 3
-        return 0
-    fi
-
+    if ((status != 0)); then app_message "Búsqueda cancelada." 3; return 0; fi
     app_play "$SELECTED_NAME" "$SELECTED_URL"
 }
 
 app_update_catalog() {
     ui_suspend
-
     local status=0
     stations_update_catalog || status=$?
-
     ui_resume
-
-    if ((status == 0)); then
-        app_message "Catálogo de TDTChannels actualizado." 5
-    else
-        app_message "No se pudo actualizar el catálogo." 7
-    fi
+    if ((status == 0)); then app_message "Catálogo de TDTChannels actualizado." 5; else app_message "No se pudo actualizar el catálogo." 7; fi
 }
 
 app_poll_player() {
     if [[ -n "${PLAYER_PID:-}" ]] && ! player_is_running; then
-        local was_recording=$RECORDING_ACTIVE
-        local exit_status='?'
-
-        if player_collect_exit_status; then
-            exit_status="${PLAYER_LAST_EXIT_STATUS:-?}"
-        fi
-
+        local was_recording=$RECORDING_ACTIVE exit_status='?'
+        if player_collect_exit_status; then exit_status="${PLAYER_LAST_EXIT_STATUS:-?}"; fi
         if ((was_recording)); then
             local saved_file
             saved_file=$(recording_filename)
-
             if recording_finalize_after_player_exit; then
                 app_message "mpv se detuvo; grabación recuperada: $saved_file ($(recording_size_human))." 9
             else
@@ -325,11 +223,7 @@ app_poll_player() {
     fi
 
     player_is_running || return 1
-
-    local changed=1
-    local was_ready=$PLAYER_INFO_READY
-    local was_buffering=$PLAYER_BUFFERING
-
+    local changed=1 was_ready=$PLAYER_INFO_READY was_buffering=$PLAYER_BUFFERING
     if player_refresh_info; then
         if ((!was_ready && PLAYER_INFO_READY)); then
             app_message "Reproduciendo: $PLAYER_NAME" 3
@@ -340,17 +234,12 @@ app_poll_player() {
         fi
         changed=0
     fi
-
-    if recording_tick_changed; then
-        changed=0
-    fi
-
+    if recording_tick_changed; then changed=0; fi
     return "$changed"
 }
 
 app_handle_key() {
     local key="$1"
-
     case "$key" in
         w|W) ui_move_selection -1 || true ;;
         s|S) ui_move_selection 1 || true ;;
@@ -365,13 +254,9 @@ app_handle_key() {
         b|B) app_search_catalog || true ;;
         u|U) app_update_catalog || true ;;
         h|H) ui_toggle_help ;;
-        q|Q)
-            app_message "Hasta luego." 0
-            return 2
-            ;;
+        q|Q) app_message "Hasta luego." 0; return 2 ;;
         *) return 1 ;;
     esac
-
     return 0
 }
 
@@ -379,26 +264,13 @@ app_loop() {
     input_init
     ui_enter
     ui_draw
-
     while true; do
-        if ! input_read; then
-            return 0
-        fi
-
+        if ! input_read; then return 0; fi
         local redraw=0
-
         case "$INPUT_EVENT" in
-            TICK)
-                app_poll_player && redraw=1
-                ui_message_tick && redraw=1
-                ;;
+            TICK) app_poll_player && redraw=1; ui_message_tick && redraw=1 ;;
             RESIZE) redraw=1 ;;
-            ESC)
-                if ((UI_HELP_VISIBLE)); then
-                    ui_toggle_help
-                    redraw=1
-                fi
-                ;;
+            ESC) if ((UI_HELP_VISIBLE)); then ui_toggle_help; redraw=1; fi ;;
             UP) ui_move_selection -1 || true; redraw=1 ;;
             DOWN) ui_move_selection 1 || true; redraw=1 ;;
             LEFT) app_change_volume "$((-KEILA_VOLUME_STEP))"; redraw=1 ;;
@@ -411,22 +283,14 @@ app_loop() {
             KEY)
                 app_handle_key "$INPUT_KEY"
                 local key_status=$?
-
-                if ((key_status == 2)); then
-                    ui_draw
-                    return 0
-                elif ((key_status == 0)); then
-                    redraw=1
-                fi
+                if ((key_status == 2)); then ui_draw; return 0; elif ((key_status == 0)); then redraw=1; fi
                 ;;
         esac
-
         ((redraw)) && ui_draw
     done
 }
 
 main() {
-    # --check valida inicialización/rutas/escritura sin abrir TUI, red ni mpv.
     if [[ "${1:-}" == '--check' ]]; then
         app_init_data || return 1
         printf 'Keila Radio Player: inicialización OK\n'
@@ -439,15 +303,12 @@ main() {
 
     deps_ensure || exit 1
     app_init_data || exit 1
-
     player_require_dependencies || exit 1
     ui_require_dependencies || exit 1
-
     ui_select_url "$STATE_LAST_URL" >/dev/null 2>&1 || true
 
     local station_url="${1:-}"
     local station_name="${2:-Stream de prueba}"
-
     if [[ -n "$station_url" ]]; then
         app_play "$station_name" "$station_url" || die "No se pudo iniciar mpv"
     elif [[ -n "$STATE_LAST_NAME" ]]; then
@@ -455,7 +316,6 @@ main() {
     else
         app_message "W/S o flechas para elegir un favorito; B busca en TDTChannels." 8
     fi
-
     app_loop
 }
 
