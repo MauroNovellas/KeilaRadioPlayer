@@ -6,6 +6,21 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_ROOT=$(mktemp -d) || exit 1
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
+# shellcheck source=lib/version.sh
+source "$ROOT_DIR/lib/version.sh"
+
+version_output=$("$ROOT_DIR/keila-radio" --version) || {
+    printf 'FAIL --version no respondió\n' >&2
+    exit 1
+}
+
+expected_version="Keila Radio Player $KEILA_VERSION"
+[[ "$version_output" == "$expected_version" ]] || {
+    printf 'FAIL versión: esperado %q, obtenido %q\n' "$expected_version" "$version_output" >&2
+    exit 1
+}
+printf 'ok   versión centralizada: %s\n' "$KEILA_VERSION"
+
 export HOME="$TMP_ROOT/home"
 export XDG_CONFIG_HOME="$TMP_ROOT/config"
 export XDG_STATE_HOME="$TMP_ROOT/state"
@@ -21,8 +36,8 @@ output=$("$ROOT_DIR/keila-radio" --check) || {
     exit 1
 }
 
-grep -q 'inicialización OK' <<< "$output" || {
-    printf 'FAIL --check no confirmó inicialización\n' >&2
+grep -q "Keila Radio Player $KEILA_VERSION: inicialización OK" <<< "$output" || {
+    printf 'FAIL --check no confirmó versión/inicialización\n' >&2
     exit 1
 }
 [[ -d "$TMP_ROOT/recordings" ]] || { printf 'FAIL no creó recordings_dir\n' >&2; exit 1; }
