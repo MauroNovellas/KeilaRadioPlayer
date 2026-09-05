@@ -85,10 +85,16 @@ J / K              mover el favorito seleccionado abajo/arriba
 X                  eliminar el favorito seleccionado
 B                  buscar una emisora en TDTChannels con fzf
 U                  actualizar el catálogo de TDTChannels
+?                  abrir/cerrar la ayuda completa
+Esc                cerrar la ayuda completa
 Q                  salir
 ```
 
 La navegación de favoritos es circular y tiene scroll automático. Al buscar con `B`, Keila suspende temporalmente la TUI, abre `fzf` y vuelve a la interfaz al seleccionar o cancelar.
+
+Por defecto la zona de controles ocupa una sola fila para dejar más espacio a favoritos. `?` despliega cuatro filas con todos los atajos y la lista ajusta automáticamente su altura; `?` o `Esc` vuelven a compactarla.
+
+Los mensajes de acciones y errores son temporales: avisos como el cambio de volumen, una búsqueda cancelada o una grabación guardada desaparecen solos después de unos segundos, mientras que el estado real de reproducción permanece en las líneas superiores de la TUI.
 
 La entrada de teclado vive en `lib/input.sh`: reconoce WASD y secuencias ANSI de flechas, reacciona a cambios de tamaño de la terminal y despierta periódicamente para detectar si `mpv` termina por su cuenta sin necesidad de pulsar una tecla.
 
@@ -117,10 +123,22 @@ Mientras está activa aparece un contador en la línea de estado:
 [REC 00:03:27]
 ```
 
-Los archivos usan Matroska Audio (`.mka`) para poder guardar distintos codecs sin forzar una conversión. El nombre se genera con la emisora y la fecha/hora de inicio, por ejemplo:
+Keila conserva un formato compatible con el stream de entrada en lugar de forzar siempre un único contenedor. Entre los casos habituales:
 
 ```text
-Rock_FM_2026-09-05_20-31-42.mka
+HLS / m3u8  -> .ts
+MP3         -> .mp3
+AAC         -> .aac
+Ogg / Opus  -> .ogg
+FLAC        -> .flac
+```
+
+Cuando la URL no revela el formato, Keila consulta a `mpv` qué demuxer está usando y, si hace falta, utiliza también el codec de audio conocido.
+
+El nombre se genera con la emisora y la fecha/hora de inicio, por ejemplo:
+
+```text
+Rock_FM_2026-09-05_20-31-42.ts
 ```
 
 Por defecto se guardan en:
@@ -129,19 +147,20 @@ Por defecto se guardan en:
 KeilaRadioPlayer/grabaciones/
 ```
 
-La carpeta está ignorada por Git. Al detener una grabación Keila comprueba que el fichero existe y contiene datos, y muestra también su tamaño. Si `mpv` cae inesperadamente, intenta validar y conservar el archivo que haya quedado.
+La carpeta está ignorada por Git. Al detener una grabación Keila espera a que el muxer termine de cerrar buffers, comprueba que el fichero existe y contiene datos, y muestra también su tamaño. Si `mpv` cae inesperadamente, intenta validar y conservar el archivo que haya quedado.
 
 ## Comprobaciones
 
-La rama `v2` incluye pruebas de regresión para la configuración, estado, favoritos y helpers de grabación, además de comprobación de sintaxis Bash.
+La rama `v2` incluye pruebas de regresión para configuración, estado, favoritos, helpers de grabación, formatos de grabación y estado visual de la TUI, además de comprobación de sintaxis Bash.
 
 Ejecutarlas localmente:
 
 ```bash
 ./tests/run.sh
+./tests/recording-formats.sh
 ```
 
-Si `shellcheck` está instalado, el mismo runner también lo ejecuta sobre los módulos principales. El workflow `.github/workflows/checks.yml` instala ShellCheck y ejecuta estas comprobaciones automáticamente en GitHub.
+Si `shellcheck` está instalado, el runner principal también lo ejecuta sobre los módulos principales. El workflow `.github/workflows/checks.yml` instala ShellCheck y ejecuta estas comprobaciones automáticamente en GitHub.
 
 ## Estructura v2
 
@@ -161,6 +180,7 @@ KeilaRadioPlayer/
 │   ├── stations.sh
 │   └── ui.sh
 ├── tests/
+│   ├── recording-formats.sh
 │   └── run.sh
 └── README.md
 ```
