@@ -73,7 +73,7 @@ favorites_add() {
 
     name="${name//$'\n'/ }"
     name="${name//$'\r'/ }"
-    name="${name//|//}"
+    name="${name//|/-}"
 
     if [[ "$url" == *$'\n'* || "$url" == *$'\r'* || "$url" == *'|'* ]]; then
         return 1

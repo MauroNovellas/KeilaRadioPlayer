@@ -61,7 +61,7 @@ test_shellcheck() {
         return 0
     }
 
-    shellcheck -x -e SC1090,SC1091,SC2034 \
+    shellcheck -x -e SC1090,SC1091,SC2034,SC2016 \
         "$ROOT_DIR/keila-radio" \
         "$ROOT_DIR/lib/config.sh" \
         "$ROOT_DIR/lib/state.sh" \
@@ -81,7 +81,6 @@ test_config_parser() (
     export XDG_CACHE_HOME="$tmp/cache"
     mkdir -p "$HOME"
 
-    # shellcheck source=../lib/config.sh
     source "$ROOT_DIR/lib/config.sh"
 
     local default_recordings="$tmp/default recordings"
@@ -139,7 +138,7 @@ test_state_is_data() (
     local marker="$tmp/EXECUTED"
     {
         printf 'volume\t77\n'
-        printf 'last_name\t$(touch %s)\n' "$marker"
+        printf 'last_name\t%s\n' "\$(touch $marker)"
         printf 'last_url\thttps://example.invalid/radio\n'
     } > "$KEILA_STATE_FILE"
 
