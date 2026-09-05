@@ -60,7 +60,7 @@ ui_sync_selection() {
     fi
 }
 
-favorites_init || fail 'no pudo crear favoritos temporales'
+favorites_init '' || fail 'no pudo crear favoritos temporales'
 favorites_load || fail 'no pudo cargar favoritos temporales'
 assert_eq 0 "${#FAVORITE_NAMES[@]}" 'favoritos empiezan vacíos'
 
