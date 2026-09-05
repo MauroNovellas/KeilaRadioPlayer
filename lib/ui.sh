@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Interfaz de terminal de Keila Radio Player v2.
+# Interfaz de terminal de Keila Radio Player.
 # Este módulo solo dibuja y gestiona estado visual; la lógica de reproducción,
 # entrada y persistencia vive en sus módulos correspondientes.
 
@@ -258,8 +258,10 @@ ui_draw() {
     control_lines=$(ui_control_line_count)
     min_lines=$((12 + info_lines + control_lines))
 
+    local version="${KEILA_VERSION:-dev}"
+
     if ((UI_COLS < 54 || UI_LINES < min_lines)); then
-        ui_print_line "$width" 'Keila Radio Player v2'
+        ui_print_line "$width" "Keila Radio Player $version"
         ui_print_line "$width" ''
         ui_print_line "$width" "La terminal es demasiado pequeña (${UI_COLS}x${UI_LINES})."
         ui_print_line "$width" "Necesito al menos 54 columnas y ${min_lines} filas."
@@ -269,7 +271,7 @@ ui_draw() {
         return 0
     fi
 
-    local title='KEILA RADIO PLAYER v2'
+    local title="KEILA RADIO PLAYER $version"
     local pad=$(((width - ${#title}) / 2)) title_line
     ((pad < 0)) && pad=0
     printf -v title_line '%*s%s' "$pad" '' "$title"
