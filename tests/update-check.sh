@@ -65,6 +65,7 @@ make_release() {
         ui-update-status.sh
         ui-search.sh
         app-search.sh
+        ui-desktop-search-pane.sh
     )
 
     mkdir -p "$root/lib" "$root/defaults"
@@ -110,7 +111,7 @@ trap 'rm -rf "$tmp"' EXIT
 incomplete_parent="$tmp/incomplete-release"
 mkdir -p "$incomplete_parent"
 make_release "$incomplete_parent" '2.0.1' '2.0.1'
-rm -f "$incomplete_parent/KeilaRadioPlayer-2.0.1/lib/ui-update-status.sh"
+rm -f "$incomplete_parent/KeilaRadioPlayer-2.0.1/lib/ui-desktop-search-pane.sh"
 tar -czf "$tmp/incomplete.tar.gz" -C "$incomplete_parent" 'KeilaRadioPlayer-2.0.1'
 
 install_incomplete="$tmp/install-incomplete"
