@@ -2,9 +2,23 @@
 
 Keila Radio Player es un reproductor de radio en Bash para terminal, usando `mpv` como motor de reproducción.
 
-La rama `v2` está en desarrollo activo y usa una arquitectura modular, persistencia XDG, búsqueda en TDTChannels, gestión de favoritos, grabación del stream y una TUI navegable con teclado.
+La rama `v2` está actualmente en fase **`2.0.0-rc1`**. La plataforma principal de esta release candidate es Linux de escritorio; Termux/Android sigue siendo compatible de forma secundaria y recibirá una pasada específica después de estabilizar la versión de PC.
 
-La plataforma principal de desarrollo es Linux de escritorio. La compatibilidad con Termux/Android existe, pero por ahora se considera secundaria y se pulirá cuando la versión de PC esté más consolidada.
+Consulta el historial de cambios en [`CHANGELOG.md`](CHANGELOG.md).
+
+## Versión
+
+La versión vive en una única fuente, `lib/version.sh`, y puede consultarse sin inicializar dependencias ni abrir la TUI:
+
+```bash
+./keila-radio --version
+```
+
+Salida esperada para esta RC:
+
+```text
+Keila Radio Player 2.0.0-rc1
+```
 
 ## Dependencias
 
@@ -29,7 +43,7 @@ Gestores soportados por el instalador automático:
 
 Para `tput`, Keila instala `ncurses-bin` en Debian y `ncurses-utils` en Termux.
 
-## Ejecutar v2
+## Ejecutar
 
 ```bash
 ./keila-radio
@@ -108,7 +122,7 @@ Los mensajes de acciones y errores son temporales: avisos como el cambio de volu
 
 Cada instancia de Keila usa su propio socket IPC de `mpv`, por lo que dos reproductores abiertos no se pisan entre sí.
 
-Las escrituras de `state` y `favorites` también están protegidas con mutex basados en `mkdir`, sin depender de `flock`. En favoritos se bloquea la operación completa leer → modificar → guardar, no solo el `mv` final. Las operaciones por índice conservan además la identidad de la emisora por URL para evitar actuar sobre otro favorito si una segunda instancia cambia el orden simultáneamente.
+Las escrituras de `state` y `favorites` están protegidas con mutex basados en `mkdir`, sin depender de `flock`. En favoritos se bloquea la operación completa leer → modificar → guardar, no solo el reemplazo final. Las operaciones por índice conservan además la identidad de la emisora por URL para evitar actuar sobre otro favorito si una segunda instancia cambia el orden simultáneamente.
 
 ## Información del stream
 
@@ -161,7 +175,7 @@ La carpeta está ignorada por Git. Al detener una grabación Keila espera a que 
 
 ## Comprobaciones
 
-La rama `v2` incluye pruebas de regresión para configuración, estado, favoritos, helpers/formato de grabación y estado visual de la TUI. La batería pre-RC añade un smoke test real de inicialización y una prueba con varios procesos escribiendo favoritos simultáneamente.
+La RC incluye pruebas de regresión para configuración, estado, favoritos, helpers/formato de grabación y estado visual de la TUI. La batería pre-RC añade validación de versión, smoke test real de inicialización y una prueba con varios procesos escribiendo favoritos simultáneamente.
 
 Ejecutarlas localmente:
 
@@ -173,11 +187,12 @@ bash ./tests/pre-rc.sh
 
 Si `shellcheck` está instalado, el runner principal también lo ejecuta sobre los módulos principales. El workflow `.github/workflows/checks.yml` instala ShellCheck y ejecuta todas estas comprobaciones automáticamente en GitHub.
 
-## Estructura v2
+## Estructura
 
 ```text
 KeilaRadioPlayer/
 ├── keila-radio
+├── CHANGELOG.md
 ├── defaults/
 │   └── favorites
 ├── lib/
@@ -190,7 +205,8 @@ KeilaRadioPlayer/
 │   ├── recording.sh
 │   ├── state.sh
 │   ├── stations.sh
-│   └── ui.sh
+│   ├── ui.sh
+│   └── version.sh
 ├── tests/
 │   ├── pre-rc.sh
 │   ├── recording-formats.sh
@@ -201,3 +217,7 @@ KeilaRadioPlayer/
 Los scripts, listados y documentación de la antigua v1 se mantienen en el historial de Git, pero ya no forman parte del árbol de trabajo de `v2`.
 
 Al salir, Keila detiene/finaliza la grabación si existe, detiene `mpv`, restaura el cursor, abandona la pantalla alternativa de la TUI y limpia la pantalla principal para no dejar restos visuales.
+
+## Política de la RC
+
+Durante `2.0.0-rc1` se priorizan correcciones de regresiones y estabilidad. Las nuevas funciones se posponen hasta decidir que el candidato está listo para convertirse en `2.0.0`.
