@@ -42,7 +42,7 @@ favorites_load() {
 
 favorites_save_unlocked() {
     keila_init_paths || return 1
-    local tmp="${KEILA_FAVORITES_FILE}.tmp.$$"
+    local tmp="${KEILA_FAVORITES_FILE}.tmp.${BASHPID:-$$}"
     local i status=0
     umask 077
 
