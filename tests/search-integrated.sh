@@ -77,13 +77,15 @@ SEARCH_SELECTED_INDEX=3
 search_sync_scroll 2
 assert_eq 2 "$SEARCH_SCROLL_OFFSET" 'scroll sigue la selección'
 
-# Comprueba que la capa visual existe y mantiene geometría desktop exacta.
+# Comprueba que la capa visual existe y mantiene geometría desktop exacta en el
+# modo Unicode real. El fallback ASCII tiene todos los vértices como '+' y se
+# prueba por separado de la protección de scroll del borde final.
 source "$ROOT_DIR/lib/ui.sh"
 source "$ROOT_DIR/lib/ui-responsive.sh"
 source "$ROOT_DIR/lib/ui-safe-width.sh"
 
 player_is_running() { return 1; }
-UI_UNICODE=0
+UI_UNICODE=1
 UI_COLOR=0
 UI_HELP_VISIBLE=0
 UI_LINES=20
