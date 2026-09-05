@@ -149,20 +149,25 @@ ui_desktop_row() {
                 fi
             elif ((match_position < ${#SEARCH_MATCHES[@]})); then
                 local source_index=${SEARCH_MATCHES[$match_position]}
+                local playing=0
                 ui_search_result_parts "$source_index"
                 right_text="  $UI_SEARCH_NAME"
-                right_badge="$UI_SEARCH_DETAIL"
+
+                if player_is_running && [[ "${SEARCH_URLS[$source_index]}" == "$PLAYER_URL" ]]; then
+                    playing=1
+                fi
+                right_badge=$(ui_search_result_badge "$playing")
+                ((UI_SEARCH_IS_FAVORITE)) && right_badge_style='favorite'
 
                 if ((SEARCH_ACTIVE && match_position == SEARCH_SELECTED_INDEX)); then
                     right_text="$UI_SELECT $UI_SEARCH_NAME"
                     selected=1
-                elif player_is_running && [[ "${SEARCH_URLS[$source_index]}" == "$PLAYER_URL" ]]; then
+                elif ((playing)); then
                     right_text="$UI_PLAY $UI_SEARCH_NAME"
                     right_style='playing'
-                    right_badge='[PLAY]'
                     right_badge_style='playing'
                 else
-                    right_badge_style='muted'
+                    [[ -n "$right_badge_style" ]] || right_badge_style='muted'
                 fi
             fi
         fi
@@ -173,9 +178,8 @@ ui_desktop_row() {
         "$right_text" "$right_badge" "$right_style" "$right_badge_style" "$selected"
 }
 
-# El pie normal anuncia atajos como Q/R/F que, durante la búsqueda, son texto.
-# Lo sustituimos únicamente mientras SEARCH_ACTIVE para que la ayuda visible
-# coincida con lo que realmente acepta el subbucle de búsqueda.
+# El pie normal anuncia atajos como Q/R que durante la búsqueda son texto. F
+# mayúscula es la única letra reservada para actuar sobre el resultado activo.
 if ! declare -F ui_draw_responsive_controls_without_search_focus >/dev/null 2>&1; then
     UI_DESKTOP_SEARCH_SPLIT_DEF=$(declare -f ui_draw_responsive_controls)
     UI_DESKTOP_SEARCH_SPLIT_DEF=${UI_DESKTOP_SEARCH_SPLIT_DEF/ui_draw_responsive_controls ()/ui_draw_responsive_controls_without_search_focus ()}
@@ -187,7 +191,7 @@ ui_draw_responsive_controls() {
     local width="$1"
 
     if ((SEARCH_ACTIVE)); then
-        ui_box_line "$width" "Escribe para filtrar  $UI_SEP  ↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  Backspace borrar  $UI_SEP  Esc favoritos" muted
+        ui_box_line "$width" "Escribe  $UI_SEP  ↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  F favorito  $UI_SEP  Esc favoritos" muted
         return 0
     fi
 
