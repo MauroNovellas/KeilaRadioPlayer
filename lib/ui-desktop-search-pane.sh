@@ -172,3 +172,24 @@ ui_desktop_row() {
         "$left_text" "$left_badge" "$left_style" "$left_badge_style" \
         "$right_text" "$right_badge" "$right_style" "$right_badge_style" "$selected"
 }
+
+# El pie normal anuncia atajos como Q/R/F que, durante la búsqueda, son texto.
+# Lo sustituimos únicamente mientras SEARCH_ACTIVE para que la ayuda visible
+# coincida con lo que realmente acepta el subbucle de búsqueda.
+if ! declare -F ui_draw_responsive_controls_without_search_focus >/dev/null 2>&1; then
+    UI_DESKTOP_SEARCH_SPLIT_DEF=$(declare -f ui_draw_responsive_controls)
+    UI_DESKTOP_SEARCH_SPLIT_DEF=${UI_DESKTOP_SEARCH_SPLIT_DEF/ui_draw_responsive_controls ()/ui_draw_responsive_controls_without_search_focus ()}
+    eval "$UI_DESKTOP_SEARCH_SPLIT_DEF"
+    unset UI_DESKTOP_SEARCH_SPLIT_DEF
+fi
+
+ui_draw_responsive_controls() {
+    local width="$1"
+
+    if ((SEARCH_ACTIVE)); then
+        ui_box_line "$width" "Escribe para filtrar  $UI_SEP  ↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  Backspace borrar  $UI_SEP  Esc favoritos" muted
+        return 0
+    fi
+
+    ui_draw_responsive_controls_without_search_focus "$@"
+}
