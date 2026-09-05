@@ -6,16 +6,14 @@
 KEILA_LOCK_ATTEMPTS="${KEILA_LOCK_ATTEMPTS:-40}"
 KEILA_LOCK_SLEEP="${KEILA_LOCK_SLEEP:-0.05}"
 
-lock_pid() {
-    printf '%s' "${BASHPID:-$$}"
-}
-
 # Aparta un lock antiguo mediante rename atómico antes de borrarlo. Al borrar
 # una ruta distinta nunca podemos llevarnos por delante un lock nuevo (ABA).
 lock_retire() {
     local lock_dir="$1"
     local tag="$2"
-    local retired="${lock_dir}.${tag}.$(lock_pid)"
+    local self="$3"
+    local retired
+    retired="${lock_dir}.${tag}.${self}"
 
     rm -rf "$retired" 2>/dev/null || true
     if mv "$lock_dir" "$retired" 2>/dev/null; then
@@ -27,8 +25,8 @@ lock_retire() {
 
 lock_acquire() {
     local lock_dir="$1"
-    local attempt owner self
-    self=$(lock_pid)
+    local attempt owner
+    local self="${BASHPID:-$$}"
 
     mkdir -p "$(dirname "$lock_dir")" || return 1
 
@@ -37,7 +35,7 @@ lock_acquire() {
             if printf '%s\n' "$self" > "$lock_dir/pid" 2>/dev/null; then
                 return 0
             fi
-            lock_retire "$lock_dir" 'broken' >/dev/null 2>&1 || true
+            lock_retire "$lock_dir" 'broken' "$self" >/dev/null 2>&1 || true
             return 1
         fi
 
@@ -47,7 +45,7 @@ lock_acquire() {
         fi
 
         if [[ "$owner" =~ ^[0-9]+$ ]] && ! kill -0 "$owner" 2>/dev/null; then
-            lock_retire "$lock_dir" 'stale' >/dev/null 2>&1 || true
+            lock_retire "$lock_dir" 'stale' "$self" >/dev/null 2>&1 || true
             continue
         fi
 
@@ -59,8 +57,8 @@ lock_acquire() {
 
 lock_release() {
     local lock_dir="$1"
-    local owner="" self
-    self=$(lock_pid)
+    local owner=""
+    local self="${BASHPID:-$$}"
 
     [[ -d "$lock_dir" ]] || return 0
     if [[ -r "$lock_dir/pid" ]]; then
@@ -68,5 +66,5 @@ lock_release() {
     fi
 
     [[ "$owner" == "$self" ]] || return 1
-    lock_retire "$lock_dir" 'released'
+    lock_retire "$lock_dir" 'released' "$self"
 }
