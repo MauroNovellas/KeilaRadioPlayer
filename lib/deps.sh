@@ -85,12 +85,36 @@ deps_collect_missing() {
     done
 }
 
+deps_termux_needs_repair() {
+    deps_is_termux || return 1
+
+    # dpkg --audit puede detectar paquetes desempaquetados pero todavía no
+    # configurados, justo el estado en el que puede quedar mpv si falla ffmpeg.
+    if command -v dpkg >/dev/null 2>&1; then
+        local audit
+        audit=$(dpkg --audit 2>/dev/null || true)
+        [[ -n "$audit" ]] && return 0
+    fi
+
+    # Un ejecutable puede existir en PATH aunque sus librerías estén rotas.
+    # Comprobamos los dos componentes multimedia más sensibles de Termux.
+    if command -v ffmpeg >/dev/null 2>&1 && ! ffmpeg -version >/dev/null 2>&1; then
+        return 0
+    fi
+
+    if command -v mpv >/dev/null 2>&1 && ! mpv --version >/dev/null 2>&1; then
+        return 0
+    fi
+
+    return 1
+}
+
 deps_termux_repair() {
     printf 'Preparando y reparando el entorno de paquetes de Termux...\n'
 
-    # Termux no soporta upgrades parciales de forma fiable: paquetes multimedia
-    # como ffmpeg/mpv pueden quedar enlazados contra versiones antiguas de sus
-    # librerías. Antes de instalar Keila dejamos todo el entorno consistente.
+    # Termux recomienda mantener todos los paquetes actualizados conjuntamente:
+    # paquetes multimedia como ffmpeg/mpv pueden fallar si quedan mezcladas
+    # versiones nuevas y antiguas de sus librerías.
     if ! DEBIAN_FRONTEND=noninteractive pkg update -y; then
         printf 'No se pudieron actualizar los índices de Termux.\n' >&2
         return 1
@@ -121,6 +145,11 @@ deps_termux_repair() {
             fi
             dpkg --configure -a || return 1
         fi
+    fi
+
+    if deps_termux_needs_repair; then
+        printf 'Termux sigue teniendo paquetes multimedia sin configurar correctamente.\n' >&2
+        return 1
     fi
 }
 
@@ -173,6 +202,11 @@ deps_verify() {
         fi
     done
 
+    if deps_is_termux && deps_termux_needs_repair; then
+        printf 'El gestor de paquetes de Termux sigue en un estado inconsistente.\n' >&2
+        missing=1
+    fi
+
     ((missing == 0))
 }
 
@@ -180,8 +214,22 @@ deps_ensure() {
     local manager
     manager=$(deps_detect_manager)
 
+    # Reparamos también instalaciones parciales en las que el ejecutable de mpv
+    # ya existe pero ffmpeg/dpkg siguen sin estar configurados correctamente.
+    if [[ "$manager" == "pkg" ]] && deps_termux_needs_repair; then
+        printf 'Keila ha detectado una instalación de Termux a medio configurar.\n'
+        if ! deps_termux_repair; then
+            printf 'No se pudo reparar automáticamente Termux.\n' >&2
+            printf 'Prueba termux-change-repo, cambia el mirror principal y vuelve a ejecutar Keila.\n' >&2
+            return 1
+        fi
+    fi
+
     deps_collect_missing "$manager"
-    ((${#KEILA_MISSING_COMMANDS[@]} == 0)) && return 0
+    if ((${#KEILA_MISSING_COMMANDS[@]} == 0)); then
+        deps_verify
+        return $?
+    fi
 
     printf 'Keila necesita instalar: %s\n' "${KEILA_MISSING_COMMANDS[*]}"
 
