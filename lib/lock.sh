@@ -10,6 +10,21 @@ lock_pid() {
     printf '%s' "${BASHPID:-$$}"
 }
 
+# Aparta un lock antiguo mediante rename atómico antes de borrarlo. Al borrar
+# una ruta distinta nunca podemos llevarnos por delante un lock nuevo (ABA).
+lock_retire() {
+    local lock_dir="$1"
+    local tag="$2"
+    local retired="${lock_dir}.${tag}.$(lock_pid)"
+
+    rm -rf "$retired" 2>/dev/null || true
+    if mv "$lock_dir" "$retired" 2>/dev/null; then
+        rm -rf "$retired" 2>/dev/null || true
+        return 0
+    fi
+    return 1
+}
+
 lock_acquire() {
     local lock_dir="$1"
     local attempt owner self
@@ -19,11 +34,11 @@ lock_acquire() {
 
     for ((attempt = 0; attempt < KEILA_LOCK_ATTEMPTS; attempt++)); do
         if mkdir "$lock_dir" 2>/dev/null; then
-            printf '%s\n' "$self" > "$lock_dir/pid" 2>/dev/null || {
-                rmdir "$lock_dir" 2>/dev/null || true
-                return 1
-            }
-            return 0
+            if printf '%s\n' "$self" > "$lock_dir/pid" 2>/dev/null; then
+                return 0
+            fi
+            lock_retire "$lock_dir" 'broken' >/dev/null 2>&1 || true
+            return 1
         fi
 
         owner=""
@@ -32,7 +47,7 @@ lock_acquire() {
         fi
 
         if [[ "$owner" =~ ^[0-9]+$ ]] && ! kill -0 "$owner" 2>/dev/null; then
-            rm -rf "$lock_dir" 2>/dev/null || true
+            lock_retire "$lock_dir" 'stale' >/dev/null 2>&1 || true
             continue
         fi
 
@@ -52,7 +67,6 @@ lock_release() {
         IFS= read -r owner < "$lock_dir/pid" || true
     fi
 
-    if [[ -z "$owner" || "$owner" == "$self" ]]; then
-        rm -rf "$lock_dir" 2>/dev/null || return 1
-    fi
+    [[ "$owner" == "$self" ]] || return 1
+    lock_retire "$lock_dir" 'released'
 }
