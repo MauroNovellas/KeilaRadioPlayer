@@ -29,11 +29,17 @@ search_open || fail 'no pudo cargar catálogo simulado'
 assert_eq 1 "$SEARCH_ACTIVE" 'búsqueda activa'
 assert_eq 4 "${#SEARCH_MATCHES[@]}" 'catálogo completo al abrir'
 
+# La escritura debe actualizar el texto inmediatamente, sin esperar a recorrer
+# el catálogo. El filtrado queda pendiente hasta el siguiente TICK/pausa.
 search_append R
 search_append o
 search_append c
 search_append k
-assert_eq 'Rock' "$SEARCH_QUERY" 'texto escrito'
+assert_eq 'Rock' "$SEARCH_QUERY" 'texto escrito inmediatamente'
+assert_eq 1 "$SEARCH_FILTER_DIRTY" 'filtro queda pendiente mientras se escribe'
+assert_eq 4 "${#SEARCH_MATCHES[@]}" 'escribir no bloquea recalculando resultados'
+search_apply_pending_filter || fail 'no aplicó filtro pendiente'
+assert_eq 0 "$SEARCH_FILTER_DIRTY" 'filtro pendiente queda resuelto'
 assert_eq 2 "${#SEARCH_MATCHES[@]}" 'filtrado por nombre'
 
 search_move 1
@@ -44,7 +50,9 @@ search_move 1
 assert_eq 0 "$SEARCH_SELECTED_INDEX" 'navegación circular'
 
 search_backspace
-assert_eq 'Roc' "$SEARCH_QUERY" 'backspace elimina carácter'
+assert_eq 'Roc' "$SEARCH_QUERY" 'backspace elimina carácter inmediatamente'
+assert_eq 1 "$SEARCH_FILTER_DIRTY" 'backspace deja filtro pendiente'
+search_apply_pending_filter || fail 'no aplicó filtro tras backspace'
 
 search_clear
 search_append B
@@ -56,6 +64,9 @@ search_append l
 search_append o
 search_append n
 search_append a
+assert_eq 'Barcelona' "$SEARCH_QUERY" 'consulta por ámbito escrita completa'
+assert_eq 1 "$SEARCH_FILTER_DIRTY" 'consulta por ámbito se difiere'
+search_apply_pending_filter || fail 'no filtró por ámbito'
 assert_eq 1 "${#SEARCH_MATCHES[@]}" 'filtrado por ámbito'
 search_selected_load || fail 'no seleccionó resultado por ámbito'
 assert_eq 'Classic Rock' "$SELECTED_NAME" 'resultado por ámbito correcto'
@@ -68,11 +79,13 @@ search_append n
 search_append c
 search_append i
 search_append a
+search_apply_pending_filter || fail 'no filtró por país'
 assert_eq 1 "${#SEARCH_MATCHES[@]}" 'filtrado por país sin distinguir mayúsculas'
 search_selected_load || fail 'no seleccionó resultado por país'
 assert_eq 'Jazz World' "$SELECTED_NAME" 'resultado por país correcto'
 
 search_clear
+search_apply_pending_filter || fail 'no restauró catálogo completo'
 SEARCH_SELECTED_INDEX=3
 search_sync_scroll 2
 assert_eq 2 "$SEARCH_SCROLL_OFFSET" 'scroll sigue la selección'
@@ -93,6 +106,7 @@ UI_LAYOUT_MODE=wide
 ui_configure_glyphs
 
 SEARCH_QUERY='rock'
+SEARCH_FILTER_DIRTY=0
 SEARCH_NAMES=('Rock FM' 'Classic Rock')
 SEARCH_AMBITS=('Madrid' 'Barcelona')
 SEARCH_COUNTRIES=('España' 'España')
@@ -114,5 +128,6 @@ assert_eq 119 "${#first_line}" 'búsqueda desktop respeta ancho seguro'
 
 declare -F stations_select_fzf_external >/dev/null || fail 'falta fallback fzf'
 declare -F stations_select_fzf >/dev/null || fail 'falta selector integrado'
+declare -F search_prepare_results >/dev/null || fail 'falta sincronización antes de navegar/reproducir'
 
-printf 'ok   búsqueda integrada: filtrado, navegación y TUI\n'
+printf 'ok   búsqueda integrada: input inmediato, filtrado diferido, navegación y TUI\n'
