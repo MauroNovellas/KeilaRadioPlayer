@@ -21,12 +21,8 @@ state_load() {
                     STATE_VOLUME="$value"
                 fi
                 ;;
-            last_name)
-                STATE_LAST_NAME="$value"
-                ;;
-            last_url)
-                STATE_LAST_URL="$value"
-                ;;
+            last_name) STATE_LAST_NAME="$value" ;;
+            last_url) STATE_LAST_URL="$value" ;;
         esac
     done < "$KEILA_STATE_FILE"
 }
@@ -37,7 +33,7 @@ state_save() {
     local lock_dir="${KEILA_STATE_FILE}.lock"
     lock_acquire "$lock_dir" || return 1
 
-    local tmp="${KEILA_STATE_FILE}.tmp.$$"
+    local tmp="${KEILA_STATE_FILE}.tmp.${BASHPID:-$$}"
     local status=0
     umask 077
 
@@ -47,10 +43,7 @@ state_save() {
         printf 'last_url\t%s\n' "$STATE_LAST_URL"
     } > "$tmp" || status=1
 
-    if ((status == 0)); then
-        mv -f "$tmp" "$KEILA_STATE_FILE" || status=1
-    fi
-
+    if ((status == 0)); then mv -f "$tmp" "$KEILA_STATE_FILE" || status=1; fi
     if ((status == 0)); then
         chmod 600 "$KEILA_STATE_FILE" 2>/dev/null || true
     else
