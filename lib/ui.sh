@@ -312,7 +312,7 @@ ui_draw() {
     ui_print_line "$width" "$title_line"
     ui_separator "$width"
 
-    local status station favorite_status
+    local status station favorite_status recording_status
     status=$(ui_player_status)
 
     if player_is_running; then
@@ -330,7 +330,13 @@ ui_draw() {
         favorite_status=''
     fi
 
-    local status_text="$status - $station$favorite_status"
+    if ((RECORDING_ACTIVE)); then
+        recording_status=' [REC]'
+    else
+        recording_status=''
+    fi
+
+    local status_text="$status - $station$favorite_status$recording_status"
     ui_print_line "$width" "$status_text"
 
     # Estas filas son opcionales. Si una emisora no publica título dinámico, el
@@ -402,7 +408,7 @@ ui_draw() {
     ui_separator "$width"
     ui_print_line "$width" 'W/S o flechas mover   Enter reproducir   A/D o flechas volumen'
     ui_print_line "$width" 'F favorito actual     J/K reordenar      X quitar seleccionado'
-    ui_print_line "$width" 'B buscar   P pausa   U actualizar catálogo   Q salir'
+    ui_print_line "$width" 'B buscar   R grabar   P pausa   U actualizar catálogo   Q salir'
 
     if [[ -n "$UI_MESSAGE" ]]; then
         ui_print_line "$width" "$UI_MESSAGE"
