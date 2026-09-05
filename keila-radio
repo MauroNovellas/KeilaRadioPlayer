@@ -57,7 +57,7 @@ app_play() {
     fi
 
     save_player_state >/dev/null 2>&1 || true
-    UI_MESSAGE="Reproduciendo: $name"
+    UI_MESSAGE="Conectando: $name"
     return 0
 }
 
@@ -223,11 +223,30 @@ app_update_catalog() {
     fi
 }
 
-app_check_player() {
+# Comprueba tanto la vida del proceso como los metadatos técnicos del stream.
+# Devuelve 0 solo si hay un cambio que justifique redibujar la TUI.
+app_poll_player() {
     if [[ -n "${PLAYER_PID:-}" ]] && ! player_is_running; then
         PLAYER_PID=""
         PLAYER_PAUSED=0
+        player_reset_info
         UI_MESSAGE="La reproducción se ha detenido."
+        return 0
+    fi
+
+    player_is_running || return 1
+
+    local was_ready=$PLAYER_INFO_READY
+    local was_buffering=$PLAYER_BUFFERING
+
+    if player_refresh_info; then
+        if ((!was_ready && PLAYER_INFO_READY)); then
+            UI_MESSAGE="Reproduciendo: $PLAYER_NAME"
+        elif ((!was_buffering && PLAYER_BUFFERING)); then
+            UI_MESSAGE="Esperando datos del stream..."
+        elif ((was_buffering && !PLAYER_BUFFERING && PLAYER_INFO_READY)); then
+            UI_MESSAGE="Reproducción reanudada."
+        fi
         return 0
     fi
 
@@ -297,7 +316,7 @@ app_loop() {
 
         case "$INPUT_EVENT" in
             TICK)
-                app_check_player && redraw=1
+                app_poll_player && redraw=1
                 ;;
             RESIZE)
                 redraw=1

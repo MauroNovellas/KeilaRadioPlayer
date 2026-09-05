@@ -9,6 +9,17 @@ PLAYER_URL=""
 PLAYER_VOLUME="${KEILA_VOLUME:-50}"
 PLAYER_PAUSED=0
 
+# Información real del stream obtenida desde mpv por JSON IPC.
+PLAYER_STREAM_TITLE=""
+PLAYER_CODEC=""
+PLAYER_BITRATE_KBPS=""
+PLAYER_SAMPLE_RATE=""
+PLAYER_CHANNELS=""
+PLAYER_BUFFERING=0
+PLAYER_INFO_READY=0
+PLAYER_INFO_LAST_REFRESH=0
+PLAYER_INFO_INTERVAL="${KEILA_PLAYER_INFO_INTERVAL:-1}"
+
 if [[ -n "${XDG_RUNTIME_DIR:-}" ]]; then
     PLAYER_RUNTIME_DIR="$XDG_RUNTIME_DIR/keila-radio"
 else
@@ -21,7 +32,7 @@ player_require_dependencies() {
     local missing=0
     local dep
 
-    for dep in mpv socat; do
+    for dep in mpv socat jq; do
         if ! command -v "$dep" >/dev/null 2>&1; then
             printf 'Falta la dependencia: %s\n' "$dep" >&2
             missing=1
@@ -29,7 +40,7 @@ player_require_dependencies() {
     done
 
     if ((missing)); then
-        printf 'En Debian puedes instalarlas con: sudo apt install mpv socat\n' >&2
+        printf 'En Debian puedes instalarlas con: sudo apt install mpv socat jq\n' >&2
         return 1
     fi
 }
@@ -43,6 +54,122 @@ player_ipc() {
 
     [[ -S "$PLAYER_SOCKET" ]] || return 1
     printf '%s\n' "$payload" | socat -t 1 - UNIX-CONNECT:"$PLAYER_SOCKET" >/dev/null 2>&1
+}
+
+player_reset_info() {
+    PLAYER_STREAM_TITLE=""
+    PLAYER_CODEC=""
+    PLAYER_BITRATE_KBPS=""
+    PLAYER_SAMPLE_RATE=""
+    PLAYER_CHANNELS=""
+    PLAYER_BUFFERING=0
+    PLAYER_INFO_READY=0
+    PLAYER_INFO_LAST_REFRESH=0
+}
+
+# Consulta varias propiedades en una única conexión IPC. Cada petición lleva un
+# request_id para poder reconstruir el snapshot aunque mpv responda en otro orden.
+player_query_snapshot() {
+    [[ -S "$PLAYER_SOCKET" ]] || return 1
+
+    {
+        printf '%s\n' '{"command":["get_property","metadata"],"request_id":1}'
+        printf '%s\n' '{"command":["get_property","current-tracks/audio/codec"],"request_id":2}'
+        printf '%s\n' '{"command":["get_property","audio-bitrate"],"request_id":3}'
+        printf '%s\n' '{"command":["get_property","audio-params"],"request_id":4}'
+        printf '%s\n' '{"command":["get_property","paused-for-cache"],"request_id":5}'
+    } | socat -t 1 - UNIX-CONNECT:"$PLAYER_SOCKET" 2>/dev/null |
+        jq -cs '
+            reduce .[] as $response ({};
+                if ($response.error == "success" and $response.request_id != null) then
+                    .[($response.request_id | tostring)] = $response.data
+                else
+                    .
+                end
+            )
+        '
+}
+
+# Actualiza la información técnica como máximo una vez por segundo. Devuelve 0
+# únicamente cuando algo visible ha cambiado, para evitar redibujados inútiles.
+player_refresh_info() {
+    player_is_running || return 1
+
+    local now="${EPOCHSECONDS:-$(date +%s)}"
+    [[ "$PLAYER_INFO_INTERVAL" =~ ^[0-9]+$ ]] || PLAYER_INFO_INTERVAL=1
+    ((PLAYER_INFO_INTERVAL < 1)) && PLAYER_INFO_INTERVAL=1
+
+    if ((PLAYER_INFO_LAST_REFRESH > 0 && now - PLAYER_INFO_LAST_REFRESH < PLAYER_INFO_INTERVAL)); then
+        return 1
+    fi
+    PLAYER_INFO_LAST_REFRESH=$now
+
+    local snapshot
+    snapshot=$(player_query_snapshot) || return 1
+    [[ -n "$snapshot" ]] || return 1
+
+    local -a fields=()
+    mapfile -t fields < <(
+        jq -r '
+            def metadata_title:
+                (. ["1"] // {}) as $metadata
+                | if ($metadata | type) == "object" then
+                    ($metadata
+                        | to_entries
+                        | map(select(
+                            ((.key | ascii_downcase) == "icy-title") or
+                            ((.key | ascii_downcase) == "streamtitle") or
+                            ((.key | ascii_downcase) == "stream-title") or
+                            ((.key | ascii_downcase) == "now-playing") or
+                            ((.key | ascii_downcase) == "now_playing") or
+                            ((.key | ascii_downcase) == "title")
+                        ))
+                        | .[0].value // "")
+                  else ""
+                  end
+                | tostring
+                | gsub("[\\r\\n\\t]+"; " ");
+
+            metadata_title,
+            ((.["2"] // "") | if type == "string" then . else tostring end),
+            ((.["3"] // 0) | if type == "number" and . > 0 then ((. / 1000) | round | tostring) else "" end),
+            ((.["4"].samplerate // "") | if type == "number" then tostring else . end),
+            ((.["4"]["hr-channels"] // .["4"].channels // "") | if type == "string" then . else tostring end),
+            ((.["5"] // false) | if . == true then "1" else "0" end)
+        ' <<< "$snapshot"
+    )
+
+    local new_title="${fields[0]:-}"
+    local new_codec="${fields[1]:-}"
+    local new_bitrate="${fields[2]:-}"
+    local new_samplerate="${fields[3]:-}"
+    local new_channels="${fields[4]:-}"
+    local new_buffering="${fields[5]:-0}"
+    local new_ready=0
+
+    if [[ -n "$new_codec" || -n "$new_bitrate" || "$new_samplerate" =~ ^[1-9][0-9]*$ ]]; then
+        new_ready=1
+    fi
+
+    # No repetimos el nombre de la emisora como si fuese una canción.
+    if [[ -n "$new_title" && "$new_title" == "$PLAYER_NAME" ]]; then
+        new_title=""
+    fi
+
+    local old_state
+    old_state="$PLAYER_STREAM_TITLE|$PLAYER_CODEC|$PLAYER_BITRATE_KBPS|$PLAYER_SAMPLE_RATE|$PLAYER_CHANNELS|$PLAYER_BUFFERING|$PLAYER_INFO_READY"
+    local new_state
+    new_state="$new_title|$new_codec|$new_bitrate|$new_samplerate|$new_channels|$new_buffering|$new_ready"
+
+    PLAYER_STREAM_TITLE="$new_title"
+    PLAYER_CODEC="$new_codec"
+    PLAYER_BITRATE_KBPS="$new_bitrate"
+    PLAYER_SAMPLE_RATE="$new_samplerate"
+    PLAYER_CHANNELS="$new_channels"
+    PLAYER_BUFFERING="$new_buffering"
+    PLAYER_INFO_READY="$new_ready"
+
+    [[ "$old_state" != "$new_state" ]]
 }
 
 player_wait_for_socket() {
@@ -75,6 +202,7 @@ player_start() {
     PLAYER_NAME="$name"
     PLAYER_URL="$url"
     PLAYER_PAUSED=0
+    player_reset_info
 
     mpv \
         --really-quiet \
@@ -151,5 +279,6 @@ player_stop() {
 
     PLAYER_PID=""
     PLAYER_PAUSED=0
+    player_reset_info
     rm -f "$PLAYER_SOCKET"
 }

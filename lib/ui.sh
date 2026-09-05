@@ -120,8 +120,42 @@ ui_volume_bar() {
     printf '[%s%s]' "$left" "$right"
 }
 
+ui_audio_info() {
+    local -a parts=()
+
+    if [[ -n "${PLAYER_CODEC:-}" ]]; then
+        parts+=("${PLAYER_CODEC^^}")
+    fi
+
+    if [[ "${PLAYER_BITRATE_KBPS:-}" =~ ^[0-9]+$ ]] && ((PLAYER_BITRATE_KBPS > 0)); then
+        parts+=("${PLAYER_BITRATE_KBPS} kbps")
+    fi
+
+    if [[ "${PLAYER_SAMPLE_RATE:-}" =~ ^[0-9]+$ ]] && ((PLAYER_SAMPLE_RATE > 0)); then
+        local whole=$((PLAYER_SAMPLE_RATE / 1000))
+        local decimal=$(((PLAYER_SAMPLE_RATE % 1000) / 100))
+        if ((decimal > 0)); then
+            parts+=("${whole}.${decimal} kHz")
+        else
+            parts+=("${whole} kHz")
+        fi
+    fi
+
+    if [[ -n "${PLAYER_CHANNELS:-}" ]]; then
+        parts+=("$PLAYER_CHANNELS")
+    fi
+
+    local output="" part
+    for part in "${parts[@]}"; do
+        [[ -n "$output" ]] && output+=' · '
+        output+="$part"
+    done
+
+    printf '%s' "$output"
+}
+
 ui_list_height() {
-    local height=$((UI_LINES - 12))
+    local height=$((UI_LINES - 14))
     ((height < 3)) && height=3
     printf '%s\n' "$height"
 }
@@ -203,8 +237,12 @@ ui_player_status() {
     if player_is_running; then
         if ((PLAYER_PAUSED)); then
             printf 'Pausado'
-        else
+        elif ((PLAYER_BUFFERING)); then
+            printf 'Buffering'
+        elif ((PLAYER_INFO_READY)); then
             printf 'Reproduciendo'
+        else
+            printf 'Conectando'
         fi
     else
         printf 'Detenido'
@@ -225,11 +263,11 @@ ui_draw() {
     local width=$UI_COLS
     ((width > 78)) && width=78
 
-    if ((UI_COLS < 54 || UI_LINES < 15)); then
+    if ((UI_COLS < 54 || UI_LINES < 17)); then
         ui_print_line "$width" 'Keila Radio Player v2'
         ui_print_line "$width" ''
         ui_print_line "$width" "La terminal es demasiado pequeña (${UI_COLS}x${UI_LINES})."
-        ui_print_line "$width" 'Necesito al menos 54 columnas y 15 filas.'
+        ui_print_line "$width" 'Necesito al menos 54 columnas y 17 filas.'
         ui_print_line "$width" ''
         ui_print_line "$width" 'Q = salir'
         tput ed 2>/dev/null || true
@@ -264,6 +302,18 @@ ui_draw() {
 
     local status_text="$status - $station$favorite_status"
     ui_print_line "$width" "$status_text"
+
+    local now_line="" audio_line="" audio_info=""
+    if player_is_running; then
+        [[ -n "${PLAYER_STREAM_TITLE:-}" ]] && now_line="Ahora: $PLAYER_STREAM_TITLE"
+        audio_info=$(ui_audio_info)
+        [[ -n "$audio_info" ]] && audio_line="Audio: $audio_info"
+    fi
+
+    # Reservamos estas dos líneas siempre para que la lista no salte cuando
+    # aparezcan metadatos nuevos durante la reproducción.
+    ui_print_line "$width" "$now_line"
+    ui_print_line "$width" "$audio_line"
 
     local volume_line
     volume_line="Volumen: $(printf '%3s' "$PLAYER_VOLUME")%  $(ui_volume_bar 20)"

@@ -64,4 +64,17 @@ La navegación de favoritos es circular y tiene scroll automático. Al buscar co
 
 La entrada de teclado vive en `lib/input.sh`: el lector reconoce WASD y secuencias ANSI de flechas, reacciona a cambios de tamaño de la terminal y despierta periódicamente para detectar si `mpv` termina por su cuenta sin necesidad de pulsar una tecla.
 
+## Información del stream
+
+Mientras una emisora está reproduciéndose, Keila consulta `mpv` mediante JSON IPC aproximadamente una vez por segundo. La TUI puede mostrar, cuando la emisora o el demuxer proporcionan esos datos:
+
+```text
+Ahora: Artista - Canción / programa en emisión
+Audio: AAC · 128 kbps · 44.1 kHz · stereo
+```
+
+El bitrate mostrado procede de la propiedad `audio-bitrate` de `mpv`; Keila ya no intenta estimarlo midiendo el tráfico total de la interfaz de red. También usa los metadatos dinámicos del stream para mostrar el título en emisión y puede indicar estados como `Conectando` o `Buffering`.
+
+Las consultas de información se agrupan en una sola conexión IPC y la TUI solo se redibuja cuando algún dato cambia.
+
 Al salir, Keila detiene `mpv`, restaura el cursor, abandona la pantalla alternativa de la TUI y limpia la pantalla principal para no dejar restos visuales.
