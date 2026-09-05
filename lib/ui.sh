@@ -56,9 +56,15 @@ ui_resume() {
 ui_leave() {
     ((UI_ACTIVE)) || return 0
 
+    # Limpiamos la pantalla alternativa, la abandonamos y limpiamos también
+    # la pantalla principal. Así al cerrar Keila no quedan restos de la TUI.
     tput cnorm 2>/dev/null || true
     tput sgr0 2>/dev/null || true
+    tput clear 2>/dev/null || true
     tput rmcup 2>/dev/null || true
+    tput clear 2>/dev/null || true
+    tput cup 0 0 2>/dev/null || true
+
     UI_ACTIVE=0
     UI_SUSPENDED=0
 }
