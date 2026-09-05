@@ -14,6 +14,14 @@ UI_HELP_VISIBLE=0
 UI_COLS=80
 UI_LINES=24
 UI_UNICODE=0
+UI_COLOR=0
+UI_RESET=''
+UI_BOLD=''
+UI_DIM=''
+UI_GREEN=''
+UI_RED=''
+UI_YELLOW=''
+UI_CYAN=''
 
 ui_locale_supports_unicode() {
     [[ "${KEILA_ASCII_UI:-0}" != '1' ]] || return 1
@@ -38,6 +46,59 @@ ui_configure_glyphs() {
         UI_FAVORITE='*'; UI_RECORD='o'; UI_NOTE='>'; UI_SELECT='>'
         UI_BAR_FULL='#'; UI_BAR_EMPTY='-'
     fi
+}
+
+ui_color_supported() {
+    [[ "${KEILA_NO_COLOR:-0}" != '1' ]] || return 1
+    [[ -z "${NO_COLOR:-}" ]] || return 1
+    [[ "${TERM:-}" != 'dumb' ]] || return 1
+    command -v tput >/dev/null 2>&1 || return 1
+
+    local colors
+    colors=$(tput colors 2>/dev/null || printf '0')
+    [[ "$colors" =~ ^[0-9]+$ ]] || return 1
+    ((colors >= 8))
+}
+
+ui_configure_theme() {
+    UI_COLOR=0
+    UI_RESET=''
+    UI_BOLD=''
+    UI_DIM=''
+    UI_GREEN=''
+    UI_RED=''
+    UI_YELLOW=''
+    UI_CYAN=''
+
+    ui_color_supported || return 0
+
+    UI_COLOR=1
+    UI_RESET=$(tput sgr0 2>/dev/null || true)
+    UI_BOLD=$(tput bold 2>/dev/null || true)
+    UI_DIM=$(tput dim 2>/dev/null || true)
+    UI_GREEN=$(tput setaf 2 2>/dev/null || true)
+    UI_RED=$(tput setaf 1 2>/dev/null || true)
+    UI_YELLOW=$(tput setaf 3 2>/dev/null || true)
+    UI_CYAN=$(tput setaf 6 2>/dev/null || true)
+}
+
+ui_style_begin() {
+    local style="${1:-}"
+    ((UI_COLOR)) || return 0
+
+    case "$style" in
+        title|selected) printf '%s%s' "$UI_BOLD" "$UI_CYAN" ;;
+        playing) printf '%s%s' "$UI_BOLD" "$UI_GREEN" ;;
+        record) printf '%s%s' "$UI_BOLD" "$UI_RED" ;;
+        favorite|warning) printf '%s' "$UI_YELLOW" ;;
+        accent) printf '%s' "$UI_CYAN" ;;
+        muted) printf '%s' "$UI_DIM" ;;
+    esac
+}
+
+ui_style_end() {
+    ((UI_COLOR)) || return 0
+    printf '%s' "$UI_RESET"
 }
 
 if ui_locale_supports_unicode; then
@@ -110,6 +171,7 @@ ui_control_line_count() {
 
 ui_enter() {
     ((UI_ACTIVE)) && return 0
+    ui_configure_theme
     tput smcup 2>/dev/null || true
     tput civis 2>/dev/null || true
     tput clear 2>/dev/null || true
@@ -127,6 +189,7 @@ ui_suspend() {
 
 ui_resume() {
     ((UI_ACTIVE)) || return 0
+    ui_configure_theme
     tput civis 2>/dev/null || true
     tput clear 2>/dev/null || true
     UI_SUSPENDED=0
@@ -175,19 +238,34 @@ ui_print_padded() {
     return 0
 }
 
-ui_print_split() {
+ui_print_styled_padded() {
+    local width="$1"
+    local text="${2:-}"
+    local style="${3:-}"
+    text=$(ui_truncate "$text" "$width")
+    local padding=$((width - ${#text}))
+
+    ui_style_begin "$style"
+    printf '%s' "$text"
+    ui_style_end
+    if ((padding > 0)); then ui_repeat_char ' ' "$padding"; fi
+}
+
+ui_print_split_styled() {
     local width="$1"
     local left="${2:-}"
     local right="${3:-}"
+    local left_style="${4:-}"
+    local right_style="${5:-}"
 
     if [[ -z "$right" ]]; then
-        ui_print_padded "$width" "$left"
+        ui_print_styled_padded "$width" "$left" "$left_style"
         return 0
     fi
 
     local right_len=${#right}
     if ((right_len >= width)); then
-        ui_print_padded "$width" "$right"
+        ui_print_styled_padded "$width" "$right" "$right_style"
         return 0
     fi
 
@@ -196,9 +274,13 @@ ui_print_split() {
     local gap=$((width - ${#left} - right_len))
     ((gap < 1)) && gap=1
 
+    ui_style_begin "$left_style"
     printf '%s' "$left"
+    ui_style_end
     ui_repeat_char ' ' "$gap"
+    ui_style_begin "$right_style"
     printf '%s' "$right"
+    ui_style_end
 }
 
 ui_box_rule() {
@@ -208,6 +290,7 @@ ui_box_rule() {
     local label="${4:-}"
     local inner=$((width - 2))
 
+    ui_style_begin muted
     printf '%s' "$left"
     if [[ -z "$label" ]]; then
         ui_repeat_char "$UI_H" "$inner"
@@ -217,31 +300,51 @@ ui_box_rule() {
         printf '%s' "$prefix"
         ui_repeat_char "$UI_H" "$((inner - ${#prefix}))"
     fi
-    printf '%s\n' "$right"
+    printf '%s' "$right"
+    ui_style_end
+    printf '\n'
 }
 
 ui_box_line() {
     local width="$1"
     local text="${2:-}"
+    local style="${3:-}"
     local inner=$((width - 4))
-    printf '%s ' "$UI_V"
-    ui_print_padded "$inner" "$text"
-    printf ' %s\n' "$UI_V"
+    ui_style_begin muted
+    printf '%s' "$UI_V"
+    ui_style_end
+    printf ' '
+    ui_print_styled_padded "$inner" "$text" "$style"
+    printf ' '
+    ui_style_begin muted
+    printf '%s' "$UI_V"
+    ui_style_end
+    printf '\n'
 }
 
 ui_box_center_line() {
     local width="$1"
     local text="$2"
+    local style="${3:-}"
     local inner=$((width - 4))
     text=$(ui_truncate "$text" "$inner")
     local left_pad=$(((inner - ${#text}) / 2))
     local right_pad=$((inner - ${#text} - left_pad))
 
-    printf '%s ' "$UI_V"
+    ui_style_begin muted
+    printf '%s' "$UI_V"
+    ui_style_end
+    printf ' '
     ui_repeat_char ' ' "$left_pad"
+    ui_style_begin "$style"
     printf '%s' "$text"
+    ui_style_end
     ui_repeat_char ' ' "$right_pad"
-    printf ' %s\n' "$UI_V"
+    printf ' '
+    ui_style_begin muted
+    printf '%s' "$UI_V"
+    ui_style_end
+    printf '\n'
 }
 
 ui_box_split_line() {
@@ -249,13 +352,97 @@ ui_box_split_line() {
     local left="${2:-}"
     local right="${3:-}"
     local selected="${4:-0}"
+    local left_style="${5:-}"
+    local right_style="${6:-}"
     local inner=$((width - 4))
 
-    printf '%s ' "$UI_V"
-    if ((selected)); then tput rev 2>/dev/null || true; fi
-    ui_print_split "$inner" "$left" "$right"
-    if ((selected)); then tput sgr0 2>/dev/null || true; fi
-    printf ' %s\n' "$UI_V"
+    if ((selected)); then
+        left_style='selected'
+        right_style='selected'
+    fi
+
+    ui_style_begin muted
+    printf '%s' "$UI_V"
+    ui_style_end
+    printf ' '
+    ui_print_split_styled "$inner" "$left" "$right" "$left_style" "$right_style"
+    printf ' '
+    ui_style_begin muted
+    printf '%s' "$UI_V"
+    ui_style_end
+    printf '\n'
+}
+
+ui_print_badged_status() {
+    local width="$1"
+    local left="$2"
+    local left_style="$3"
+    local recording_badge="$4"
+    local favorite_badge="$5"
+    local state_badge="$6"
+    local right=''
+
+    [[ -n "$recording_badge" ]] && right+="$recording_badge"
+    if [[ -n "$favorite_badge" ]]; then
+        [[ -n "$right" ]] && right+='  '
+        right+="$favorite_badge"
+    fi
+    if [[ -n "$state_badge" ]]; then
+        [[ -n "$right" ]] && right+='  '
+        right+="$state_badge"
+    fi
+
+    local right_len=${#right}
+    local left_max=$width
+    if ((right_len > 0)); then left_max=$((width - right_len - 1)); fi
+    ((left_max < 1)) && left_max=1
+    left=$(ui_truncate "$left" "$left_max")
+
+    ui_style_begin "$left_style"
+    printf '%s' "$left"
+    ui_style_end
+
+    if ((right_len > 0)); then
+        local gap=$((width - ${#left} - right_len))
+        ((gap < 1)) && gap=1
+        ui_repeat_char ' ' "$gap"
+
+        local printed=0
+        if [[ -n "$recording_badge" ]]; then
+            ui_style_begin record; printf '%s' "$recording_badge"; ui_style_end
+            printed=1
+        fi
+        if [[ -n "$favorite_badge" ]]; then
+            ((printed)) && printf '  '
+            ui_style_begin favorite; printf '%s' "$favorite_badge"; ui_style_end
+            printed=1
+        fi
+        if [[ -n "$state_badge" ]]; then
+            ((printed)) && printf '  '
+            ui_style_begin warning; printf '%s' "$state_badge"; ui_style_end
+        fi
+    fi
+}
+
+ui_box_player_line() {
+    local width="$1"
+    local left="$2"
+    local left_style="$3"
+    local recording_badge="$4"
+    local favorite_badge="$5"
+    local state_badge="$6"
+    local inner=$((width - 4))
+
+    ui_style_begin muted
+    printf '%s' "$UI_V"
+    ui_style_end
+    printf ' '
+    ui_print_badged_status "$inner" "$left" "$left_style" "$recording_badge" "$favorite_badge" "$state_badge"
+    printf ' '
+    ui_style_begin muted
+    printf '%s' "$UI_V"
+    ui_style_end
+    printf '\n'
 }
 
 ui_volume_bar() {
@@ -401,54 +588,53 @@ ui_draw() {
 
     local title="KEILA RADIO PLAYER  $version"
     ui_box_rule "$width" "$UI_TL" "$UI_TR"
-    ui_box_center_line "$width" "$title"
+    ui_box_center_line "$width" "$title" title
     ui_box_rule "$width" "$UI_ML" "$UI_MR"
 
-    local station favorite_badge recording_badge status_badges marker
+    local station favorite_badge recording_badge state_badge marker station_style
     marker=$(ui_player_marker)
     if player_is_running; then
         station="$PLAYER_NAME"
+        station_style='playing'
         if favorites_find_url "$PLAYER_URL" >/dev/null 2>&1; then favorite_badge="$UI_FAVORITE FAVORITA"; else favorite_badge=''; fi
     elif [[ -n "${STATE_LAST_NAME:-}" ]]; then
-        station="Última: $STATE_LAST_NAME"; favorite_badge=''
+        station="Última: $STATE_LAST_NAME"
+        station_style='muted'
+        favorite_badge=''
     else
-        station='Ninguna emisora seleccionada'; favorite_badge=''
+        station='Ninguna emisora seleccionada'
+        station_style='muted'
+        favorite_badge=''
     fi
 
     if ((RECORDING_ACTIVE)); then recording_badge="$UI_RECORD REC $(recording_elapsed_display)"; else recording_badge=''; fi
-    status_badges="$recording_badge"
-    if [[ -n "$favorite_badge" ]]; then
-        [[ -n "$status_badges" ]] && status_badges+='  '
-        status_badges+="$favorite_badge"
-    fi
+    state_badge=''
     if player_is_running && ((PLAYER_PAUSED)); then
-        [[ -n "$status_badges" ]] && status_badges+='  '
-        status_badges+='PAUSA'
+        state_badge='PAUSA'
     elif player_is_running && ((PLAYER_BUFFERING)); then
-        [[ -n "$status_badges" ]] && status_badges+='  '
-        status_badges+='BUFFERING'
+        state_badge='BUFFERING'
     fi
 
-    ui_box_split_line "$width" "$marker $station" "$status_badges"
+    ui_box_player_line "$width" "$marker $station" "$station_style" "$recording_badge" "$favorite_badge" "$state_badge"
 
     if player_is_running; then
-        [[ -n "${PLAYER_STREAM_TITLE:-}" ]] && ui_box_line "$width" "$UI_NOTE $PLAYER_STREAM_TITLE"
+        [[ -n "${PLAYER_STREAM_TITLE:-}" ]] && ui_box_line "$width" "$UI_NOTE $PLAYER_STREAM_TITLE" accent
         local audio_info
         audio_info=$(ui_audio_info)
-        [[ -n "$audio_info" ]] && ui_box_line "$width" "  $audio_info"
+        [[ -n "$audio_info" ]] && ui_box_line "$width" "  $audio_info" muted
     fi
 
-    ui_box_line "$width" "Volumen  $(printf '%3s' "$PLAYER_VOLUME")%   $(ui_volume_bar 20)"
+    ui_box_line "$width" "Volumen  $(printf '%3s' "$PLAYER_VOLUME")%   $(ui_volume_bar 20)" accent
     ui_box_rule "$width" "$UI_ML" "$UI_MR" "FAVORITOS (${#FAVORITE_NAMES[@]})"
 
     local height
     height=$(ui_list_height)
     if ((${#FAVORITE_NAMES[@]} == 0)); then
-        ui_box_line "$width" '  (sin favoritos; pulsa B para buscar)'
+        ui_box_line "$width" '  (sin favoritos; pulsa B para buscar)' muted
         local blank
         for ((blank = 1; blank < height; blank++)); do ui_box_line "$width" ''; done
     else
-        local row index marker_prefix right_badge name_line selected
+        local row index marker_prefix right_badge name_line selected left_style right_style
         for ((row = 0; row < height; row++)); do
             index=$((UI_SCROLL_OFFSET + row))
             if ((index >= ${#FAVORITE_NAMES[@]})); then ui_box_line "$width" ''; continue; fi
@@ -456,28 +642,33 @@ ui_draw() {
             marker_prefix='  '
             ((index == UI_SELECTED_INDEX)) && marker_prefix="$UI_SELECT "
             right_badge=''
+            left_style=''
+            right_style=''
             if player_is_running && [[ "${FAVORITE_URLS[$index]}" == "$PLAYER_URL" ]]; then
                 right_badge='PLAY'
+                left_style='playing'
+                right_style='playing'
                 [[ "$marker_prefix" == '  ' ]] && marker_prefix="$UI_PLAY "
             elif [[ -n "${STATE_LAST_URL:-}" && "${FAVORITE_URLS[$index]}" == "$STATE_LAST_URL" ]]; then
                 right_badge='ÚLTIMA'
+                right_style='muted'
             fi
 
             name_line="$marker_prefix${FAVORITE_NAMES[$index]}"
             selected=0
             ((index == UI_SELECTED_INDEX)) && selected=1
-            ui_box_split_line "$width" "$name_line" "$right_badge" "$selected"
+            ui_box_split_line "$width" "$name_line" "$right_badge" "$selected" "$left_style" "$right_style"
         done
     fi
 
     ui_box_rule "$width" "$UI_ML" "$UI_MR"
     if ((UI_HELP_VISIBLE)); then
-        ui_box_line "$width" 'W/S o ↑/↓ mover   Home/End extremos   PgUp/PgDn saltar'
-        ui_box_line "$width" 'Enter reproducir   A/D o ←/→ volumen   P pausa'
-        ui_box_line "$width" 'F favorito actual   J/K reordenar   X quitar seleccionado'
-        ui_box_line "$width" 'B buscar   R grabar   U actualizar   Q salir   H cerrar ayuda'
+        ui_box_line "$width" 'W/S o ↑/↓ mover   Home/End extremos   PgUp/PgDn saltar' muted
+        ui_box_line "$width" 'Enter reproducir   A/D o ←/→ volumen   P pausa' muted
+        ui_box_line "$width" 'F favorito actual   J/K reordenar   X quitar seleccionado' muted
+        ui_box_line "$width" 'B buscar   R grabar   U actualizar   Q salir   H cerrar ayuda' muted
     else
-        ui_box_line "$width" '↑↓ mover  Enter reproducir  ←→ volumen  B buscar  R grabar  H ayuda  Q salir'
+        ui_box_line "$width" '↑↓ mover  Enter reproducir  ←→ volumen  B buscar  R grabar  H ayuda  Q salir' muted
     fi
 
     if [[ -n "$UI_MESSAGE" ]]; then ui_box_line "$width" "$UI_MESSAGE"; else ui_box_line "$width" ''; fi
