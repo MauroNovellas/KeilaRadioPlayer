@@ -28,53 +28,84 @@ die() {
     exit 1
 }
 
-choose_favorite() {
-    ((${#FAVORITE_NAMES[@]} > 0)) || {
-        printf 'No tienes favoritos guardados.\n' >&2
-        return 1
-    }
-
+print_favorites() {
     printf '\nFavoritos\n\n'
 
-    local i default_choice=""
+    if ((${#FAVORITE_NAMES[@]} == 0)); then
+        printf '  (no tienes favoritos guardados)\n'
+        return 0
+    fi
+
+    local i
     for ((i = 0; i < ${#FAVORITE_NAMES[@]}; i++)); do
         if [[ -n "$STATE_LAST_URL" && "${FAVORITE_URLS[$i]}" == "$STATE_LAST_URL" ]]; then
-            default_choice="$((i + 1))"
             printf '  %2d) %s  [última]\n' "$((i + 1))" "${FAVORITE_NAMES[$i]}"
         else
             printf '  %2d) %s\n' "$((i + 1))" "${FAVORITE_NAMES[$i]}"
         fi
     done
+}
 
-    printf '\n'
+choose_favorite() {
+    local input action number index
 
-    local choice prompt
-    if [[ -n "$default_choice" ]]; then
-        prompt="Emisora [1-${#FAVORITE_NAMES[@]}, Enter=$default_choice, q=volver]: "
-    else
-        prompt="Emisora [1-${#FAVORITE_NAMES[@]}, q=volver]: "
-    fi
+    while true; do
+        favorites_load
+        print_favorites
+        printf '\n'
+        printf 'Número = reproducir · d N = eliminar · k N = subir · j N = bajar · q = volver\n'
+        read -r -p 'Favoritos > ' input || return 1
 
-    read -r -p "$prompt" choice || return 1
+        [[ "$input" =~ ^[qQ]$ ]] && return 1
 
-    [[ "$choice" =~ ^[qQ]$ ]] && return 1
+        if [[ "$input" =~ ^[0-9]+$ ]]; then
+            number="$input"
+            if ((number < 1 || number > ${#FAVORITE_NAMES[@]})); then
+                printf '\nSelección fuera de rango.\n'
+                continue
+            fi
 
-    if [[ -z "$choice" && -n "$default_choice" ]]; then
-        choice="$default_choice"
-    fi
+            SELECTED_NAME="${FAVORITE_NAMES[$((number - 1))]}"
+            SELECTED_URL="${FAVORITE_URLS[$((number - 1))]}"
+            return 0
+        fi
 
-    if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
-        printf 'Selección no válida.\n' >&2
-        return 1
-    fi
+        read -r action number _ <<< "$input"
+        [[ "$number" =~ ^[0-9]+$ ]] || {
+            printf '\nComando no válido.\n'
+            continue
+        }
 
-    if ((choice < 1 || choice > ${#FAVORITE_NAMES[@]})); then
-        printf 'Selección fuera de rango.\n' >&2
-        return 1
-    fi
+        index=$((number - 1))
+        if ((index < 0 || index >= ${#FAVORITE_NAMES[@]})); then
+            printf '\nSelección fuera de rango.\n'
+            continue
+        fi
 
-    SELECTED_NAME="${FAVORITE_NAMES[$((choice - 1))]}"
-    SELECTED_URL="${FAVORITE_URLS[$((choice - 1))]}"
+        case "$action" in
+            d|D)
+                printf '\nEliminando: %s\n' "${FAVORITE_NAMES[$index]}"
+                favorites_remove_index "$index" || printf 'No se pudo eliminar el favorito.\n' >&2
+                ;;
+            k|K)
+                if favorites_move "$index" -1; then
+                    printf '\nMovida arriba: %s\n' "${FAVORITE_NAMES[$((index - 1))]}"
+                else
+                    printf '\nEsa emisora ya está arriba del todo.\n'
+                fi
+                ;;
+            j|J)
+                if favorites_move "$index" 1; then
+                    printf '\nMovida abajo: %s\n' "${FAVORITE_NAMES[$((index + 1))]}"
+                else
+                    printf '\nEsa emisora ya está abajo del todo.\n'
+                fi
+                ;;
+            *)
+                printf '\nComando no válido.\n'
+                ;;
+        esac
+    done
 }
 
 choose_catalog_station() {
@@ -104,7 +135,7 @@ show_start_menu() {
     fi
 
     printf '  b) Buscar en TDTChannels\n'
-    printf '  f) Favoritos\n'
+    printf '  f) Favoritos / gestionar favoritos\n'
     printf '  u) Actualizar catálogo\n'
     printf '  q) Salir\n\n'
 }
@@ -156,10 +187,35 @@ save_current_state() {
     fi
 }
 
+show_favorite_status() {
+    if favorites_find_url "$PLAYER_URL" >/dev/null; then
+        printf 'Favorito: sí\n'
+    else
+        printf 'Favorito: no\n'
+    fi
+}
+
 show_controls() {
     printf '\nReproduciendo: %s\n' "$PLAYER_NAME"
-    printf 'Volumen: %s%%\n\n' "$PLAYER_VOLUME"
-    printf '[p] pausa/reanudar   [a] -5 volumen   [d] +5 volumen   [q] salir\n'
+    printf 'Volumen: %s%%\n' "$PLAYER_VOLUME"
+    show_favorite_status
+    printf '\n[p] pausa   [a/d] volumen   [f] favorito   [q] salir\n'
+}
+
+toggle_current_favorite() {
+    if ! favorites_toggle "$PLAYER_NAME" "$PLAYER_URL"; then
+        printf '\nNo se pudo modificar favoritos.\n' >&2
+        return 1
+    fi
+
+    case "${FAVORITES_TOGGLE_ACTION:-}" in
+        added)
+            printf '\nAñadida a favoritos: %s\n' "$PLAYER_NAME"
+            ;;
+        removed)
+            printf '\nEliminada de favoritos: %s\n' "$PLAYER_NAME"
+            ;;
+    esac
 }
 
 interactive_loop() {
@@ -187,6 +243,9 @@ interactive_loop() {
                     save_current_state >/dev/null || true
                     printf '\nVolumen: %s%%\n' "$PLAYER_VOLUME"
                 fi
+                ;;
+            f|F)
+                toggle_current_favorite || true
                 ;;
             q|Q)
                 printf '\nSaliendo de Keila...\n'
