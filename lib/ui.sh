@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 # Interfaz de terminal de Keila Radio Player v2.
-# Este módulo solo dibuja y gestiona estado visual; la lógica de reproducción
-# y persistencia sigue viviendo en sus módulos correspondientes.
+# Este módulo solo dibuja y gestiona estado visual; la lógica de reproducción,
+# entrada y persistencia vive en sus módulos correspondientes.
 
 UI_ACTIVE=0
 UI_SUSPENDED=0
@@ -69,13 +69,6 @@ ui_leave() {
     UI_SUSPENDED=0
 }
 
-ui_separator() {
-    local width="$1"
-    local line
-    printf -v line '%*s' "$width" ''
-    printf '%s\n' "${line// /-}"
-}
-
 ui_truncate() {
     local text="$1"
     local max="$2"
@@ -106,6 +99,13 @@ ui_print_line() {
     printf '%-*s\n' "$width" "$text"
 }
 
+ui_separator() {
+    local width="$1"
+    local line
+    printf -v line '%*s' "$width" ''
+    ui_print_line "$width" "${line// /-}"
+}
+
 ui_volume_bar() {
     local width="${1:-20}"
     local filled=$((PLAYER_VOLUME * width / 100))
@@ -121,7 +121,7 @@ ui_volume_bar() {
 }
 
 ui_list_height() {
-    local height=$((UI_LINES - 11))
+    local height=$((UI_LINES - 12))
     ((height < 3)) && height=3
     printf '%s\n' "$height"
 }
@@ -179,9 +179,23 @@ ui_move_selection() {
         return 1
     }
 
-    UI_SELECTED_INDEX=$((UI_SELECTED_INDEX + delta))
-    ((UI_SELECTED_INDEX < 0)) && UI_SELECTED_INDEX=0
-    ((UI_SELECTED_INDEX >= count)) && UI_SELECTED_INDEX=$((count - 1))
+    # Navegación circular incluso para saltos grandes (PageUp/PageDown).
+    UI_SELECTED_INDEX=$(((UI_SELECTED_INDEX + delta) % count))
+    ((UI_SELECTED_INDEX < 0)) && UI_SELECTED_INDEX=$((UI_SELECTED_INDEX + count))
+
+    ui_sync_selection
+}
+
+ui_select_first() {
+    ((${#FAVORITE_NAMES[@]} > 0)) || return 1
+    UI_SELECTED_INDEX=0
+    ui_sync_selection
+}
+
+ui_select_last() {
+    local count=${#FAVORITE_NAMES[@]}
+    ((count > 0)) || return 1
+    UI_SELECTED_INDEX=$((count - 1))
     ui_sync_selection
 }
 
@@ -204,9 +218,8 @@ ui_draw() {
     ui_refresh_size
     ui_sync_selection
 
-    # No limpiamos la pantalla antes de dibujar: hacerlo producía un flash
-    # visible en cada pulsación. Reescribimos el frame desde la esquina superior
-    # y limpiamos únicamente lo que quede por debajo al terminar.
+    # Reescribimos el frame desde la esquina superior sin limpiar antes para
+    # evitar el flash visible que producía un clear/ed previo al redibujado.
     tput cup 0 0 2>/dev/null || true
 
     local width=$UI_COLS
@@ -305,8 +318,9 @@ ui_draw() {
     fi
 
     ui_separator "$width"
-    ui_print_line "$width" 'W/S mover   Enter reproducir   A/D volumen   P pausa'
-    ui_print_line "$width" 'F favorito  B buscar           U actualizar  Q salir'
+    ui_print_line "$width" 'W/S o flechas mover   Enter reproducir   A/D o flechas volumen'
+    ui_print_line "$width" 'F favorito actual     J/K reordenar      X quitar seleccionado'
+    ui_print_line "$width" 'B buscar   P pausa   U actualizar catálogo   Q salir'
 
     if [[ -n "$UI_MESSAGE" ]]; then
         ui_print_line "$width" "$UI_MESSAGE"
@@ -317,10 +331,4 @@ ui_draw() {
     # Borra únicamente restos de un frame anterior más alto, después de que el
     # nuevo ya esté visible. Así evitamos el parpadeo producido por clear/ed.
     tput ed 2>/dev/null || true
-}
-
-ui_read_key() {
-    local key
-    IFS= read -rsn1 key || return 1
-    UI_KEY="$key"
 }
