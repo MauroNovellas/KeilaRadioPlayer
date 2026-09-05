@@ -72,7 +72,6 @@ EOF
 config_expand_path() {
     local value="$1"
     local fallback="$2"
-    local tilde_prefix='~/'
 
     case "$value" in
         '')
@@ -81,15 +80,14 @@ config_expand_path() {
         '~')
             printf '%s' "$HOME"
             ;;
+        \~/*)
+            printf '%s/%s' "$HOME" "${value:2}"
+            ;;
         /*)
             printf '%s' "$value"
             ;;
         *)
-            if [[ "${value:0:2}" == "$tilde_prefix" ]]; then
-                printf '%s/%s' "$HOME" "${value:2}"
-            else
-                printf '%s/%s' "$HOME" "$value"
-            fi
+            printf '%s/%s' "$HOME" "$value"
             ;;
     esac
 }
