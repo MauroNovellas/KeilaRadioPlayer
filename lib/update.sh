@@ -247,7 +247,7 @@ update_rollback_files() {
     local component
 
     for component in "$@"; do
-        rm -rf -- "$install_dir/$component"
+        rm -rf -- "${install_dir:?}/$component"
         if [[ -e "$backup_dir/$component" || -L "$backup_dir/$component" ]]; then
             mv -- "$backup_dir/$component" "$install_dir/$component" || return 1
         fi
@@ -423,3 +423,11 @@ update_install() {
         update_install_archive "$install_dir" "$latest"
     fi
 }
+
+# El launcher actual todavía contiene el antiguo caso --update. Como update.sh
+# se carga antes de inicializar reproducción/TUI, interceptamos únicamente este
+# comando aquí; así la actualización puede reemplazar archivos sin arrancar mpv.
+if [[ "${BASH_SOURCE[0]}" != "$0" && "${0##*/}" == 'keila-radio' && "${1:-}" == '--update' && -n "${BASE_DIR:-}" ]]; then
+    update_install "$BASE_DIR"
+    exit $?
+fi
