@@ -93,3 +93,8 @@ ui_box_rule() {
         printf '\n'
     fi
 }
+
+# La capa desktop se carga aquí porque este módulo ya es el último refinamiento
+# visual que importa el launcher después del responsive base.
+# shellcheck source=lib/ui-desktop.sh
+source "$(dirname "${BASH_SOURCE[0]}")/ui-desktop.sh"
