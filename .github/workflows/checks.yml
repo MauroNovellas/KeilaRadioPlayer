@@ -14,7 +14,7 @@ jobs:
       - name: Run checks
         run: |
           ./tests/run.sh
-          shellcheck -x -e SC1090,SC1091,SC2030,SC2031,SC2034,SC2016 lib/ui-responsive.sh lib/ui-safe-width.sh lib/ui-desktop.sh lib/ui-desktop-primary.sh lib/update.sh tests/ui-responsive.sh tests/ui-desktop.sh tests/update-check.sh
+          shellcheck -x -e SC1090,SC1091,SC2030,SC2031,SC2034,SC2016 lib/ui-responsive.sh lib/ui-safe-width.sh lib/ui-desktop.sh lib/ui-desktop-primary.sh lib/ui-desktop-balance.sh lib/update.sh tests/ui-responsive.sh tests/ui-desktop.sh tests/update-check.sh
           bash ./tests/recording-formats.sh
           bash ./tests/pre-rc.sh
           bash ./tests/ui-theme.sh
