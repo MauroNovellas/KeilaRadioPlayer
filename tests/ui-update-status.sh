@@ -31,6 +31,8 @@ wait_for_update_check() {
     return 1
 }
 
+player_is_running() { return 1; }
+
 # Una versión superior debe detectarse sin bloquear el proceso principal.
 KEILA_VERSION='2.0.0'
 KEILA_UPDATE_TAGS=$'v2.0.0\nv2.0.1'
@@ -44,20 +46,41 @@ assert_eq '2.0.1' "$UI_UPDATE_AVAILABLE_VERSION" 'versión disponible'
 [[ -z "$UI_UPDATE_CHECK_PID" ]] || fail 'quedó PID después de terminar'
 [[ -z "$UI_UPDATE_CHECK_DIR" ]] || fail 'quedó temporal después de terminar'
 
-# El aviso se inserta en la última fila útil del panel izquierdo desktop.
+# El aviso sigue ocupando únicamente la última fila útil del panel izquierdo.
+# En la nueva composición, esa misma fila de la derecha pertenece a resultados
+# de búsqueda y debe conservar su contenido.
 UI_UNICODE=0
 ui_configure_glyphs
 UI_COLOR=0
 UI_DESKTOP_LEFT_WIDTH=47
 UI_DESKTOP_RIGHT_WIDTH=65
-ui_desktop_header_rule 119 'AHORA SUENA' 'FAVORITOS (8)' >/dev/null
+UI_LINES=20
+UI_HELP_VISIBLE=0
+
+FAVORITE_NAMES=()
+FAVORITE_URLS=()
+SEARCH_ACTIVE=1
+SEARCH_QUERY='radio'
+SEARCH_FILTER_DIRTY=0
+SEARCH_NAMES=(R1 R2 R3 R4 'Radio Test')
+SEARCH_AMBITS=(A1 A2 A3 A4 A5)
+SEARCH_COUNTRIES=(ES ES ES ES ES)
+SEARCH_FORMATS=(AAC AAC AAC AAC AAC)
+SEARCH_URLS=(u1 u2 u3 u4 u5)
+SEARCH_MATCHES=(0 1 2 3 4)
+SEARCH_SELECTED_INDEX=0
+SEARCH_SCROLL_OFFSET=0
+PLAYER_URL='none'
+
+ui_desktop_sync_selection 13
+ui_desktop_header_rule 119 'AHORA SUENA' 'FAVORITOS (0)' >/dev/null
 for ((i = 0; i < 12; i++)); do
     ui_desktop_row '' '' '' '' '' '' '' '' 0 >/dev/null
 done
-update_line=$(ui_desktop_row '' '' '' '' 'Radio Test' '' '' '' 1)
+update_line=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
 [[ "$update_line" == *'ACTUALIZACIÓN'* ]] || fail 'el desktop no muestra etiqueta de actualización'
 [[ "$update_line" == *'2.0.1 disponible'* ]] || fail 'el desktop no muestra la versión nueva'
-[[ "$update_line" == *'Radio Test'* ]] || fail 'el aviso sustituyó el contenido de favoritos'
+[[ "$update_line" == *'Radio Test'* ]] || fail 'el aviso sustituyó el contenido de búsqueda'
 
 # Si estamos al día, el estado final es silencioso y no anuncia una versión.
 ui_update_background_cleanup
