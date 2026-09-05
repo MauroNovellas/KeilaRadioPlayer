@@ -50,7 +50,7 @@ test_bash_syntax() {
         {
             printf '%s\n' "$ROOT_DIR/keila-radio"
             find "$ROOT_DIR/lib" -maxdepth 1 -type f -name '*.sh' -print
-            printf '%s\n' "$ROOT_DIR/tests/run.sh"
+            find "$ROOT_DIR/tests" -maxdepth 1 -type f -name '*.sh' -print
         } | sort -u
     )
 }
@@ -67,7 +67,9 @@ test_shellcheck() {
         "$ROOT_DIR/lib/state.sh" \
         "$ROOT_DIR/lib/favorites.sh" \
         "$ROOT_DIR/lib/recording.sh" \
-        "$ROOT_DIR/tests/run.sh"
+        "$ROOT_DIR/lib/ui.sh" \
+        "$ROOT_DIR/tests/run.sh" \
+        "$ROOT_DIR/tests/recording-formats.sh"
 }
 
 test_config_parser() (
@@ -212,6 +214,32 @@ test_recording_helpers() (
     [[ "$file" == "$tmp/recordings/Radio_Test_"*.mka ]] || return 1
 )
 
+test_ui_helpers() (
+    source "$ROOT_DIR/lib/ui.sh"
+
+    assert_eq '1' "$(ui_control_line_count)" 'ayuda compacta por defecto' || return 1
+
+    ui_toggle_help
+    assert_eq '4' "$(ui_control_line_count)" 'ayuda expandida ocupa cuatro filas' || return 1
+
+    ui_toggle_help
+    assert_eq '1' "$(ui_control_line_count)" 'la ayuda vuelve a compactarse' || return 1
+
+    ui_set_message 'mensaje temporal' 5
+    assert_eq 'mensaje temporal' "$UI_MESSAGE" 'mensaje visible' || return 1
+    ((UI_MESSAGE_EXPIRES > 0)) || return 1
+
+    UI_MESSAGE_EXPIRES=1
+    ui_message_tick || return 1
+    assert_eq '' "$UI_MESSAGE" 'mensaje temporal caduca' || return 1
+
+    ui_set_message 'mensaje persistente' 0
+    if ui_message_tick; then
+        return 1
+    fi
+    assert_eq 'mensaje persistente' "$UI_MESSAGE" 'ttl 0 conserva el mensaje' || return 1
+)
+
 printf 'Keila Radio Player - checks\n\n'
 run_test 'sintaxis Bash' test_bash_syntax
 run_test 'ShellCheck' test_shellcheck
@@ -219,6 +247,7 @@ run_test 'configuración segura' test_config_parser
 run_test 'estado tratado como datos' test_state_is_data
 run_test 'favoritos' test_favorites
 run_test 'helpers de grabación' test_recording_helpers
+run_test 'ayuda y mensajes TUI' test_ui_helpers
 
 printf '\n%d ok, %d fallos\n' "$PASS" "$FAIL"
 ((FAIL == 0))
