@@ -22,6 +22,7 @@ update_validate_tree() {
         lib/state.sh
         lib/favorites.sh
         lib/stations.sh
+        lib/search.sh
         lib/player.sh
         lib/recording.sh
         lib/input.sh
@@ -32,6 +33,8 @@ update_validate_tree() {
         lib/ui-desktop-primary.sh
         lib/ui-desktop-balance.sh
         lib/ui-update-status.sh
+        lib/ui-search.sh
+        lib/app-search.sh
     )
 
     for file in "${required_files[@]}"; do
