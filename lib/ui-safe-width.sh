@@ -117,6 +117,13 @@ source "$(dirname "${BASH_SOURCE[0]}")/ui-update-status.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/app-search.sh"
 
 # En desktop, Favoritos y búsqueda comparten la columna de navegación. Esta capa
-# se carga la última porque envuelve la fila ya refinada por el aviso de update.
+# envuelve la fila ya refinada por el aviso de update.
 # shellcheck source=lib/ui-desktop-search-pane.sh
 source "$(dirname "${BASH_SOURCE[0]}")/ui-desktop-search-pane.sh"
+
+# Última protección del terminal: mantiene ECHO desactivado también durante los
+# intervalos entre lecturas, IPC y redibujados, y restaura el estado al salir.
+# Debe cargarse la última para envolver las versiones finales de enter/suspend/
+# resume/leave, incluidos los hooks de actualización.
+# shellcheck source=lib/ui-terminal-guard.sh
+source "$(dirname "${BASH_SOURCE[0]}")/ui-terminal-guard.sh"
