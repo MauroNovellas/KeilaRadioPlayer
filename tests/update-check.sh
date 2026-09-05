@@ -52,6 +52,7 @@ make_release() {
         state.sh
         favorites.sh
         stations.sh
+        search.sh
         player.sh
         recording.sh
         input.sh
@@ -62,6 +63,8 @@ make_release() {
         ui-desktop-primary.sh
         ui-desktop-balance.sh
         ui-update-status.sh
+        ui-search.sh
+        app-search.sh
     )
 
     mkdir -p "$root/lib" "$root/defaults"
