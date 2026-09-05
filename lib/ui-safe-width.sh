@@ -3,7 +3,9 @@
 # Evita dibujar hasta la última columna física del terminal. Muchos emuladores
 # activan autowrap al escribir en esa celda y el siguiente salto de línea puede
 # producir una fila fantasma durante los redibujados de la TUI.
-
+#
+# En modo wide (PC) usamos todo el ancho útil del terminal: solo reservamos una
+# columna física de seguridad. Los demás modos conservan sus límites actuales.
 ui_layout_width() {
     local terminal_cols="${1:-$UI_COLS}"
     local width
@@ -13,18 +15,44 @@ ui_layout_width() {
 
     case "${UI_LAYOUT_MODE:-standard}" in
         wide)
-            ((width > 92)) && width=92
+            # Desktop: aprovechar todo el ancho disponible sin tocar la última
+            # celda física, que es la que puede disparar autowrap.
+            ((terminal_cols > 1)) && width=$((terminal_cols - 1))
             ;;
         standard)
             ((width > 78)) && width=78
+            if ((width >= terminal_cols && terminal_cols > 1)); then
+                width=$((terminal_cols - 1))
+            fi
+            ;;
+        *)
+            if ((width >= terminal_cols && terminal_cols > 1)); then
+                width=$((terminal_cols - 1))
+            fi
             ;;
     esac
 
-    if ((width >= terminal_cols && terminal_cols > 1)); then
-        width=$((terminal_cols - 1))
+    printf '%s\n' "$width"
+}
+
+# En el layout ancho hacemos crecer también la barra de volumen para que el
+# espacio adicional sea útil y no solo un marco más largo. En el resto de modos
+# conservamos la geometría anterior.
+ui_volume_bar_width() {
+    local width="$1"
+    local bar
+
+    if [[ "${UI_LAYOUT_MODE:-standard}" == 'wide' ]]; then
+        bar=$((width - 48))
+        ((bar < 20)) && bar=20
+        ((bar > 48)) && bar=48
+    else
+        bar=$((width - 42))
+        ((bar < 12)) && bar=12
+        ((bar > 28)) && bar=28
     fi
 
-    printf '%s\n' "$width"
+    printf '%s\n' "$bar"
 }
 
 # El render responsive puede ocupar exactamente todas las filas del terminal.
