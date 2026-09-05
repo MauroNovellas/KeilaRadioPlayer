@@ -2,7 +2,7 @@
 
 Keila Radio Player es un reproductor de radio en Bash para terminal, usando `mpv` como motor de reproducción.
 
-La rama `v2` está actualmente en fase **`2.0.0-rc1`**. La plataforma principal de esta release candidate es Linux de escritorio; Termux/Android sigue siendo compatible de forma secundaria y recibirá una pasada específica después de estabilizar la versión de PC.
+La versión candidata actual es **`2.0.0-rc2`**. La plataforma principal de esta release candidate es Linux de escritorio; Termux/Android sigue siendo compatible de forma secundaria y recibirá una pasada específica después de estabilizar la versión de PC.
 
 Consulta el historial de cambios en [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -17,7 +17,7 @@ La versión vive en una única fuente, `lib/version.sh`, y puede consultarse sin
 Salida esperada para esta RC:
 
 ```text
-Keila Radio Player 2.0.0-rc1
+Keila Radio Player 2.0.0-rc2
 ```
 
 ## Dependencias
@@ -49,7 +49,7 @@ Para `tput`, Keila instala `ncurses-bin` en Debian y `ncurses-utils` en Termux.
 ./keila-radio
 ```
 
-También existe un smoke check de inicialización que no abre TUI, red ni `mpv`:
+También existe un smoke check de inicialización que no abre la TUI ni inicia `mpv`:
 
 ```bash
 ./keila-radio --check
@@ -67,6 +67,36 @@ Los datos personales se guardan fuera del repositorio:
 ```
 
 La semilla inicial de favoritos vive en `defaults/favorites`. Solo se copia al directorio personal si todavía no existe un fichero de favoritos del usuario.
+
+## TUI responsive
+
+Keila adapta automáticamente la composición al tamaño de la terminal y recalcula el layout durante el redimensionado:
+
+```text
+≥ 112 columnas y ≥ 20 filas   desktop de dos paneles
+≥ 80x20                       wide
+≥ 62x16                       standard
+≥ 50x13                       compact
+≥ 42x11                       minimal
+< 42x11                       aviso de terminal demasiado pequeña
+```
+
+En desktop, `Ahora suena` queda como panel contenido a la izquierda y `Favoritos` ocupa la mayor parte del espacio a la derecha. El panel de reproducción muestra emisora, canción/programa, datos técnicos, volumen, estado, grabación y favorito cuando existe espacio suficiente.
+
+El modo ancho de PC utiliza prácticamente toda la anchura disponible, reservando una columna física de seguridad para evitar autowrap. El borde inferior tampoco imprime un salto de línea adicional, evitando que la terminal haga scroll durante los redibujados.
+
+La interfaz usa Unicode cuando la locale lo permite y cae automáticamente a ASCII. Puede forzarse manualmente con:
+
+```bash
+KEILA_ASCII_UI=1 ./keila-radio
+```
+
+Los colores son semánticos y no participan en los cálculos de anchura. Pueden desactivarse con cualquiera de estas opciones:
+
+```bash
+KEILA_NO_COLOR=1 ./keila-radio
+NO_COLOR=1 ./keila-radio
+```
 
 ## Configuración
 
@@ -112,11 +142,53 @@ Esc                cerrar la ayuda completa
 Q                  salir
 ```
 
+`U` actualiza exclusivamente el catálogo de TDTChannels; no se reutiliza para actualizar el programa.
+
 La navegación de favoritos es circular y tiene scroll automático. Al buscar con `B`, Keila suspende temporalmente la TUI, abre `fzf` y vuelve a la interfaz al seleccionar o cancelar.
 
-Por defecto la zona de controles ocupa una sola fila para dejar más espacio a favoritos. `H` despliega cuatro filas con todos los atajos y la lista ajusta automáticamente su altura; `H` o `Esc` vuelven a compactarla.
+Por defecto la zona de controles ocupa una sola fila para dejar más espacio a favoritos. `H` despliega la ayuda completa y la lista ajusta automáticamente su altura; `H` o `Esc` vuelven a compactarla.
 
-Los mensajes de acciones y errores son temporales: avisos como el cambio de volumen, una búsqueda cancelada o una grabación guardada desaparecen solos después de unos segundos, mientras que el estado real de reproducción permanece en las líneas superiores de la TUI.
+Los mensajes de acciones y errores son temporales: avisos como el cambio de volumen, una búsqueda cancelada o una grabación guardada desaparecen solos después de unos segundos, mientras que el estado real de reproducción permanece en la TUI.
+
+## Actualizaciones
+
+Para consultar los tags publicados compatibles con la versión actual:
+
+```bash
+./keila-radio --check-update
+```
+
+Para instalar una versión nueva publicada:
+
+```bash
+./keila-radio --update
+```
+
+El actualizador:
+
+1. selecciona únicamente una versión publicada compatible;
+2. descarga el paquete a un directorio temporal;
+3. comprueba rutas seguras, versión, sintaxis Bash y todos los módulos runtime obligatorios;
+4. crea una copia de seguridad temporal de los componentes gestionados;
+5. instala la nueva versión;
+6. ejecuta una comprobación final con `--version`;
+7. restaura automáticamente la versión anterior si la comprobación final falla.
+
+La actualización no sustituye los datos XDG del usuario ni `grabaciones/`.
+
+Las copias Git de desarrollo, como una rama distinta de `main`, no se sustituyen automáticamente por una release. Keila las protege y pide actualizarlas mediante Git.
+
+Al abrir la TUI se realiza además una comprobación de actualización en segundo plano. No retrasa el arranque: si GitHub no responde, Keila sigue funcionando sin mostrar un error. Cuando existe una versión superior, el layout desktop puede mostrar discretamente:
+
+```text
+ACTUALIZACIÓN    2.0.0 disponible
+```
+
+La comprobación automática puede desactivarse:
+
+```bash
+KEILA_NO_UPDATE_CHECK=1 ./keila-radio
+```
 
 ## Persistencia y concurrencia
 
@@ -129,11 +201,11 @@ Las escrituras de `state` y `favorites` están protegidas con mutex basados en `
 Mientras una emisora está reproduciéndose, Keila consulta `mpv` mediante JSON IPC. La TUI puede mostrar, cuando la emisora o el demuxer proporcionan esos datos:
 
 ```text
-Ahora: Artista - Canción / programa en emisión
-Audio: AAC · 128 kbps · 44.1 kHz · stereo
+Artista - Canción / programa en emisión
+AAC · 128 kbps · 44.1 kHz · stereo
 ```
 
-Las filas son dinámicas: si una emisora no publica título en emisión, no se reserva una línea vacía para `Ahora:`; si tampoco hay información técnica disponible, tampoco aparece `Audio:`.
+Las filas son dinámicas: si una emisora no publica título en emisión o datos técnicos, el layout adapta el espacio disponible.
 
 El bitrate mostrado procede de `audio-bitrate` de `mpv`. Para el título en emisión Keila consulta tanto el objeto general de metadatos como campos ICY específicos y `media-title`, de modo que los cambios de canción puedan reflejarse mientras el stream sigue reproduciéndose.
 
@@ -141,7 +213,7 @@ El bitrate mostrado procede de `audio-bitrate` de `mpv`. Para el título en emis
 
 `R` activa o desactiva la grabación del stream que ya está recibiendo el mismo proceso de `mpv`; no se abre una segunda conexión a la emisora.
 
-Mientras está activa aparece un contador en la línea de estado:
+Mientras está activa aparece un contador:
 
 ```text
 [REC 00:03:27]
@@ -175,24 +247,31 @@ La carpeta está ignorada por Git. Al detener una grabación Keila espera a que 
 
 ## Comprobaciones
 
-La RC incluye pruebas de regresión para configuración, estado, favoritos, helpers/formato de grabación y estado visual de la TUI. La batería pre-RC añade validación de versión, smoke test real de inicialización y una prueba con varios procesos escribiendo favoritos simultáneamente.
+RC2 incluye regresiones para configuración, estado, favoritos, grabación, tema, responsive, geometría desktop, protección contra autowrap/scroll, actualización, validación de paquetes, rollback y aviso de actualización en la TUI.
 
-Ejecutarlas localmente:
+Ejecutar la batería local principal:
 
 ```bash
 ./tests/run.sh
 bash ./tests/recording-formats.sh
 bash ./tests/pre-rc.sh
+bash ./tests/ui-theme.sh
+bash ./tests/ui-responsive.sh
+bash ./tests/ui-desktop.sh
+bash ./tests/ui-update-status.sh
+bash ./tests/update-check.sh
 ```
 
-Si `shellcheck` está instalado, el runner principal también lo ejecuta sobre los módulos principales. El workflow `.github/workflows/checks.yml` instala ShellCheck y ejecuta todas estas comprobaciones automáticamente en GitHub.
+El workflow `.github/workflows/checks.yml` instala ShellCheck y ejecuta automáticamente la batería completa en GitHub Actions.
 
 ## Estructura
 
 ```text
 KeilaRadioPlayer/
+├── .github/workflows/checks.yml
 ├── keila-radio
 ├── CHANGELOG.md
+├── README.md
 ├── defaults/
 │   └── favorites
 ├── lib/
@@ -206,18 +285,30 @@ KeilaRadioPlayer/
 │   ├── state.sh
 │   ├── stations.sh
 │   ├── ui.sh
+│   ├── ui-responsive.sh
+│   ├── ui-safe-width.sh
+│   ├── ui-desktop.sh
+│   ├── ui-desktop-primary.sh
+│   ├── ui-desktop-balance.sh
+│   ├── ui-update-status.sh
+│   ├── update.sh
+│   ├── update-validation.sh
 │   └── version.sh
-├── tests/
-│   ├── pre-rc.sh
-│   ├── recording-formats.sh
-│   └── run.sh
-└── README.md
+└── tests/
+    ├── pre-rc.sh
+    ├── recording-formats.sh
+    ├── run.sh
+    ├── ui-theme.sh
+    ├── ui-responsive.sh
+    ├── ui-desktop.sh
+    ├── ui-update-status.sh
+    └── update-check.sh
 ```
 
-Los scripts, listados y documentación de la antigua v1 se mantienen en el historial de Git, pero ya no forman parte del árbol de trabajo de `v2`.
+Los scripts, listados y documentación de la antigua v1 se mantienen en el historial de Git, pero ya no forman parte del árbol de trabajo actual.
 
-Al salir, Keila detiene/finaliza la grabación si existe, detiene `mpv`, restaura el cursor, abandona la pantalla alternativa de la TUI y limpia la pantalla principal para no dejar restos visuales.
+Al salir, Keila detiene/finaliza la grabación si existe, detiene `mpv`, cancela una comprobación de actualización en segundo plano si sigue activa, restaura el cursor, abandona la pantalla alternativa de la TUI y limpia la pantalla principal para no dejar restos visuales.
 
 ## Política de la RC
 
-Durante `2.0.0-rc1` se priorizan correcciones de regresiones y estabilidad. Las nuevas funciones se posponen hasta decidir que el candidato está listo para convertirse en `2.0.0`.
+Durante `2.0.0-rc2` se priorizan correcciones de regresiones y estabilidad. La reconexión automática y otras funciones nuevas quedan fuera de esta release candidate; si RC2 se mantiene estable, el siguiente objetivo es preparar `2.0.0` con cambios mínimos.
