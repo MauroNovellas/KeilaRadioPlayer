@@ -6,6 +6,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 source "$ROOT_DIR/lib/ui.sh"
 source "$ROOT_DIR/lib/ui-responsive.sh"
+source "$ROOT_DIR/lib/ui-safe-width.sh"
 
 fail() {
     printf 'FAIL %s\n' "$1" >&2
@@ -25,10 +26,14 @@ assert_eq tiny "$(ui_layout_mode 40 10)" 'modo tiny'
 
 UI_LAYOUT_MODE=wide
 assert_eq 92 "$(ui_layout_width 120)" 'wide limita el ancho máximo'
+assert_eq 91 "$(ui_layout_width 92)" 'wide reserva columna al tocar el borde'
 UI_LAYOUT_MODE=standard
 assert_eq 78 "$(ui_layout_width 90)" 'standard conserva ancho clásico'
+assert_eq 69 "$(ui_layout_width 70)" 'standard evita autowrap al usar todo el terminal'
 UI_LAYOUT_MODE=compact
-assert_eq 55 "$(ui_layout_width 55)" 'compact usa todo el ancho disponible'
+assert_eq 54 "$(ui_layout_width 55)" 'compact reserva una columna de seguridad'
+UI_LAYOUT_MODE=minimal
+assert_eq 44 "$(ui_layout_width 45)" 'minimal reserva una columna de seguridad'
 
 UI_HELP_VISIBLE=1
 UI_LAYOUT_MODE=wide
@@ -70,4 +75,4 @@ ui_responsive_badges '[● REC 00:42]' '[★ FAVORITA]' '[PAUSA]'
 assert_eq '' "$UI_RESP_RECORDING" 'minimal prioriza estado sobre REC'
 assert_eq '[PAUSA]' "$UI_RESP_STATE" 'minimal conserva el estado prioritario'
 
-printf 'ok   composición TUI responsive\n'
+printf 'ok   composición TUI responsive y ancho seguro\n'
