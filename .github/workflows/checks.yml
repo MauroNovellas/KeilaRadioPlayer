@@ -15,3 +15,4 @@ jobs:
         run: |
           ./tests/run.sh
           bash ./tests/recording-formats.sh
+          bash ./tests/pre-rc.sh
