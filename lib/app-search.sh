@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
-# Integración modal de la búsqueda. Se carga después de stations.sh y de las
-# capas visuales, y sustituye solo el selector de emisoras. El launcher sigue
-# usando su mismo app_search_catalog() y su mismo bucle principal.
+# Integración de la búsqueda. En desktop reutiliza el dashboard principal y da
+# foco a la mitad inferior de la columna de navegación; en tamaños menores
+# conserva la vista modal responsive. El launcher sigue usando su mismo
+# app_search_catalog() y su mismo bucle principal.
 
 # shellcheck source=lib/search.sh
 source "$(dirname "${BASH_SOURCE[0]}")/search.sh"
@@ -51,6 +52,23 @@ search_prepare_results() {
     search_apply_pending_filter || true
 }
 
+search_desktop_available() {
+    ui_refresh_size
+    local mode
+    mode=$(ui_layout_mode "$UI_COLS" "$UI_LINES")
+    ui_desktop_enabled "$UI_COLS" "$UI_LINES" "$mode"
+}
+
+search_draw_view() {
+    if search_desktop_available; then
+        # ui_draw vuelve a calcular el tamaño y, en desktop, la capa
+        # ui-desktop-search-pane.sh pinta Favoritos + búsqueda en la derecha.
+        ui_draw
+    else
+        ui_draw_search
+    fi
+}
+
 stations_select_fzf() {
     if [[ "${KEILA_FZF_SEARCH:-0}" == '1' ]]; then
         stations_select_fzf_external
@@ -70,7 +88,7 @@ stations_select_fzf() {
     UI_HELP_VISIBLE=0
     ui_clear_message
     ui_resume
-    ui_draw_search
+    search_draw_view
 
     while true; do
         if ! input_read; then
@@ -145,6 +163,6 @@ stations_select_fzf() {
                 ;;
         esac
 
-        ((redraw)) && ui_draw_search
+        ((redraw)) && search_draw_view
     done
 }
