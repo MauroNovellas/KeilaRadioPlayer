@@ -90,11 +90,12 @@ app_play() {
     local recording_notice=""
 
     if ((RECORDING_ACTIVE)); then
-        local saved_file saved_size
+        local saved_file saved_size recording_error
         saved_file=$(recording_filename)
 
         if ! recording_stop; then
-            app_message "Grabación incompleta: ${RECORDING_LAST_ERROR:-no se pudo validar el archivo}. No se cambia de emisora." 9
+            recording_error="${RECORDING_LAST_ERROR:-No se pudo validar el archivo.}"
+            app_message "Grabación incompleta: $recording_error No se cambia de emisora." 9
             return 1
         fi
 
