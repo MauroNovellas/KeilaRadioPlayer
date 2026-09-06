@@ -91,7 +91,7 @@ player_events_send_observers() {
         printf '%s\n' '{"command":["observe_property",205,"current-tracks/audio/codec"]}'
         printf '%s\n' '{"command":["observe_property",206,"audio-bitrate"]}'
         printf '%s\n' '{"command":["observe_property",207,"audio-params"]}'
-    } >&"$fd" 2>/dev/null
+    } >&"$fd"
 }
 
 player_events_start() {
