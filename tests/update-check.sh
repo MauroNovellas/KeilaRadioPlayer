@@ -55,6 +55,7 @@ make_release() {
         search.sh
         player.sh
         recording.sh
+        diagnostics.sh
         input.sh
         ui.sh
         ui-responsive.sh
