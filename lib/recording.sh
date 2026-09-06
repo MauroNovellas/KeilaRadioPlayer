@@ -9,6 +9,7 @@ RECORDINGS_DIR=""
 RECORDING_STARTED_EPOCH=0
 RECORDING_LAST_DISPLAY_SECOND=-1
 RECORDING_LAST_VALID=0
+RECORDING_LAST_VERIFIED=0
 RECORDING_LAST_SIZE=0
 RECORDING_LAST_ERROR=""
 
@@ -203,10 +204,60 @@ recording_tick_changed() {
     return 1
 }
 
+# Comprueba que mpv puede abrir y reproducir brevemente el archivo recién
+# cerrado. El probe usa salida nula y está acotado: nunca debe convertir una
+# validación de grabación en un bloqueo indefinido.
+#
+# Retornos:
+#   0  mpv confirmó que el archivo es reproducible
+#   1  mpv terminó indicando que no pudo reproducirlo
+#   2  no se pudo completar el probe de forma fiable (mpv ausente/timeout)
+recording_probe_file() {
+    local file="$1"
+    local pid attempt status=0
+
+    command -v mpv >/dev/null 2>&1 || return 2
+
+    mpv \
+        --no-config \
+        --really-quiet \
+        --no-terminal \
+        --no-video \
+        --audio-display=no \
+        --ao=null \
+        --length=0.20 \
+        -- "$file" \
+        >/dev/null 2>&1 &
+    pid=$!
+
+    # Archivo local: dos segundos son margen amplio y evitan cualquier espera
+    # patológica ante un contenedor dañado.
+    for ((attempt = 0; attempt < 40; attempt++)); do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            wait "$pid" 2>/dev/null || status=$?
+            ((status == 0)) && return 0
+            return 1
+        fi
+        sleep 0.05
+    done
+
+    kill "$pid" 2>/dev/null || true
+    for ((attempt = 0; attempt < 10; attempt++)); do
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 0.05
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+        kill -KILL "$pid" 2>/dev/null || true
+    fi
+    wait "$pid" 2>/dev/null || true
+    return 2
+}
+
 recording_verify_file() {
     local file="${1:-$RECORDING_FILE}"
 
     RECORDING_LAST_VALID=0
+    RECORDING_LAST_VERIFIED=0
     RECORDING_LAST_SIZE=0
     RECORDING_LAST_ERROR=""
 
@@ -238,8 +289,27 @@ recording_verify_file() {
         return 1
     fi
 
+    # Un archivo con datos nunca se descarta solo porque el probe sea demasiado
+    # estricto para un formato raro. El tamaño permite conservarlo; el probe
+    # añade un segundo nivel de confianza que la UI puede comunicar al usuario.
     RECORDING_LAST_VALID=1
-    return 0
+
+    local probe_status=0
+    recording_probe_file "$file" || probe_status=$?
+    case "$probe_status" in
+        0)
+            RECORDING_LAST_VERIFIED=1
+            return 0
+            ;;
+        1)
+            RECORDING_LAST_ERROR="El archivo contiene datos, pero mpv no pudo confirmar audio reproducible."
+            return 0
+            ;;
+        *)
+            RECORDING_LAST_ERROR="El archivo contiene datos, pero no se pudo completar la verificación de reproducción."
+            return 0
+            ;;
+    esac
 }
 
 recording_size_human() {
@@ -280,6 +350,7 @@ recording_start() {
     RECORDING_STARTED_EPOCH="${EPOCHSECONDS:-$(date +%s)}"
     RECORDING_LAST_DISPLAY_SECOND=0
     RECORDING_LAST_VALID=0
+    RECORDING_LAST_VERIFIED=0
     RECORDING_LAST_SIZE=0
     RECORDING_LAST_ERROR=""
 }
@@ -304,7 +375,11 @@ recording_stop() {
 
     if recording_verify_file "$file"; then
         if ((ipc_failed)); then
-            RECORDING_LAST_ERROR="mpv no confirmó el cierre, pero el archivo contiene datos."
+            if ((RECORDING_LAST_VERIFIED)); then
+                RECORDING_LAST_ERROR="mpv no confirmó el cierre, pero el archivo fue verificado y contiene audio reproducible."
+            elif [[ -z "$RECORDING_LAST_ERROR" ]]; then
+                RECORDING_LAST_ERROR="mpv no confirmó el cierre, pero el archivo contiene datos."
+            fi
         fi
         return 0
     fi
@@ -329,6 +404,8 @@ recording_reset() {
     RECORDING_ACTIVE=0
     RECORDING_STARTED_EPOCH=0
     RECORDING_LAST_DISPLAY_SECOND=-1
+    RECORDING_LAST_VALID=0
+    RECORDING_LAST_VERIFIED=0
 }
 
 recording_filename() {
