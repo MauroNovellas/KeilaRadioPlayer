@@ -12,6 +12,9 @@ SPECTRUM_FOUND_SOURCE=''
 SPECTRUM_ERROR=''
 SPECTRUM_NOTICE_PENDING=0
 SPECTRUM_FRAME_ROWS=16
+SPECTRUM_DISPLAY_ROWS=8
+SPECTRUM_DISPLAY_INTERVAL_MS=250
+SPECTRUM_LAST_DISPLAY_MS=''
 SPECTRUM_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
 
 spectrum_find_source() {
@@ -105,6 +108,23 @@ spectrum_start() {
     SPECTRUM_PID=$!
 }
 
+spectrum_now_ms() {
+    if [[ -n "${SPECTRUM_TEST_NOW_MS:-}" && "${SPECTRUM_TEST_NOW_MS}" =~ ^[0-9]+$ ]]; then
+        printf '%s\n' "$SPECTRUM_TEST_NOW_MS"
+        return 0
+    fi
+
+    if [[ -n "${EPOCHREALTIME:-}" ]]; then
+        local seconds="${EPOCHREALTIME%%.*}" fraction="${EPOCHREALTIME#*.}"
+        fraction="${fraction}000"
+        fraction="${fraction:0:3}"
+        printf '%s\n' "$((seconds * 1000 + 10#$fraction))"
+        return 0
+    fi
+
+    date +%s%3N
+}
+
 # Procesamos cada fila al recibirla: od con salida por líneas y read de Bash
 # evitan el buffering de entrada de awk sobre un flujo que nunca termina.
 spectrum_publish_frames() {
@@ -134,6 +154,7 @@ spectrum_stop() {
         rm -rf -- "${SPECTRUM_DIR:?}"
     fi
     SPECTRUM_DIR=''
+    SPECTRUM_LAST_DISPLAY_MS=''
     SPECTRUM_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
 }
 
@@ -159,7 +180,13 @@ spectrum_tick() {
         return 0
     fi
 
-    local file="$SPECTRUM_DIR/levels" raw values i changed=1
+    local now_ms file="$SPECTRUM_DIR/levels" raw values i changed=1
+    now_ms=$(spectrum_now_ms)
+    if [[ -n "$SPECTRUM_LAST_DISPLAY_MS" ]] &&
+        ((now_ms >= SPECTRUM_LAST_DISPLAY_MS)) &&
+        ((now_ms - SPECTRUM_LAST_DISPLAY_MS < SPECTRUM_DISPLAY_INTERVAL_MS)); then
+        return 1
+    fi
     [[ -s "$file" ]] || return 1
     IFS= read -r raw < "$file" || return 1
     IFS=' ' read -r -a values <<< "$raw"
@@ -169,6 +196,7 @@ spectrum_tick() {
         if [[ "${SPECTRUM_LEVELS[i]}" != "${values[i]}" ]]; then changed=0; fi
     done
     SPECTRUM_LEVELS=("${values[@]}")
+    SPECTRUM_LAST_DISPLAY_MS=$now_ms
     return "$changed"
 }
 

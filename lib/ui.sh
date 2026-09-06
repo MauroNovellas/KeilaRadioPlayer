@@ -584,6 +584,36 @@ ui_spectrum_bars() {
     printf '%s' "$result"
 }
 
+ui_spectrum_editor_row() {
+    local row="$1" max_columns="${2:-16}"
+    local display_rows="${SPECTRUM_DISPLAY_ROWS:-8}" frame_rows="${SPECTRUM_FRAME_ROWS:-16}"
+    local threshold level height result='' column start end max_level i
+    local -a levels=("${SPECTRUM_LEVELS[@]:-}")
+
+    [[ "$row" =~ ^[0-9]+$ ]] || return 1
+    [[ "$max_columns" =~ ^[0-9]+$ ]] || return 1
+    [[ "$display_rows" =~ ^[0-9]+$ && "$frame_rows" =~ ^[0-9]+$ ]] || return 1
+    ((display_rows > 0 && frame_rows > 0 && row < display_rows && max_columns > 0)) || return 1
+    ((max_columns > 16)) && max_columns=16
+    ((${#levels[@]} == 16)) || levels=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+
+    threshold=$((display_rows - row))
+    for ((column = 0; column < max_columns; column++)); do
+        start=$((column * 16 / max_columns))
+        end=$(((column + 1) * 16 / max_columns))
+        ((end <= start)) && end=$((start + 1))
+        max_level=0
+        for ((i = start; i < end && i < 16; i++)); do
+            level="${levels[i]}"
+            [[ "$level" =~ ^[0-9]+$ ]] || level=0
+            ((level > max_level)) && max_level=$level
+        done
+        height=$((max_level * display_rows / frame_rows))
+        if ((height >= threshold)); then result+="$UI_BAR_FULL"; else result+=' '; fi
+    done
+    printf '%s' "$result"
+}
+
 ui_audio_info() {
     local -a parts=()
     [[ -n "${PLAYER_CODEC:-}" ]] && parts+=("${PLAYER_CODEC^^}")

@@ -198,7 +198,9 @@ Los cambios se aplican inmediatamente a la emisora en reproducción y se conserv
 
 ### Analizador de espectro
 
-El panel `Ahora suena` muestra un analizador de 16 bandas cuando existe audio real. Pulsa `V` para ocultarlo o volverlo a mostrar. La captura se detiene automáticamente al pausar o detener la reproducción y vuelve a arrancar al reanudarla.
+El panel `Ahora suena` muestra un analizador vertical de 16 bandas y ocho filas cuando existe audio real, con la misma altura visible que el ecualizador. Pulsa `V` para ocultarlo o volverlo a mostrar. La captura se detiene automáticamente al pausar o detener la reproducción y vuelve a arrancar al reanudarla.
+
+La pantalla refresca el gráfico cuatro veces por segundo; la captura y el análisis de audio continúan trabajando de forma independiente para conservar una respuesta fluida.
 
 En Linux de escritorio usa el monitor de la salida PulseAudio/PipeWire mediante `parec`, `ffmpeg` y `pactl`; analiza el audio que ya está reproduciendo `mpv` y no abre otra conexión a la emisora. Las barras de 16 frecuencias permanecen dibujadas incluso antes de recibir señal. Estas herramientas son opcionales: si no existen o el sistema no expone un monitor compatible, Keila continúa funcionando y muestra `No disponible` en el panel. En Debian/Ubuntu pueden instalarse con:
 

@@ -4,6 +4,8 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - rama v2.1
 
+- El analizador de espectro pasa a un gráfico vertical de ocho filas, igualando la altura visible del ecualizador, y limita su actualización en pantalla a cuatro cuadros por segundo sin reducir la frecuencia de captura.
+
 - Corregido el buffering del analizador: entrega cuadros durante la captura continua sin esperar a cerrar el flujo. Prueba integral con PCM generado en tiempo real.
 
 - Añadido ecualizador de cinco bandas persistente: 60 Hz, 250 Hz, 1 kHz, 4 kHz y 12 kHz, ajustable desde la TUI con `Z` y restablecible a sonido plano.

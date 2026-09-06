@@ -145,7 +145,22 @@ ui_draw_desktop() {
     volume_hint='A/D  ←/→'
 
     local row index fav_marker preset_label fav_badge fav_style fav_badge_style selected
-    local main_text main_badge main_style main_style_badge
+    local main_text main_badge main_style main_style_badge spectrum_cells
+    local spectrum_columns=16 spectrum_badge_width=4 spectrum_available_width
+    if ((SPECTRUM_ENABLED)); then
+        if ((${EQUALIZER_EDITOR_ACTIVE:-0})); then
+            local selected_eq_badge
+            printf -v selected_eq_badge '%s %s  %+d dB' "$UI_SELECT" "${EQUALIZER_LABELS[EQUALIZER_SELECTED]}" "${EQUALIZER_GAINS[EQUALIZER_SELECTED]}"
+            spectrum_badge_width=${#selected_eq_badge}
+        fi
+        spectrum_available_width=$((UI_DESKTOP_LEFT_WIDTH - 29 - 2 - spectrum_badge_width - 1))
+        if ((spectrum_available_width < 10)); then
+            spectrum_badge_width=0
+            spectrum_available_width=$((UI_DESKTOP_LEFT_WIDTH - 29 - 2))
+        fi
+        ((spectrum_available_width < spectrum_columns)) && spectrum_columns=$spectrum_available_width
+        ((spectrum_columns < 1)) && spectrum_columns=1
+    fi
     for ((row = 0; row < body_height; row++)); do
         main_text=''
         main_badge=''
@@ -183,13 +198,27 @@ ui_draw_desktop() {
             4|5|6|7|8|9|10|11)
                 ui_equalizer_editor_row "$((row - 4))"
                 main_text="$UI_EQ_TEXT"
+                if ((SPECTRUM_ENABLED)); then
+                    spectrum_cells=$(ui_spectrum_editor_row "$((row - 4))" "$spectrum_columns")
+                    main_text+="  $spectrum_cells"
+                fi
                 main_style="$UI_EQ_STYLE"
                 if ((row == 4)); then
                     if ((${EQUALIZER_EDITOR_ACTIVE:-0})); then
-                        printf -v main_badge '%s  %+d dB' "${EQUALIZER_LABELS[EQUALIZER_SELECTED]}" "${EQUALIZER_GAINS[EQUALIZER_SELECTED]}"
+                        if ((spectrum_badge_width > 0)); then
+                            printf -v main_badge '%s  %+d dB' "${EQUALIZER_LABELS[EQUALIZER_SELECTED]}" "${EQUALIZER_GAINS[EQUALIZER_SELECTED]}"
+                        else
+                            main_badge=''
+                        fi
                         main_style_badge='selected'
                     else
-                        main_badge='Z editar'
+                        if ((SPECTRUM_ENABLED && spectrum_badge_width > 0)); then
+                            main_badge='Z EQ'
+                        elif ((SPECTRUM_ENABLED)); then
+                            main_badge=''
+                        else
+                            main_badge='Z editar'
+                        fi
                         main_style_badge='muted'
                     fi
                 fi
@@ -201,7 +230,6 @@ ui_draw_desktop() {
                 elif [[ "${SPECTRUM_AVAILABLE:-unknown}" == no ]]; then
                     main_badge='No disponible'
                 else
-                    main_text+="  $(ui_spectrum_bars)"
                     main_badge='V ocultar'
                 fi
                 main_style='playing'
