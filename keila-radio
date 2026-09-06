@@ -287,10 +287,19 @@ app_remove_selected_favorite() {
 }
 
 app_search_catalog() {
-    ui_suspend
     local status=0
-    stations_select_fzf || status=$?
-    ui_resume
+
+    # El buscador integrado forma parte de la propia TUI y no necesita limpiar
+    # la pantalla para entrar/salir. El fallback fzf sí necesita cederle la
+    # terminal al proceso externo, por lo que conserva suspend/resume.
+    if [[ "${KEILA_FZF_SEARCH:-0}" == '1' ]]; then
+        ui_suspend
+        stations_select_fzf || status=$?
+        ui_resume
+    else
+        stations_select_fzf || status=$?
+    fi
+
     if ((status != 0)); then app_message "Búsqueda cancelada." 3; return 0; fi
     app_play "$SELECTED_NAME" "$SELECTED_URL"
 }
