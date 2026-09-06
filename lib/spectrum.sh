@@ -15,6 +15,7 @@ SPECTRUM_FRAME_ROWS=16
 SPECTRUM_DISPLAY_ROWS=8
 SPECTRUM_DISPLAY_INTERVAL_MS=50
 SPECTRUM_LAST_DISPLAY_MS=''
+SPECTRUM_SMOOTHING=1
 SPECTRUM_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
 
 spectrum_find_source() {
@@ -201,6 +202,15 @@ spectrum_tick() {
     ((${#values[@]} == 16)) || return 1
     for ((i=0; i<16; i++)); do
         [[ "${values[i]}" =~ ^[0-9]+$ ]] && ((values[i] >= 0 && values[i] <= SPECTRUM_FRAME_ROWS)) || return 1
+        if [[ -n "$SPECTRUM_LAST_DISPLAY_MS" && "${SPECTRUM_SMOOTHING:-1}" == 1 ]]; then
+            local previous=${SPECTRUM_LEVELS[i]} target=${values[i]} blended
+            blended=$(((previous * 2 + target + 1) / 3))
+            if ((blended == previous && previous != target)); then
+                ((target > previous)) && blended=$((previous + 1))
+                ((target < previous)) && blended=$((previous - 1))
+            fi
+            values[i]=$blended
+        fi
         if [[ "${SPECTRUM_LEVELS[i]}" != "${values[i]}" ]]; then changed=0; fi
     done
     SPECTRUM_LEVELS=("${values[@]}")

@@ -17,6 +17,7 @@ player_is_running() { return 0; }
 
 source "$ROOT_DIR/lib/spectrum.sh"
 source "$ROOT_DIR/lib/ui.sh"
+SPECTRUM_SMOOTHING=0
 
 # Reproduce el reloj localizado, incluidas fracciones que fallaban al leerse
 # como octales. El unset se limita al subshell para preservar el reloj real.
