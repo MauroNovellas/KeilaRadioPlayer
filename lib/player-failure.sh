@@ -36,6 +36,10 @@ player_failure_set() {
     PLAYER_FAILURE_AT=$(player_failure_now)
     PLAYER_FAILURE_EXIT_STATUS="$exit_status"
     PLAYER_FAILURE_SEQUENCE=$((PLAYER_FAILURE_SEQUENCE + 1))
+
+    # Un texto de rechazo IPC solo describe el fallo ipc_rejected concreto. No
+    # debe contaminar un fallo posterior de transporte, arranque o reconexión.
+    [[ "$reason" == 'ipc_rejected' ]] || PLAYER_LAST_IPC_ERROR=""
 }
 
 player_failure_description() {
