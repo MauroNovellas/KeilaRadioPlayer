@@ -50,6 +50,10 @@ make_release() {
         config.sh
         lock.sh
         state.sh
+        personal.sh
+        navigation.sh
+        catalog-startup.sh
+        label-editor.sh
         favorites.sh
         stations.sh
         search.sh

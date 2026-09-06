@@ -46,7 +46,13 @@ source "$BASE_DIR/lib/ui-responsive.sh"
 # shellcheck source=lib/ui-safe-width.sh
 source "$BASE_DIR/lib/ui-safe-width.sh"
 
+# shellcheck source=lib/catalog-startup.sh
+source "$BASE_DIR/lib/catalog-startup.sh"
+# shellcheck source=lib/label-editor.sh
+source "$BASE_DIR/lib/label-editor.sh"
+
 cleanup() {
+    catalog_stop >/dev/null 2>&1 || true
     recording_stop >/dev/null 2>&1 || true
     input_shutdown >/dev/null 2>&1 || true
     player_stop >/dev/null 2>&1 || true
@@ -78,6 +84,8 @@ app_init_data() {
         return 1
     }
     favorites_load || return 1
+    labels_load || return 1
+    history_load || return 1
     state_load || return 1
     if ! recording_init "$KEILA_RECORDINGS_DIR"; then
         printf 'No se pudo crear la carpeta de grabaciones: %s\n' "$KEILA_RECORDINGS_DIR" >&2
@@ -126,6 +134,7 @@ app_play() {
         return 1
     fi
 
+    HISTORY_PENDING_URL="$url"
     save_player_state >/dev/null 2>&1 || true
     if [[ -n "$recording_notice" ]]; then
         app_message "$recording_notice · Conectando: $name" 8
@@ -137,8 +146,13 @@ app_play() {
 app_play_selected() {
     favorites_load
     ui_sync_selection
-    if ((${#FAVORITE_NAMES[@]} == 0)); then app_message "No tienes favoritos. Pulsa B para buscar una emisora." 6; return 1; fi
-    app_play "${FAVORITE_NAMES[$UI_SELECTED_INDEX]}" "${FAVORITE_URLS[$UI_SELECTED_INDEX]}"
+    if ((UI_NAV_COUNT == 0)); then app_message "No hay emisoras. Pulsa B para buscar." 6; return 1; fi
+    if ((UI_SELECTED_INDEX < ${#FAVORITE_NAMES[@]})); then
+        app_play "${FAVORITE_NAMES[$UI_SELECTED_INDEX]}" "${FAVORITE_URLS[$UI_SELECTED_INDEX]}"
+    else
+        local recent=$((UI_SELECTED_INDEX - ${#FAVORITE_NAMES[@]}))
+        app_play "${RECENT_NAMES[recent]}" "${RECENT_URLS[recent]}"
+    fi
 }
 
 # Los diez primeros favoritos funcionan como presets de una radio física:
@@ -266,6 +280,10 @@ app_move_selected_favorite() {
     local count=${#FAVORITE_NAMES[@]}
     if ((count == 0)); then app_message "No tienes favoritos para reordenar." 5; return 1; fi
 
+    if ((UI_SELECTED_INDEX >= ${#FAVORITE_NAMES[@]})); then
+        app_message 'Esta acción requiere seleccionar un favorito.' 4
+        return 1
+    fi
     local index=$UI_SELECTED_INDEX
     local target=$((index + delta))
     local name="${FAVORITE_NAMES[$index]}"
@@ -290,6 +308,10 @@ app_remove_selected_favorite() {
     ui_sync_selection
     if ((${#FAVORITE_NAMES[@]} == 0)); then app_message "No tienes favoritos para eliminar." 5; return 1; fi
 
+    if ((UI_SELECTED_INDEX >= ${#FAVORITE_NAMES[@]})); then
+        app_message 'Esta acción requiere seleccionar un favorito.' 4
+        return 1
+    fi
     local index=$UI_SELECTED_INDEX
     local name="${FAVORITE_NAMES[$index]}"
     local url="${FAVORITE_URLS[$index]}"
@@ -328,16 +350,20 @@ app_search_catalog() {
         stations_select_fzf || status=$?
     fi
 
-    if ((status != 0)); then app_message "Búsqueda cancelada." 3; return 0; fi
+    if ((status != 0)); then
+        if [[ -n "$CATALOG_PID" && ${#SEARCH_NAMES[@]} == 0 ]]; then
+            app_message 'Cargando emisoras…' 3
+        else
+            app_message "Búsqueda cancelada." 3
+        fi
+        return 0
+    fi
     app_play "$SELECTED_NAME" "$SELECTED_URL"
 }
 
 app_update_catalog() {
-    ui_suspend
-    local status=0
-    stations_update_catalog || status=$?
-    ui_resume
-    if ((status == 0)); then app_message "Catálogo de TDTChannels actualizado." 5; else app_message "No se pudo actualizar el catálogo." 7; fi
+    catalog_start force || { app_message 'No se pudo iniciar la actualización.' 5; return 1; }
+    app_message 'Actualizando emisoras…' 3
 }
 
 app_poll_player() {
@@ -370,6 +396,7 @@ app_poll_player() {
         fi
         changed=0
     fi
+    if history_observe; then changed=0; fi
     if recording_tick_changed; then changed=0; fi
     return "$changed"
 }
@@ -398,6 +425,7 @@ app_handle_key() {
         x|X) app_remove_selected_favorite || true ;;
         b|B) app_search_catalog || true ;;
         u|U) app_update_catalog || true ;;
+        e|E) app_edit_label || true ;;
         h|H) ui_toggle_help ;;
         q|Q) app_message "Hasta luego." 0; return 2 ;;
         *) return 1 ;;
@@ -408,6 +436,7 @@ app_handle_key() {
 app_loop() {
     input_init
     ui_enter
+    catalog_start || true
     ui_draw
     while true; do
         if ! input_read; then return 0; fi
@@ -423,7 +452,7 @@ app_loop() {
         esac
 
         case "$INPUT_EVENT" in
-            TICK) app_poll_player && redraw=1; ui_message_tick && redraw=1 ;;
+            TICK) catalog_poll && redraw=1; app_poll_player && redraw=1; ui_message_tick && redraw=1 ;;
             RESIZE) redraw=1 ;;
             ESC) if ((UI_HELP_VISIBLE)); then ui_toggle_help; redraw=1; fi ;;
             UP) ui_move_selection -1 || true; redraw=1 ;;

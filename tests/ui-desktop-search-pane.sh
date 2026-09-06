@@ -50,15 +50,15 @@ ui_desktop_sync_selection 13
 assert_eq 6 "$UI_DESKTOP_FAVORITES_HEIGHT" 'mitad superior de favoritos'
 assert_eq 6 "$UI_DESKTOP_SEARCH_HEIGHT" 'mitad inferior de búsqueda'
 assert_eq 2 "$UI_SCROLL_OFFSET" 'favoritos hacen scroll dentro de su mitad'
-assert_eq 4 "$SEARCH_SCROLL_OFFSET" 'búsqueda hace scroll dentro de su mitad'
+assert_eq 3 "$SEARCH_SCROLL_OFFSET" 'búsqueda hace scroll dentro de su mitad'
 
 favorites_header=$(ui_desktop_header_rule 119 'AHORA SUENA' "FAVORITOS (${#FAVORITE_NAMES[@]})")
 [[ "$favorites_header" == *"$UI_SELECT FAVORITOS"* ]] || fail 'Favoritos activo no muestra indicador de foco'
 
 UI_UPDATE_DESKTOP_ROW=6
 separator=$(ui_desktop_row '' '' '' '' 'favorito que debe desaparecer' '' '' '' 0)
-[[ "$separator" == *'BUSCAR EMISORAS'* ]] || fail 'falta separador de búsqueda'
-[[ "$separator" != *"$UI_SELECT BUSCAR EMISORAS"* ]] || fail 'búsqueda inactiva aparece como foco activo'
+[[ "$separator" == *'EMISORAS'* ]] || fail 'falta separador de búsqueda'
+[[ "$separator" != *"$UI_SELECT EMISORAS"* ]] || fail 'búsqueda inactiva aparece como foco activo'
 [[ "$separator" != *'favorito que debe desaparecer'* ]] || fail 'el separador no sustituyó la fila de favoritos'
 
 SEARCH_ACTIVE=1
@@ -73,7 +73,7 @@ search_header=$(ui_desktop_header_rule 119 'AHORA SUENA' "FAVORITOS (${#FAVORITE
 
 UI_UPDATE_DESKTOP_ROW=6
 active_separator=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
-[[ "$active_separator" == *"$UI_SELECT BUSCAR EMISORAS"* ]] || fail 'búsqueda activa no muestra indicador de foco'
+[[ "$active_separator" == *"$UI_SELECT EMISORAS"* ]] || fail 'búsqueda activa no muestra indicador de foco'
 
 UI_UPDATE_DESKTOP_ROW=7
 query_line=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
@@ -99,7 +99,8 @@ SEARCH_MATCHES=()
 SEARCH_SCROLL_OFFSET=0
 UI_UPDATE_DESKTOP_ROW=7
 idle_line=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
-[[ "$idle_line" == *'B  Buscar emisoras'* ]] || fail 'panel de búsqueda inactivo no invita a pulsar B'
+[[ "$idle_line" != *'B  Buscar emisoras'* && "$idle_line" != *'Pulsa B'* ]] || fail 'instrucciones redundantes en búsqueda'
+[[ "$idle_line" == *'Sin catálogo disponible'* ]] || fail 'falta estado sin catálogo'
 
 normal_controls=$(ui_draw_responsive_controls 119)
 [[ "$normal_controls" == *'Q salir'* ]] || fail 'el pie normal no vuelve al salir de búsqueda'

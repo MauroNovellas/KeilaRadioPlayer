@@ -53,9 +53,13 @@ search_filter() {
     SEARCH_MATCHES=()
 
     local query="${SEARCH_QUERY,,}"
-    local i
+    local i label
     for ((i = 0; i < ${#SEARCH_INDEX_TEXTS[@]}; i++)); do
-        if [[ -z "$query" || "${SEARCH_INDEX_TEXTS[$i]}" == *"$query"* ]]; then
+        label=''
+        if declare -p FAVORITE_LABELS >/dev/null 2>&1; then
+            label="${FAVORITE_LABELS[${SEARCH_URLS[$i]}]:-}"
+        fi
+        if [[ -z "$query" || "${SEARCH_INDEX_TEXTS[$i]} ${label,,}" == *"$query"* ]]; then
             SEARCH_MATCHES+=("$i")
         fi
     done

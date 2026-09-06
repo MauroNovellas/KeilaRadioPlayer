@@ -50,12 +50,12 @@ stations_update_catalog() {
     stations_require_catalog_dependencies || return 1
     keila_init_paths
 
-    local tmp="${KEILA_STATIONS_JSON}.tmp.$$"
+    local tmp="${KEILA_STATIONS_JSON}.tmp.${BASHPID:-$$}"
     rm -f "$tmp"
 
     printf 'Actualizando catálogo de TDTChannels...\n'
 
-    if ! curl \
+    curl \
         --fail \
         --location \
         --silent \
@@ -64,7 +64,9 @@ stations_update_catalog() {
         --max-time 30 \
         --retry 1 \
         "$KEILA_TDTCHANNELS_RADIO_URL" \
-        --output "$tmp"; then
+        --output "$tmp" &
+    local download_pid=$!
+    if ! wait "$download_pid"; then
         rm -f "$tmp"
         printf 'No se pudo descargar el catálogo.\n' >&2
         return 1

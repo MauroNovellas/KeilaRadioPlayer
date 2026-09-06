@@ -20,6 +20,10 @@ update_validate_tree() {
         lib/config.sh
         lib/lock.sh
         lib/state.sh
+        lib/personal.sh
+        lib/navigation.sh
+        lib/catalog-startup.sh
+        lib/label-editor.sh
         lib/favorites.sh
         lib/stations.sh
         lib/search.sh

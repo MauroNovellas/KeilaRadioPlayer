@@ -276,3 +276,6 @@ favorites_toggle() {
     lock_release "$lock_dir" || status=1
     return "$status"
 }
+
+# shellcheck source=lib/personal.sh
+source "$(dirname "${BASH_SOURCE[0]}")/personal.sh"

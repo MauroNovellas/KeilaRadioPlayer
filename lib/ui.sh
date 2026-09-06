@@ -522,21 +522,8 @@ ui_list_height() {
 }
 
 ui_sync_selection() {
-    local count=${#FAVORITE_NAMES[@]}
-    if ((count == 0)); then UI_SELECTED_INDEX=0; UI_SCROLL_OFFSET=0; return 0; fi
-    ((UI_SELECTED_INDEX < 0)) && UI_SELECTED_INDEX=0
-    ((UI_SELECTED_INDEX >= count)) && UI_SELECTED_INDEX=$((count - 1))
-    local height
-    height=$(ui_list_height)
-    if ((UI_SELECTED_INDEX < UI_SCROLL_OFFSET)); then
-        UI_SCROLL_OFFSET=$UI_SELECTED_INDEX
-    elif ((UI_SELECTED_INDEX >= UI_SCROLL_OFFSET + height)); then
-        UI_SCROLL_OFFSET=$((UI_SELECTED_INDEX - height + 1))
-    fi
-    local max_scroll=$((count - height))
-    ((max_scroll < 0)) && max_scroll=0
-    ((UI_SCROLL_OFFSET > max_scroll)) && UI_SCROLL_OFFSET=$max_scroll
-    ((UI_SCROLL_OFFSET < 0)) && UI_SCROLL_OFFSET=0
+    ui_navigation_refresh
+    ui_navigation_sync "$(ui_list_height)"
 }
 
 ui_select_url() {
@@ -549,20 +536,29 @@ ui_select_url() {
             return 0
         fi
     done
+    ui_navigation_refresh
+    for ((i = 0; i < ${#RECENT_URLS[@]}; i++)); do
+        if [[ "${RECENT_URLS[$i]}" == "$url" ]]; then
+            UI_SELECTED_INDEX=$((${#FAVORITE_URLS[@]} + i))
+            ui_sync_selection
+            return 0
+        fi
+    done
     return 1
 }
 
 ui_move_selection() {
     local delta="$1"
-    local count=${#FAVORITE_NAMES[@]}
+    ui_navigation_refresh
+    local count=$UI_NAV_COUNT
     ((count > 0)) || { ui_set_message "No tienes favoritos guardados. Pulsa B para buscar una emisora." 6; return 1; }
     UI_SELECTED_INDEX=$(((UI_SELECTED_INDEX + delta) % count))
     ((UI_SELECTED_INDEX < 0)) && UI_SELECTED_INDEX=$((UI_SELECTED_INDEX + count))
     ui_sync_selection
 }
 
-ui_select_first() { ((${#FAVORITE_NAMES[@]} > 0)) || return 1; UI_SELECTED_INDEX=0; ui_sync_selection; }
-ui_select_last() { local count=${#FAVORITE_NAMES[@]}; ((count > 0)) || return 1; UI_SELECTED_INDEX=$((count - 1)); ui_sync_selection; }
+ui_select_first() { ui_navigation_refresh; ((UI_NAV_COUNT > 0)) || return 1; UI_SELECTED_INDEX=0; ui_sync_selection; }
+ui_select_last() { ui_navigation_refresh; local count=$UI_NAV_COUNT; ((count > 0)) || return 1; UI_SELECTED_INDEX=$((count - 1)); ui_sync_selection; }
 
 ui_player_status() {
     if player_is_running; then
@@ -702,3 +698,6 @@ ui_draw() {
     ui_box_rule "$width" "$UI_BL" "$UI_BR"
     tput ed 2>/dev/null || true
 }
+
+# shellcheck source=lib/navigation.sh
+source "$(dirname "${BASH_SOURCE[0]}")/navigation.sh"

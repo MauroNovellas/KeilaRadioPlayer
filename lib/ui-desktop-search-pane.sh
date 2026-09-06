@@ -23,32 +23,13 @@ ui_desktop_search_split_heights() {
 # visible la selección de Favoritos. Ahora esa lista solo ocupa la mitad superior.
 ui_desktop_sync_selection() {
     local body_height="$1"
-    local count=${#FAVORITE_NAMES[@]}
-
     ui_desktop_search_split_heights "$body_height"
+    ui_navigation_refresh
+    ui_navigation_sync "$UI_DESKTOP_FAVORITES_HEIGHT"
 
-    local height=$UI_DESKTOP_FAVORITES_HEIGHT
-    if ((count == 0)); then
-        UI_SELECTED_INDEX=0
-        UI_SCROLL_OFFSET=0
-    else
-        ((UI_SELECTED_INDEX < 0)) && UI_SELECTED_INDEX=0
-        ((UI_SELECTED_INDEX >= count)) && UI_SELECTED_INDEX=$((count - 1))
-
-        if ((UI_SELECTED_INDEX < UI_SCROLL_OFFSET)); then
-            UI_SCROLL_OFFSET=$UI_SELECTED_INDEX
-        elif ((UI_SELECTED_INDEX >= UI_SCROLL_OFFSET + height)); then
-            UI_SCROLL_OFFSET=$((UI_SELECTED_INDEX - height + 1))
-        fi
-
-        local max_scroll=$((count - height))
-        ((max_scroll < 0)) && max_scroll=0
-        ((UI_SCROLL_OFFSET > max_scroll)) && UI_SCROLL_OFFSET=$max_scroll
-        ((UI_SCROLL_OFFSET < 0)) && UI_SCROLL_OFFSET=0
-    fi
-
-    # Una fila de la mitad inferior se reserva para el campo Buscar:.
-    local search_results_height=$((UI_DESKTOP_SEARCH_HEIGHT - 1))
+    # El campo de consulta solo ocupa una fila cuando se usa.
+    local search_results_height=$UI_DESKTOP_SEARCH_HEIGHT
+    if ((SEARCH_ACTIVE)) || [[ -n "$SEARCH_QUERY" ]]; then ((search_results_height -= 1)); fi
     ((search_results_height < 1)) && search_results_height=1
     if declare -F search_sync_scroll >/dev/null 2>&1; then
         search_sync_scroll "$search_results_height"
@@ -78,7 +59,7 @@ ui_desktop_header_rule() {
 }
 
 ui_desktop_search_separator_text() {
-    local label='BUSCAR EMISORAS'
+    local label='EMISORAS'
     ((SEARCH_ACTIVE)) && label="$UI_SELECT $label"
 
     local text="$UI_H $label "
@@ -114,12 +95,10 @@ ui_desktop_row() {
     # La mitad superior conserva Favoritos. Mientras la búsqueda tiene el foco,
     # quitamos únicamente el resaltado de selección para que el foco sea inequívoco.
     if ((row < UI_DESKTOP_FAVORITES_HEIGHT)); then
-        if ((SEARCH_ACTIVE && selected)); then
-            selected=0
-            if [[ "$right_text" == "$UI_SELECT "* ]]; then
-                right_text="  ${right_text#"$UI_SELECT "}"
-            fi
-        fi
+        ui_navigation_row "$row"
+        right_text="$UI_NAV_TEXT" right_badge="$UI_NAV_BADGE"
+        right_style="$UI_NAV_STYLE" right_badge_style="$UI_NAV_BADGE_STYLE"
+        selected=$UI_NAV_SELECTED
     elif ((row == UI_DESKTOP_FAVORITES_HEIGHT)); then
         # Fila divisoria entre Favoritos y búsqueda.
         right_text=$(ui_desktop_search_separator_text)
@@ -136,7 +115,9 @@ ui_desktop_row() {
         right_badge_style=''
         selected=0
 
-        if ((search_row == 0)); then
+        local query_rows=0
+        if ((SEARCH_ACTIVE)) || [[ -n "$SEARCH_QUERY" ]]; then query_rows=1; fi
+        if ((query_rows && search_row == 0)); then
             if ((SEARCH_ACTIVE)); then
                 right_text="Buscar: ${SEARCH_QUERY}_"
                 right_style='accent'
@@ -154,20 +135,20 @@ ui_desktop_row() {
                 right_style='muted'
                 right_badge_style='muted'
             else
-                right_text='B  Buscar emisoras'
+                right_text=''
                 right_style='muted'
             fi
         else
-            local result_slot=$((search_row - 1))
+            local result_slot=$((search_row - query_rows))
             local match_position=$((SEARCH_SCROLL_OFFSET + result_slot))
 
             if ((${#SEARCH_MATCHES[@]} == 0)); then
                 if ((result_slot == 0)); then
-                    if ((SEARCH_ACTIVE)) && ((SEARCH_FILTER_DIRTY == 0)); then
+                    if ((SEARCH_FILTER_DIRTY == 0)) && { ((SEARCH_ACTIVE)) || [[ -n "$SEARCH_QUERY" ]]; }; then
                         right_text='  Sin resultados'
                         right_style='muted'
                     elif ((!SEARCH_ACTIVE)); then
-                        right_text='  Pulsa B y escribe para filtrar'
+                        right_text="  ${CATALOG_STATUS:-Sin catálogo disponible; U reintentar}"
                         right_style='muted'
                     fi
                 fi
@@ -214,6 +195,10 @@ fi
 ui_draw_responsive_controls() {
     local width="$1"
 
+    if ((${LABEL_EDITOR_ACTIVE:-0})); then
+        ui_box_line "$width" 'Enter guardar · Esc cancelar · Ctrl-U borrar' muted
+        return 0
+    fi
     if ((SEARCH_ACTIVE)); then
         ui_box_line "$width" "Escribe  $UI_SEP  ↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  F favorito  $UI_SEP  Esc favoritos" muted
         return 0

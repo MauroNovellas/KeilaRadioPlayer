@@ -150,6 +150,14 @@ stations_select_fzf() {
     # Si aún no existe catálogo, la preparación se hace silenciosamente antes
     # del primer render del buscador.
     if ! stations_catalog_valid; then
+        if [[ -n "${CATALOG_PID:-}" ]]; then
+            app_message 'Cargando emisoras…' 3
+            return 1
+        fi
+        if declare -F catalog_start >/dev/null; then
+            catalog_start force || true
+            return 1
+        fi
         stations_ensure_catalog >/dev/null 2>&1 || return 1
     fi
 
@@ -172,6 +180,7 @@ stations_select_fzf() {
         local redraw=0
         case "$INPUT_EVENT" in
             TICK)
+                if declare -F catalog_poll >/dev/null && catalog_poll; then redraw=1; fi
                 favorites_confirm_expire >/dev/null 2>&1 || true
                 # El teclado se pinta inmediatamente. El filtro pesado se aplica
                 # después de una breve pausa natural de input (timeout/TICK).

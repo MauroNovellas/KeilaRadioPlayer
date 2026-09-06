@@ -83,7 +83,7 @@ Keila adapta automáticamente la composición al tamaño de la terminal y recalc
 < 42x11                       aviso de terminal demasiado pequeña
 ```
 
-En desktop, `Ahora suena` queda como panel contenido a la izquierda. La columna derecha se divide verticalmente en `Favoritos` arriba y `Buscar emisoras` abajo, con selección y scroll independientes. El panel de reproducción muestra emisora, canción/programa, datos técnicos, volumen, estado, grabación y favorito cuando existe espacio suficiente.
+En desktop, `Ahora suena` queda como panel contenido a la izquierda. La columna derecha se divide verticalmente en `Favoritos` y `Recientes` arriba y `Emisoras` abajo, con selección y scroll independientes. El panel de reproducción muestra emisora, canción/programa, datos técnicos, volumen, estado, grabación y favorito cuando existe espacio suficiente.
 
 El modo ancho de PC utiliza prácticamente toda la anchura disponible, reservando una columna física de seguridad para evitar autowrap. El borde inferior tampoco imprime un salto de línea adicional, evitando que la terminal haga scroll durante los redibujados.
 
@@ -127,13 +127,14 @@ Los valores inválidos se ignoran y se conserva el valor por defecto.
 ## Controles de la TUI
 
 ```text
-W / S o ↑ / ↓     mover la selección por favoritos
+W / S o ↑ / ↓     mover la selección por favoritos y recientes
 A / D o ← / →     bajar/subir volumen
 Enter              reproducir el favorito seleccionado
 Home / End         ir al primer/último favorito
 PageUp / PageDown  saltar por la lista
 P                  pausa/reanudar
 R                  iniciar/detener grabación del stream actual
+E                  editar etiqueta del favorito seleccionado
 F                  añadir/eliminar la emisora en reproducción de favoritos
 J / K              mover el favorito seleccionado abajo/arriba
 X                  eliminar el favorito seleccionado
@@ -146,7 +147,7 @@ Q                  salir
 
 `U` actualiza exclusivamente el catálogo de TDTChannels; no se reutiliza para actualizar el programa.
 
-La navegación de favoritos es circular y tiene scroll automático. Al pulsar `B`, Keila abre la búsqueda integrada usando el catálogo local de TDTChannels. La reproducción, los metadatos y los avisos continúan activos mientras se busca.
+La navegación de favoritos y recientes es circular y tiene scroll automático. El catálogo local de TDTChannels se carga al iniciar Keila y se actualiza en segundo plano cuando caduca. Sin conexión se conserva la copia guardada. Al pulsar `B`, Keila activa el filtro de la búsqueda integrada. La reproducción, los metadatos y los avisos continúan activos mientras se busca.
 
 Dentro de la búsqueda:
 
@@ -161,6 +162,12 @@ Backspace             borrar un carácter
 Ctrl+U                limpiar la consulta
 Esc                   volver a Favoritos conservando la consulta
 ```
+
+Los favoritos admiten una etiqueta personal: selecciona uno y pulsa `E` (por ejemplo, `Rock FM` → `Heavy Metal`). `Enter` guarda, `Esc` cancela y `Ctrl-U` vacía el campo; guarda vacío para quitar la etiqueta. Las etiquetas también se incluyen en el filtro de búsqueda.
+
+Debajo de Favoritos, `Recientes` muestra emisoras escuchadas que no están en Favoritos. Usa la misma navegación y `Enter` para reproducirlas. El historial local conserva hasta 20 emisoras distintas, en orden de última escucha; una conexión que no llega a audio no se registra. Si añades una emisora a Favoritos se oculta de Recientes. Los presets `1–9/0` siguen reservados exclusivamente a favoritos.
+
+Las etiquetas se guardan en `$XDG_CONFIG_HOME/keila-radio/labels` (por defecto `~/.config/keila-radio/labels`) y el historial en `$XDG_STATE_HOME/keila-radio/history` (por defecto `~/.local/state/keila-radio/history`). El historial contiene nombres y URLs de emisoras, sin títulos de canciones ni marcas de tiempo. Puedes borrar el archivo con Keila cerrada para vaciarlo.
 
 La `f` minúscula es texto normal dentro del buscador; solo `F` mayúscula se reserva para alternar Favorito. Los resultados favoritos muestran `[★]`, y la emisora que además está sonando puede mostrar `[PLAY] [★]`.
 

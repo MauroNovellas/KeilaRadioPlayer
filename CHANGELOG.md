@@ -2,6 +2,14 @@
 
 Todos los cambios relevantes de Keila Radio Player se documentarán en este archivo.
 
+## [Sin publicar] - rama v2.1
+
+- El catálogo se carga al abrir la TUI. La caché se muestra de inmediato y la descarga se realiza en segundo plano; un fallo de red conserva el catálogo anterior.
+- El panel Emisoras elimina las instrucciones duplicadas y aprovecha esa fila para mostrar resultados. `B` activa el filtro.
+- `E` edita una etiqueta personal del favorito seleccionado; Enter guarda, Esc cancela y Ctrl-U vacía. El filtro también encuentra etiquetas.
+- Recientes aparece bajo Favoritos, dentro del mismo recuadro, con navegación y reproducción mediante las teclas habituales. Conserva las últimas 20 emisoras distintas que alcanzaron audio y oculta las favoritas.
+- Etiquetas e historial se guardan de forma local y atómica en archivos XDG separados, sin cambiar el formato existente de favoritos.
+
 ## [2.0.0] - 2026-09-06
 
 Primera versión estable de Keila Radio Player 2.0. Promociona el código validado como `2.0.0-rc3` tras pruebas intensivas en Debian con `foot`, Termux/Android y uso adicional de terceros sin regresiones reportadas.
