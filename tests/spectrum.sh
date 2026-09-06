@@ -33,6 +33,7 @@ if command -v ffmpeg >/dev/null 2>&1; then
         SPECTRUM_SOURCE='test'
         # shellcheck disable=SC2317
         parec() {
+            [[ " $* " == *' --latency-msec=40 '* && " $* " == *' --process-time-msec=20 '* ]] || fail 'captura sin límite de latencia'
             command ffmpeg -v error -re -f lavfi \
                 -i anoisesrc=color=pink:sample_rate=44100 -t 6 -f s16le -ac 1 -
         }

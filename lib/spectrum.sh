@@ -92,13 +92,16 @@ spectrum_start() {
     (
         trap spectrum_worker_stop TERM INT
         if command -v parec >/dev/null 2>&1; then
-            parec --device="$SPECTRUM_SOURCE" --format=s16le --rate=44100 --channels=1 2>/dev/null |
+            # Pedir entregas pequeñas: el buffer predeterminado puede acumular
+            # centenares de ms y entregar muchos cuadros en una sola ráfaga.
+            parec --device="$SPECTRUM_SOURCE" --format=s16le --rate=44100 --channels=1 \
+                --latency-msec=40 --process-time-msec=20 2>/dev/null |
                 ffmpeg -hide_banner -loglevel error -probesize 32 -analyzeduration 0 -f s16le -ar 44100 -ac 1 -i - \
                     -lavfi 'showfreqs=s=16x16:rate=20:mode=bar:ascale=log:fscale=log:win_size=1024:overlap=0.5:colors=white' \
                     -r 20 -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
         else
             ffmpeg -hide_banner -loglevel error \
-                -f pulse -i "$SPECTRUM_SOURCE" \
+                -f pulse -sample_rate 44100 -channels 1 -fragment_size 1764 -i "$SPECTRUM_SOURCE" \
                 -lavfi 'showfreqs=s=16x16:rate=20:mode=bar:ascale=log:fscale=log:win_size=1024:overlap=0.5:colors=white' \
                 -r 20 -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
         fi |

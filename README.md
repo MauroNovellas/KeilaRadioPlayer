@@ -202,6 +202,8 @@ El panel `Ahora suena` muestra el analizador vertical de 16 bandas debajo del ec
 
 El espectro se refresca de forma independiente, con un máximo de veinte cuadros por segundo. Cada frame actualiza solo sus barras; favoritos, búsqueda y ecualizador se redibujan cuando hay otros cambios. La frecuencia efectiva depende del equipo y de las demás acciones de la interfaz.
 
+La captura solicita entregas de audio pequeñas (20 ms, con latencia solicitada de 40 ms en `parec`) para reducir acumulaciones y ráfagas. El servidor de audio puede ajustar estos valores según el dispositivo.
+
 La altura utiliza una escala logarítmica de amplitud para hacer más visibles las señales suaves. Las frecuencias también se distribuyen logarítmicamente. Este ajuste es solo visual y no modifica el volumen ni el ecualizador.
 
 Para investigar saltos durante la reproducción, ejecuta `bash tests/profile-live.sh`, reproduce una emisora durante unos 30 segundos y sal con `Q`. Al cerrar aparece un resumen de tiempos de captura, consulta a mpv, teclado y dibujo, con los intervalos máximos entre cuadros. El registro temporal contiene solo etapas y tiempos, no contenido de emisoras. La instrumentación añade algo de trabajo y solo está activa en esa ejecución. Las duraciones de etapas anidadas no deben sumarse.
