@@ -26,7 +26,7 @@ assert_eq() {
 player_failure_set stream_stalled 'prueba'
 assert_eq 'stream_stalled' "$PLAYER_FAILURE_REASON" 'set conserva código estable'
 [[ "$PLAYER_FAILURE_AT" =~ ^[0-9]+$ ]] || fail 'set no guardó timestamp'
-assert_eq 'stream sin progreso' "$(player_failure_description)" 'descripción de código conocida'
+assert_eq 'stream sin progreso' "$(player_failure_description "$PLAYER_FAILURE_REASON")" 'descripción de código conocida'
 player_failure_clear
 assert_eq '' "$PLAYER_FAILURE_REASON" 'clear elimina motivo'
 assert_eq '0' "$PLAYER_FAILURE_AT" 'clear elimina timestamp'
