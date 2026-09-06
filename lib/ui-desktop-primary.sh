@@ -134,7 +134,7 @@ ui_draw_desktop() {
     volume_left="VOL $(printf '%3s' "$PLAYER_VOLUME")%  $(ui_volume_bar "$volume_bar_width")"
     volume_hint='A/D  ←/→'
 
-    local row index fav_marker fav_badge fav_style fav_badge_style selected
+    local row index fav_marker preset_label fav_badge fav_style fav_badge_style selected
     local main_text main_badge main_style main_style_badge
     for ((row = 0; row < body_height; row++)); do
         main_text=''
@@ -210,6 +210,7 @@ ui_draw_desktop() {
 
         index=$((UI_SCROLL_OFFSET + row))
         fav_marker='  '
+        preset_label=''
         fav_badge=''
         fav_style=''
         fav_badge_style=''
@@ -217,6 +218,11 @@ ui_draw_desktop() {
 
         if ((index < ${#FAVORITE_NAMES[@]})); then
             ((index == UI_SELECTED_INDEX)) && { fav_marker="$UI_SELECT "; selected=1; }
+            case "$index" in
+                0|1|2|3|4|5|6|7|8) preset_label="$((index + 1)). " ;;
+                9) preset_label='0. ' ;;
+                *) preset_label='   ' ;;
+            esac
 
             if player_is_running && [[ "${FAVORITE_URLS[$index]}" == "$PLAYER_URL" ]]; then
                 fav_style='playing'
@@ -228,7 +234,7 @@ ui_draw_desktop() {
                 fav_badge_style='muted'
             fi
 
-            fav_marker+="${FAVORITE_NAMES[$index]}"
+            fav_marker+="$preset_label${FAVORITE_NAMES[$index]}"
         else
             fav_marker=''
         fi
