@@ -54,6 +54,8 @@ make_release() {
         navigation.sh
         catalog-startup.sh
         label-editor.sh
+        equalizer.sh
+        equalizer-editor.sh
         favorites.sh
         stations.sh
         search.sh

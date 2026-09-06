@@ -343,6 +343,7 @@ player_wait_for_socket() {
 player_start() {
     local name="$1"
     local url="$2"
+    local equalizer_filter=''
 
     [[ -n "$url" ]] || {
         printf 'La URL de la emisora está vacía.\n' >&2
@@ -361,6 +362,10 @@ player_start() {
     PLAYER_LAST_EXIT_STATUS=""
     player_reset_info
 
+    if declare -F equalizer_filter >/dev/null 2>&1; then
+        equalizer_filter=$(equalizer_filter) || equalizer_filter=''
+    fi
+
     mpv \
         --really-quiet \
         --no-video \
@@ -368,6 +373,7 @@ player_start() {
         --audio-display=no \
         --input-ipc-server="$PLAYER_SOCKET" \
         --volume="$PLAYER_VOLUME" \
+        ${equalizer_filter:+"--af=$equalizer_filter"} \
         "$PLAYER_URL" \
         >/dev/null 2>&1 &
 

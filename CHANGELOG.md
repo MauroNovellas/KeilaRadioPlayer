@@ -4,6 +4,7 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - rama v2.1
 
+- Añadido ecualizador de cinco bandas persistente: 60 Hz, 250 Hz, 1 kHz, 4 kHz y 12 kHz, ajustable desde la TUI con `Z` y restablecible a sonido plano.
 - Favoritos y BUSQUEDA EMISORAS muestran una columna de etiquetas personales; el encabezado se abrevia a «ETIQUETAS» al reducir el ancho. La separación del buscador utiliza el color de los demás bordes.
 
 - El catálogo se carga al abrir la TUI. La caché se muestra de inmediato y la descarga se realiza en segundo plano; un fallo de red conserva el catálogo anterior.

@@ -135,6 +135,7 @@ PageUp / PageDown  saltar por la lista
 P                  pausa/reanudar
 R                  iniciar/detener grabación del stream actual
 E                  editar etiqueta de la emisora seleccionada
+Z                  abrir ecualizador
 F                  añadir/eliminar la emisora en reproducción de favoritos
 J / K              mover el favorito seleccionado abajo/arriba
 X                  eliminar el favorito seleccionado
@@ -181,6 +182,12 @@ KEILA_FZF_SEARCH=1 ./keila-radio
 Por defecto la zona de controles ocupa una sola fila para dejar más espacio a la interfaz. `H` despliega la ayuda completa y la composición ajusta automáticamente su altura; `H` o `Esc` vuelven a compactarla.
 
 Los mensajes de acciones y errores son temporales: avisos como el cambio de volumen, una grabación guardada o un cambio de Favoritos desaparecen solos después de unos segundos, mientras que el estado real de reproducción permanece en la TUI.
+
+### Ecualizador
+
+Pulsa `Z` para abrir el ecualizador de cinco bandas: 60 Hz, 250 Hz, 1 kHz, 4 kHz y 12 kHz. Usa `↑`/`↓` para elegir banda y `←`/`→` para ajustarla entre −12 y +12 dB. `R` devuelve todas las bandas al sonido plano; `Enter` o `Esc` cierran el editor.
+
+Los cambios se aplican inmediatamente a la emisora en reproducción y se conservan para las siguientes sesiones en `~/.config/keila-radio/equalizer` (o su ruta XDG equivalente). Si una aplicación del filtro falla, Keila mantiene el ajuste anterior.
 
 ## Teclado y terminal
 

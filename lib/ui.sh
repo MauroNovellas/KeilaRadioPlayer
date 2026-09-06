@@ -476,6 +476,11 @@ ui_volume_bar() {
     ui_repeat_char "$UI_BAR_EMPTY" "$empty"
 }
 
+ui_equalizer_summary() {
+    declare -F equalizer_summary >/dev/null 2>&1 || return 1
+    printf 'EQ %s' "$(equalizer_summary)"
+}
+
 ui_audio_info() {
     local -a parts=()
     [[ -n "${PLAYER_CODEC:-}" ]] && parts+=("${PLAYER_CODEC^^}")
