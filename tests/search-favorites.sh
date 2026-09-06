@@ -98,14 +98,24 @@ assert_eq 1 "$UI_SEARCH_IS_FAVORITE" 'renderer reconoce resultado favorito'
 assert_eq '[★] Madrid · España' "$(ui_search_result_badge 0)" 'badge de favorito'
 assert_eq '[PLAY] [★]' "$(ui_search_result_badge 1)" 'badge combinado play y favorito'
 
-search_toggle_selected_favorite || fail 'segunda F no eliminó el favorito'
-assert_eq 0 "${#FAVORITE_NAMES[@]}" 'segunda F elimina de la lista superior'
-assert_eq 'removed' "${FAVORITES_TOGGLE_ACTION:-}" 'acción de baja'
+# La primera F destructiva solo arma la confirmación.
+search_toggle_selected_favorite || fail 'segunda F no armó confirmación'
+assert_eq 1 "${#FAVORITE_NAMES[@]}" 'primera pulsación destructiva conserva favorito'
+assert_eq '' "${FAVORITES_TOGGLE_ACTION:-}" 'confirmación no se confunde con una baja'
+[[ "$LAST_MESSAGE" == *'Pulsa F otra vez para eliminar de favoritos: Rock FM'* ]] || fail 'falta mensaje de confirmación'
+assert_eq 'search' "${FAVORITES_CONFIRM_ACTION:-}" 'confirmación queda ligada a búsqueda'
+assert_eq 'https://example.invalid/rock' "${FAVORITES_CONFIRM_URL:-}" 'confirmación queda ligada a la URL'
+
+# La segunda F sobre el mismo resultado dentro de la ventana confirma la baja.
+search_toggle_selected_favorite || fail 'tercera F no eliminó el favorito confirmado'
+assert_eq 0 "${#FAVORITE_NAMES[@]}" 'confirmación elimina de la lista superior'
+assert_eq 'removed' "${FAVORITES_TOGGLE_ACTION:-}" 'acción de baja confirmada'
 [[ "$LAST_MESSAGE" == *'Eliminada de favoritos: Rock FM'* ]] || fail 'falta mensaje de baja'
+assert_eq '' "${FAVORITES_CONFIRM_ACTION:-}" 'confirmación se limpia después de borrar'
 assert_eq 1 "$SEARCH_ACTIVE" 'eliminar favorito no cierra búsqueda'
 assert_eq 0 "$SEARCH_SELECTED_INDEX" 'eliminar favorito conserva resultado seleccionado'
 
 ui_search_result_parts 0
 assert_eq 0 "$UI_SEARCH_IS_FAVORITE" 'renderer retira marca tras eliminar'
 
-printf 'ok   búsqueda integrada: F añade/quita favoritos sin salir ni reproducir\n'
+printf 'ok   búsqueda integrada: F añade al instante y confirma antes de quitar favoritos\n'
