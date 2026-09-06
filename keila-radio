@@ -187,11 +187,47 @@ app_toggle_recording() {
 
 app_toggle_favorite() {
     if ! player_is_running; then app_message "No hay ninguna emisora en reproducción." 5; return 1; fi
-    favorites_load
-    if ! favorites_toggle "$PLAYER_NAME" "$PLAYER_URL"; then app_message "No se pudo modificar favoritos." 6; return 1; fi
-    case "${FAVORITES_TOGGLE_ACTION:-}" in
-        added) app_message "Añadida a favoritos: $PLAYER_NAME" 5; ui_select_url "$PLAYER_URL" >/dev/null 2>&1 || true ;;
-        removed) app_message "Eliminada de favoritos: $PLAYER_NAME" 5; ui_sync_selection ;;
+    if ! favorites_load; then app_message "No se pudieron cargar favoritos." 6; return 1; fi
+
+    FAVORITES_TOGGLE_ACTION=''
+    local index confirm_status=0 action_status=0
+    if index=$(favorites_find_url "$PLAYER_URL"); then
+        favorites_confirm_removal 'playing' "$PLAYER_URL" || confirm_status=$?
+        if ((confirm_status == 2)); then
+            app_message "Pulsa F otra vez para eliminar de favoritos: $PLAYER_NAME" 4
+            return 0
+        fi
+        if ((confirm_status != 0)); then
+            app_message "No se pudo preparar la confirmación de eliminación." 6
+            return 1
+        fi
+
+        if ! favorites_remove_index "$index"; then
+            app_message "No se pudo eliminar de favoritos: $PLAYER_NAME" 6
+            return 1
+        fi
+        FAVORITES_TOGGLE_ACTION='removed'
+        ui_sync_selection
+        app_message "Eliminada de favoritos: $PLAYER_NAME" 5
+        return 0
+    fi
+
+    favorites_confirm_clear
+    favorites_add "$PLAYER_NAME" "$PLAYER_URL" || action_status=$?
+    case "$action_status" in
+        0)
+            FAVORITES_TOGGLE_ACTION='added'
+            ui_select_url "$PLAYER_URL" >/dev/null 2>&1 || true
+            app_message "Añadida a favoritos: $PLAYER_NAME" 5
+            ;;
+        2)
+            favorites_load >/dev/null 2>&1 || true
+            app_message "Ya estaba en favoritos: $PLAYER_NAME" 4
+            ;;
+        *)
+            app_message "No se pudo añadir a favoritos: $PLAYER_NAME" 6
+            return 1
+            ;;
     esac
 }
 
@@ -222,12 +258,25 @@ app_move_selected_favorite() {
 }
 
 app_remove_selected_favorite() {
-    favorites_load
+    if ! favorites_load; then app_message "No se pudieron cargar favoritos." 6; return 1; fi
     ui_sync_selection
     if ((${#FAVORITE_NAMES[@]} == 0)); then app_message "No tienes favoritos para eliminar." 5; return 1; fi
+
     local index=$UI_SELECTED_INDEX
     local name="${FAVORITE_NAMES[$index]}"
     local url="${FAVORITE_URLS[$index]}"
+    local confirm_status=0
+
+    favorites_confirm_removal 'selected' "$url" || confirm_status=$?
+    if ((confirm_status == 2)); then
+        app_message "Pulsa X otra vez para eliminar el favorito: $name" 4
+        return 0
+    fi
+    if ((confirm_status != 0)); then
+        app_message "No se pudo preparar la confirmación de eliminación." 6
+        return 1
+    fi
+
     if ! favorites_remove_index "$index"; then app_message "No se pudo eliminar el favorito." 6; return 1; fi
     ui_sync_selection
     if player_is_running && [[ "$PLAYER_URL" == "$url" ]]; then
@@ -290,6 +339,14 @@ app_poll_player() {
 
 app_handle_key() {
     local key="$1"
+
+    # Cualquier acción distinta de las dos rutas de borrado invalida una
+    # confirmación pendiente. Añadir con F también la limpia dentro de la acción.
+    case "$key" in
+        f|F|x|X) ;;
+        *) favorites_confirm_clear ;;
+    esac
+
     case "$key" in
         w|W) ui_move_selection -1 || true ;;
         s|S) ui_move_selection 1 || true ;;
@@ -317,6 +374,16 @@ app_loop() {
     while true; do
         if ! input_read; then return 0; fi
         local redraw=0
+
+        case "$INPUT_EVENT" in
+            TICK)
+                favorites_confirm_expire >/dev/null 2>&1 || true
+                ;;
+            UP|DOWN|LEFT|RIGHT|HOME|END|PAGE_UP|PAGE_DOWN|ENTER|ESC)
+                favorites_confirm_clear
+                ;;
+        esac
+
         case "$INPUT_EVENT" in
             TICK) app_poll_player && redraw=1; ui_message_tick && redraw=1 ;;
             RESIZE) redraw=1 ;;
