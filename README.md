@@ -226,6 +226,8 @@ Después de que una emisora haya reproducido audio real, Keila detecta si `mpv` 
 
 Durante una grabación la reconexión automática queda bloqueada para proteger el archivo. Pausar también cancela los intentos pendientes; al reanudar se concede una ventana nueva para que el stream avance. Los límites se pueden ajustar por entorno si el equipo o la emisora lo necesitan: `KEILA_RECONNECT_STALL_TIMEOUT`, `KEILA_RECONNECT_START_TIMEOUT`, `KEILA_RECONNECT_MAX_ATTEMPTS` y `KEILA_RECONNECT_BASE_DELAY`.
 
+Para crear un paquete Linux limpio desde el checkout, ejecuta `bash scripts/package-linux.sh`. El resultado se guarda en `dist/` junto con una suma SHA-256 e incluye el launcher, la documentación, `defaults/` y `lib/`; no incluye `.git`, configuraciones personales ni `grabaciones/`. Puedes extraerlo en cualquier carpeta Linux con `tar -xzf` y lanzar `./keila-radio` desde allí.
+
 ## Teclado y terminal
 
 Keila mantiene desactivado el `ECHO` del terminal durante toda la vida activa de la TUI, no solo mientras Bash espera una tecla. Esto evita que pulsaciones rápidas aparezcan directamente como caracteres sueltos durante IPC o redibujados.
@@ -365,6 +367,8 @@ KeilaRadioPlayer/
 ├── keila-radio
 ├── CHANGELOG.md
 ├── README.md
+├── scripts/
+│   └── package-linux.sh
 ├── defaults/
 │   └── favorites
 ├── lib/
@@ -407,6 +411,7 @@ KeilaRadioPlayer/
     ├── ui-terminal-guard.sh
     ├── ui-theme.sh
     ├── ui-update-status.sh
+    ├── package-linux.sh
     └── update-check.sh
 ```
 

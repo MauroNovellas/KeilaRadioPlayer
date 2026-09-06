@@ -4,6 +4,7 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - rama v2.1
 
+- Añadido empaquetado Linux reproducible con suma SHA-256, runtime limpio y prueba de extracción del launcher sin configuraciones ni grabaciones personales.
 - Añadidos cinco presets de ecualizador (`1` Plano, `2` Rock, `3` Pop, `4` Jazz y `5` Voz) dentro del modo `Z`, con aplicación inmediata y persistencia.
 - Añadido pico retenido por banda en el espectro: el marcador permanece unos cuadros y cae gradualmente para dar más continuidad visual sin añadir trabajo de captura.
 - Corregida la última banda del espectro: una columna de guarda evita que el borde vacío de `showfreqs` aparezca como una banda inmóvil.

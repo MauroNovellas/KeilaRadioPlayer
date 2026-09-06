@@ -1,2 +1,5 @@
 # Grabaciones locales generadas por Keila
 /grabaciones/
+
+# Artefactos locales del empaquetado Linux
+/dist/
