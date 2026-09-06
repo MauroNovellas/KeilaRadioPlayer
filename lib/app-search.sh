@@ -55,6 +55,7 @@ search_prepare_results() {
 # Modifica Favoritos usando el resultado activo sin abandonar la búsqueda ni
 # alterar la reproducción. Solo F mayúscula se reserva como comando; la f
 # minúscula sigue siendo texto normal para consultas como "fm" o "francia".
+# Añadir es inmediato; quitar exige una segunda F sobre el mismo resultado.
 search_toggle_selected_favorite() {
     search_prepare_results
     if ! search_selected_load; then
@@ -63,30 +64,58 @@ search_toggle_selected_favorite() {
     fi
 
     local name="$SELECTED_NAME" url="$SELECTED_URL"
-    if ! favorites_toggle "$name" "$url"; then
-        app_message "No se pudo modificar favoritos: $name" 6
+    local index confirm_status=0 action_status=0
+    FAVORITES_TOGGLE_ACTION=''
+
+    if ! favorites_load; then
+        app_message "No se pudieron cargar favoritos." 6
         return 1
     fi
 
-    # favorites_toggle recarga y modifica las listas en memoria bajo lock. La
-    # recarga final deja la mitad superior sincronizada incluso si otro proceso
-    # hubiera cambiado el archivo justo antes de esta operación.
-    favorites_load || {
-        app_message "Favoritos modificados, pero no se pudieron recargar." 6
-        return 1
-    }
+    if index=$(favorites_find_url "$url"); then
+        favorites_confirm_removal 'search' "$url" || confirm_status=$?
+        if ((confirm_status == 2)); then
+            app_message "Pulsa F otra vez para eliminar de favoritos: $name" 4
+            return 0
+        fi
+        if ((confirm_status != 0)); then
+            app_message "No se pudo preparar la confirmación de eliminación." 6
+            return 1
+        fi
 
-    case "${FAVORITES_TOGGLE_ACTION:-}" in
-        added)
+        if ! favorites_remove_index "$index"; then
+            app_message "No se pudo eliminar de favoritos: $name" 6
+            return 1
+        fi
+        FAVORITES_TOGGLE_ACTION='removed'
+        favorites_load || {
+            app_message "Favorito eliminado, pero no se pudieron recargar los datos." 6
+            return 1
+        }
+        ui_sync_selection
+        app_message "Eliminada de favoritos: $name" 4
+        return 0
+    fi
+
+    favorites_confirm_clear
+    favorites_add "$name" "$url" || action_status=$?
+    case "$action_status" in
+        0)
+            FAVORITES_TOGGLE_ACTION='added'
+            favorites_load || {
+                app_message "Favorito añadido, pero no se pudieron recargar los datos." 6
+                return 1
+            }
             ui_select_url "$url" >/dev/null 2>&1 || true
             app_message "Añadida a favoritos: $name" 4
             ;;
-        removed)
-            ui_sync_selection
-            app_message "Eliminada de favoritos: $name" 4
+        2)
+            favorites_load >/dev/null 2>&1 || true
+            app_message "Ya estaba en favoritos: $name" 4
             ;;
         *)
-            app_message "Favoritos actualizados: $name" 4
+            app_message "No se pudo añadir a favoritos: $name" 6
+            return 1
             ;;
     esac
     return 0
@@ -125,6 +154,7 @@ stations_select_fzf() {
         return 1
     fi
 
+    favorites_confirm_clear
     UI_HELP_VISIBLE=0
     ui_clear_message
     ui_resume
@@ -132,6 +162,7 @@ stations_select_fzf() {
 
     while true; do
         if ! input_read; then
+            favorites_confirm_clear
             search_close
             return 1
         fi
@@ -139,6 +170,7 @@ stations_select_fzf() {
         local redraw=0
         case "$INPUT_EVENT" in
             TICK)
+                favorites_confirm_expire >/dev/null 2>&1 || true
                 # El teclado se pinta inmediatamente. El filtro pesado se aplica
                 # después de una breve pausa natural de input (timeout/TICK).
                 if search_apply_pending_filter; then
@@ -151,40 +183,48 @@ stations_select_fzf() {
                 redraw=1
                 ;;
             ESC)
+                favorites_confirm_clear
                 search_close
                 return 1
                 ;;
             UP)
+                favorites_confirm_clear
                 search_prepare_results
                 search_move -1 || true
                 redraw=1
                 ;;
             DOWN)
+                favorites_confirm_clear
                 search_prepare_results
                 search_move 1 || true
                 redraw=1
                 ;;
             HOME)
+                favorites_confirm_clear
                 search_prepare_results
                 search_select_first || true
                 redraw=1
                 ;;
             END)
+                favorites_confirm_clear
                 search_prepare_results
                 search_select_last || true
                 redraw=1
                 ;;
             PAGE_UP)
+                favorites_confirm_clear
                 search_prepare_results
                 search_move -5 || true
                 redraw=1
                 ;;
             PAGE_DOWN)
+                favorites_confirm_clear
                 search_prepare_results
                 search_move 5 || true
                 redraw=1
                 ;;
             ENTER)
+                favorites_confirm_clear
                 search_prepare_results
                 if search_selected_load; then
                     search_close
@@ -200,8 +240,11 @@ stations_select_fzf() {
                 # El resto de caracteres, incluida f minúscula, siguen siendo
                 # texto. append/backspace solo marcan el filtro pendiente para
                 # que esta misma iteración pueda pintar el teclado al instante.
-                elif search_handle_key "$INPUT_KEY"; then
-                    redraw=1
+                else
+                    favorites_confirm_clear
+                    if search_handle_key "$INPUT_KEY"; then
+                        redraw=1
+                    fi
                 fi
                 ;;
         esac
