@@ -9,7 +9,7 @@ DIAGNOSTICS_OK=0
 DIAGNOSTICS_WARN=0
 DIAGNOSTICS_FAIL=0
 
- diagnostics_reset() {
+diagnostics_reset() {
     DIAGNOSTICS_OK=0
     DIAGNOSTICS_WARN=0
     DIAGNOSTICS_FAIL=0
@@ -195,7 +195,7 @@ diagnostics_stop_probe_pid() {
 
 diagnostics_check_mpv_ipc() {
     local socket="$PLAYER_RUNTIME_DIR/diag-${PLAYER_INSTANCE_ID}.sock"
-    local pid='' attempt response=''
+    local pid='' attempt response='' command_name
     local socket_ready=0
 
     for command_name in mpv socat jq; do
