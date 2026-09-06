@@ -35,6 +35,8 @@ source "$BASE_DIR/lib/stations.sh"
 source "$BASE_DIR/lib/player.sh"
 # shellcheck source=lib/recording.sh
 source "$BASE_DIR/lib/recording.sh"
+# shellcheck source=lib/diagnostics.sh
+source "$BASE_DIR/lib/diagnostics.sh"
 # shellcheck source=lib/input.sh
 source "$BASE_DIR/lib/input.sh"
 # shellcheck source=lib/ui.sh
@@ -450,13 +452,8 @@ main() {
             return 0
             ;;
         --check)
-            app_init_data || return 1
-            printf 'Keila Radio Player %s: inicialización OK\n' "$KEILA_VERSION"
-            printf 'Configuración: %s\n' "$KEILA_CONFIG_FILE"
-            printf 'Favoritos: %s\n' "$KEILA_FAVORITES_FILE"
-            printf 'Estado: %s\n' "$KEILA_STATE_FILE"
-            printf 'Grabaciones: %s\n' "$KEILA_RECORDINGS_DIR"
-            return 0
+            diagnostics_run "$BASE_DIR"
+            return $?
             ;;
         --check-update)
             update_check
