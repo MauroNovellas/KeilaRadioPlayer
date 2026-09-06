@@ -12,6 +12,9 @@ SPECTRUM_FOUND_SOURCE=''
 SPECTRUM_ERROR=''
 SPECTRUM_NOTICE_PENDING=0
 SPECTRUM_FRAME_ROWS=16
+# showfreqs deja su última columna como borde de la imagen. Capturamos una
+# columna adicional y publicamos las 16 anteriores, que sí contienen bandas.
+SPECTRUM_CAPTURE_COLUMNS=17
 SPECTRUM_DISPLAY_ROWS=8
 SPECTRUM_DISPLAY_INTERVAL_MS=50
 SPECTRUM_LAST_DISPLAY_MS=''
@@ -101,15 +104,15 @@ spectrum_start() {
             parec --device="$SPECTRUM_SOURCE" --format=s16le --rate=44100 --channels=1 \
                 --latency-msec=40 --process-time-msec=20 2>/dev/null |
                 ffmpeg -hide_banner -loglevel error -fflags nobuffer -flags low_delay -avioflags direct -probesize 32 -analyzeduration 0 -f s16le -ar 44100 -ac 1 -i - \
-                    -lavfi 'showfreqs=s=16x16:rate=20:mode=bar:ascale=log:fscale=log:win_size=1024:overlap=0.5:colors=white' \
+                    -lavfi 'showfreqs=s=17x16:rate=20:mode=bar:ascale=log:fscale=log:win_size=1024:overlap=0.5:colors=white' \
                     -fps_mode passthrough -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
         else
             ffmpeg -hide_banner -loglevel error -fflags nobuffer -flags low_delay -avioflags direct \
                 -f pulse -sample_rate 44100 -channels 1 -fragment_size 1764 -i "$SPECTRUM_SOURCE" \
-                -lavfi 'showfreqs=s=16x16:rate=20:mode=bar:ascale=log:fscale=log:win_size=1024:overlap=0.5:colors=white' \
+                -lavfi 'showfreqs=s=17x16:rate=20:mode=bar:ascale=log:fscale=log:win_size=1024:overlap=0.5:colors=white' \
                     -fps_mode passthrough -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
         fi |
-            stdbuf -oL od -An -tu1 -w16 -v |
+            stdbuf -oL od -An -tu1 -w17 -v |
             spectrum_publish_frames
     ) </dev/null >/dev/null 2>&1 &
     SPECTRUM_PID=$!
@@ -142,7 +145,7 @@ spectrum_publish_frames() {
     local row=0 i
     local -a pixels heights=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
     while read -r -a pixels; do
-        (("${#pixels[@]}" == 16)) || return 1
+        (("${#pixels[@]}" == SPECTRUM_CAPTURE_COLUMNS)) || return 1
         for ((i=0; i<16; i++)); do
             if ((pixels[i] > 20)); then heights[i]=$((heights[i] + 1)); fi
         done

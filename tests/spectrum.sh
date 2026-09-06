@@ -67,6 +67,7 @@ assert_eq '8' "${SPECTRUM_LEVELS[8]}" 'frame inválido conservó el anterior'
 
 assert_eq '8' "$SPECTRUM_DISPLAY_ROWS" 'altura vertical del analizador'
 assert_eq '50' "$SPECTRUM_DISPLAY_INTERVAL_MS" 'límite de veinte cuadros por segundo'
+assert_eq '17' "$SPECTRUM_CAPTURE_COLUMNS" 'columna de guarda del renderizador'
 UI_UNICODE=1
 ui_configure_glyphs
 SPECTRUM_LEVELS=(16 14 12 10 8 6 4 2 0 0 0 0 0 0 0 0)
@@ -89,6 +90,14 @@ SPECTRUM_TEST_NOW_MS=1050
 spectrum_tick || fail 'frame tras 50 ms solicitó redibujado'
 assert_eq '2' "${SPECTRUM_LEVELS[0]}" 'frame tras el intervalo actualizado'
 unset SPECTRUM_TEST_NOW_MS
+
+# La columna 16 publicada debe ser una banda útil, no el borde que deja
+# showfreqs al final de una imagen de 16 columnas.
+SPECTRUM_DIR="$task_tmp/published"
+mkdir -p "$SPECTRUM_DIR"
+pixels=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 255 0)
+for ((row=0; row<SPECTRUM_FRAME_ROWS; row++)); do printf '%s\n' "${pixels[*]}"; done | spectrum_publish_frames || fail 'publicación de la última banda'
+assert_eq '16' "$(awk '{print $16}' "$SPECTRUM_DIR/levels")" 'última banda publicada'
 
 # El ataque responde con rapidez, mientras que el pico se conserva unos
 # cuadros y cae de forma gradual cuando la señal ya ha bajado.

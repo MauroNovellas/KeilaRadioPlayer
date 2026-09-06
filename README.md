@@ -204,7 +204,7 @@ El panel `Ahora suena` muestra el analizador vertical de 16 bandas debajo del ec
 
 El espectro se refresca de forma independiente, con un máximo de veinte cuadros por segundo. Cada frame actualiza solo sus barras; favoritos, búsqueda y ecualizador se redibujan cuando hay otros cambios. La frecuencia efectiva depende del equipo y de las demás acciones de la interfaz.
 
-La captura solicita entregas de audio pequeñas (20 ms, con latencia solicitada de 40 ms en `parec`) para reducir acumulaciones y ráfagas. El servidor de audio puede ajustar estos valores según el dispositivo.
+La captura solicita entregas de audio pequeñas (20 ms, con latencia solicitada de 40 ms en `parec`) para reducir acumulaciones y ráfagas. El servidor de audio puede ajustar estos valores según el dispositivo. La tubería reserva una columna de guarda en `showfreqs` para que la última banda visible no coincida con el borde vacío que dibuja FFmpeg.
 
 Entre cuadros consecutivos se aplica un suavizado ligero: las subidas responden rápido y las caídas se amortiguan para que una entrega irregular no produzca saltos visuales. No afecta al audio ni al ecualizador.
 
