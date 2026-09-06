@@ -4,6 +4,7 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - rama v2.1
 
+- El espectro usa amplitud logarítmica para destacar señales suaves y aprovechar más altura, conservando el refresco a 4 Hz y el audio original.
 - Corregido el reloj del espectro con coma decimal (configuración regional española), que provocaba errores aritméticos durante el refresco. La medición de rendimiento admite también ambos separadores.
 - Eliminados subprocesos por celda al dibujar las barras ampliadas. Añadida medición aislada del dibujo con `bash tests/render-benchmark.sh`, sin audio ni red.
 - Reorganizada la vista desktop: el ecualizador y el espectro ocupan todo el ancho de `Ahora suena`, y el analizador queda apilado debajo del ecualizador en lugar de compartir sus filas.

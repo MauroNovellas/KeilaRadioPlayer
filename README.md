@@ -202,6 +202,8 @@ El panel `Ahora suena` muestra el analizador vertical de 16 bandas debajo del ec
 
 La pantalla refresca el gráfico cuatro veces por segundo; la captura y el análisis de audio continúan trabajando de forma independiente para conservar una respuesta fluida.
 
+La altura utiliza una escala logarítmica de amplitud para hacer más visibles las señales suaves. Las frecuencias también se distribuyen logarítmicamente. Este ajuste es solo visual y no modifica el volumen ni el ecualizador.
+
 En Linux de escritorio usa el monitor de la salida PulseAudio/PipeWire mediante `parec`, `ffmpeg` y `pactl`; analiza el audio que ya está reproduciendo `mpv` y no abre otra conexión a la emisora. Las barras de 16 frecuencias permanecen dibujadas incluso antes de recibir señal. Estas herramientas son opcionales: si no existen o el sistema no expone un monitor compatible, Keila continúa funcionando y muestra `No disponible` en el panel. En Debian/Ubuntu pueden instalarse con:
 
 ```bash
