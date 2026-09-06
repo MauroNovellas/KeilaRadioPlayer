@@ -172,7 +172,7 @@ ui_draw_responsive_controls() {
         case "$UI_LAYOUT_MODE" in
             wide|standard)
                 ui_box_line "$width" 'W/S o ↑/↓ mover   Home/End extremos   PgUp/PgDn saltar' muted
-                ui_box_line "$width" 'Enter reproducir   A/D o ←/→ volumen   P pausa' muted
+                ui_box_line "$width" 'Enter reproducir   1-9/0 directo   A/D o ←/→ volumen   P pausa' muted
                 ui_box_line "$width" 'F favorito actual   J/K reordenar   X quitar seleccionado' muted
                 ui_box_line "$width" 'B buscar   R grabar   U actualizar   Q salir   H cerrar ayuda' muted
                 ;;
@@ -300,7 +300,7 @@ ui_draw() {
         local blank
         for ((blank = 1; blank < height; blank++)); do ui_box_line "$width" ''; done
     else
-        local row index marker_prefix right_badge name_line selected left_style right_style
+        local row index marker_prefix preset_label right_badge name_line selected left_style right_style
         for ((row = 0; row < height; row++)); do
             index=$((UI_SCROLL_OFFSET + row))
             if ((index >= ${#FAVORITE_NAMES[@]})); then
@@ -310,6 +310,11 @@ ui_draw() {
 
             marker_prefix='  '
             ((index == UI_SELECTED_INDEX)) && marker_prefix="$UI_SELECT "
+            case "$index" in
+                0|1|2|3|4|5|6|7|8) preset_label="$((index + 1)). " ;;
+                9) preset_label='0. ' ;;
+                *) preset_label='   ' ;;
+            esac
             right_badge=''
             left_style=''
             right_style=''
@@ -329,7 +334,7 @@ ui_draw() {
                 esac
             fi
 
-            name_line="$marker_prefix${FAVORITE_NAMES[$index]}"
+            name_line="$marker_prefix$preset_label${FAVORITE_NAMES[$index]}"
             selected=0
             ((index == UI_SELECTED_INDEX)) && selected=1
             ui_box_split_line "$width" "$name_line" "$right_badge" "$selected" "$left_style" "$right_style"
