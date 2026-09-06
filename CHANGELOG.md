@@ -2,7 +2,9 @@
 
 Todos los cambios relevantes de Keila Radio Player se documentarán en este archivo.
 
-## [Sin publicar] - rama v2.1
+## [2.1.0] - 2026-09-07
+
+Segunda versión estable de Keila Radio Player, centrada en completar la experiencia de reproducción de escritorio y cerrar la línea `v2.1` con pruebas de rendimiento, reconexión y distribución portable para Linux.
 
 - Añadido empaquetado Linux reproducible con suma SHA-256, runtime limpio y prueba de extracción del launcher sin configuraciones ni grabaciones personales.
 - Añadidos cinco presets de ecualizador (`1` Plano, `2` Rock, `3` Pop, `4` Jazz y `5` Voz) dentro del modo `Z`, con aplicación inmediata y persistencia.

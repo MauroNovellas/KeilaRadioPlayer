@@ -2,7 +2,7 @@
 
 Keila Radio Player es un reproductor de radio en Bash para terminal, usando `mpv` como motor de reproducción.
 
-La versión estable actual es **`2.0.0`**. Linux de escritorio es la plataforma principal, y la TUI también ha sido validada en Termux/Android, incluyendo terminales de pantalla pequeña.
+La versión estable actual es **`2.1.0`**. Linux de escritorio es la plataforma principal, y la TUI también ha sido validada en Termux/Android, incluyendo terminales de pantalla pequeña.
 
 Consulta el historial de cambios en [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -17,7 +17,7 @@ La versión vive en una única fuente, `lib/version.sh`, y puede consultarse sin
 Salida esperada para esta versión:
 
 ```text
-Keila Radio Player 2.0.0
+Keila Radio Player 2.1.0
 ```
 
 ## Dependencias
@@ -335,7 +335,7 @@ La carpeta está ignorada por Git. Al detener una grabación Keila espera a que 
 
 ## Comprobaciones
 
-Keila 2.0.0 incluye regresiones para configuración, estado, favoritos, grabación, tema, responsive, geometría desktop, protección contra autowrap/scroll, búsqueda integrada, Favoritos desde búsqueda, persistencia fallida, protección del terminal, autorepeat, actualización, validación de paquetes, rollback y aviso de actualización en la TUI.
+Keila 2.1.0 incluye regresiones para configuración, estado, favoritos, grabación, tema, responsive, geometría desktop, protección contra autowrap/scroll, búsqueda integrada, Favoritos desde búsqueda, persistencia fallida, protección del terminal, autorepeat, actualización, validación de paquetes, rollback, reconexión automática, analizador de espectro, empaquetado Linux y aviso de actualización en la TUI.
 
 Ejecutar la batería local principal:
 
@@ -421,4 +421,4 @@ Al salir, Keila detiene/finaliza la grabación si existe, detiene `mpv`, cancela
 
 ## Política de estabilidad
 
-`2.0.0` promociona el comportamiento ya validado en `2.0.0-rc3` sin introducir cambios funcionales de runtime. Las nuevas funciones quedan para versiones posteriores; los cambios sobre la línea estable deben priorizar correcciones, compatibilidad y regresiones bien cubiertas por pruebas.
+`2.1.0` reúne el comportamiento validado en la rama `v2.1`, con Linux de escritorio como plataforma principal. Los cambios sobre la línea estable deben priorizar correcciones, compatibilidad y regresiones bien cubiertas por pruebas.
