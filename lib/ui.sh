@@ -592,22 +592,24 @@ ui_equalizer_wide_row() {
             labels)
                 label="${labels[i]}"
                 if ((${#label} >= segment)); then
-                    cell=$(ui_truncate "$label" "$segment")
+                    cell="${label:0:segment}"
                 else
                     left=$(((segment - ${#label}) / 2))
                     right=$((segment - ${#label} - left))
-                    cell=$(ui_repeat_char ' ' "$left")$label$(ui_repeat_char ' ' "$right")
+                    printf -v cell '%*s%s%*s' "$left" '' "$label" "$right" ''
                 fi
                 ;;
             axis)
                 if ((UI_UNICODE)); then
-                    cell=$(ui_repeat_char '─' "$segment")
+                    printf -v cell '%*s' "$segment" ''
+                    cell=${cell// /─}
                     local axis_pos=$((segment / 2))
                     local cross='┼'
                     if ((${EQUALIZER_EDITOR_ACTIVE:-0} && i == EQUALIZER_SELECTED)); then cross='╋'; fi
                     cell="${cell:0:axis_pos}${cross}${cell:axis_pos+1}"
                 else
-                    cell=$(ui_repeat_char '-' "$segment")
+                    printf -v cell '%*s' "$segment" ''
+                    cell=${cell// /-}
                     local ascii_axis_pos=$((segment / 2))
                     local ascii_cross='+'
                     if ((${EQUALIZER_EDITOR_ACTIVE:-0} && i == EQUALIZER_SELECTED)); then ascii_cross='#'; fi
@@ -616,11 +618,11 @@ ui_equalizer_wide_row() {
                 ;;
             positive|negative)
                 gain=${EQUALIZER_GAINS[i]:-0}
-                cell=$(ui_repeat_char ' ' "$segment")
+                printf -v cell '%*s' "$segment" ''
                 if [[ "$direction" == positive && "$gain" =~ ^-?[0-9]+$ ]] && ((gain >= threshold)); then
-                    cell=$(ui_repeat_char "$UI_BAR_FULL" "$segment")
+                    cell=${cell// /$UI_BAR_FULL}
                 elif [[ "$direction" == negative && "$gain" =~ ^-?[0-9]+$ ]] && ((gain <= -threshold)); then
-                    cell=$(ui_repeat_char "$UI_BAR_FULL" "$segment")
+                    cell=${cell// /$UI_BAR_FULL}
                 fi
                 ;;
         esac
@@ -631,7 +633,7 @@ ui_equalizer_wide_row() {
 
     # El cálculo de segmentos puede dejar una o dos celdas libres por redondeo.
     extra=$((width - ${#result}))
-    ((extra > 0)) && result+=$(ui_repeat_char ' ' "$extra")
+    if ((extra > 0)); then printf -v cell '%*s' "$extra" ''; result+="$cell"; fi
     UI_EQ_TEXT="${result:0:width}"
     UI_EQ_STYLE='accent'
     [[ "$row" == 4 ]] && UI_EQ_STYLE='muted'
@@ -719,7 +721,7 @@ ui_spectrum_editor_row_wide() {
     local row="$1" width="${2:-40}"
     local display_rows="${SPECTRUM_DISPLAY_ROWS:-8}" frame_rows="${SPECTRUM_FRAME_ROWS:-16}"
     local columns gap cell_width segment_remainder column start end max_level level units full_units
-    local height partial_glyph result='' i extra partial_units
+    local height partial_glyph result='' i extra partial_units cells
     local -a levels=("${SPECTRUM_LEVELS[@]:-}")
     local -a partial=(' ' '▁' '▂' '▃' '▄' '▅' '▆' '▇' '█')
 
@@ -762,12 +764,13 @@ ui_spectrum_editor_row_wide() {
 
         local segment=$cell_width
         ((column < segment_remainder)) && ((segment += 1))
-        result+=$(ui_repeat_char "$partial_glyph" "$segment")
+        printf -v cells '%*s' "$segment" ''
+        result+=${cells// /$partial_glyph}
         if ((gap && column < columns - 1)); then result+=' '; fi
     done
 
     extra=$((width - ${#result}))
-    ((extra > 0)) && result+=$(ui_repeat_char ' ' "$extra")
+    if ((extra > 0)); then printf -v cells '%*s' "$extra" ''; result+="$cells"; fi
     printf '%s' "${result:0:width}"
 }
 
