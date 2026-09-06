@@ -59,7 +59,7 @@ UI_UPDATE_DESKTOP_ROW=6
 separator=$(ui_desktop_row '' '' '' '' 'favorito que debe desaparecer' '' '' '' 0)
 [[ "$separator" == *"$UI_ML$(ui_repeat_char "$UI_H" "$((UI_DESKTOP_RIGHT_WIDTH + 2))")$UI_MR"* ]] || fail 'falta línea completa de separación'
 [[ "$separator" != *'EMISORAS'* ]] || fail 'el título debe quedar debajo de la línea'
-[[ "$separator" != *"$UI_SELECT EMISORAS"* ]] || fail 'búsqueda inactiva aparece como foco activo'
+[[ "$separator" != *"$UI_SELECT BUSQUEDA EMISORAS"* ]] || fail 'búsqueda inactiva aparece como foco activo'
 [[ "$separator" != *'favorito que debe desaparecer'* ]] || fail 'el separador no sustituyó la fila de favoritos'
 
 SEARCH_ACTIVE=1
@@ -74,7 +74,7 @@ search_header=$(ui_desktop_header_rule 119 'AHORA SUENA' "FAVORITOS (${#FAVORITE
 
 UI_UPDATE_DESKTOP_ROW=7
 active_separator=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
-[[ "$active_separator" == *"$UI_SELECT EMISORAS"* ]] || fail 'búsqueda activa no muestra indicador de foco'
+[[ "$active_separator" == *"$UI_SELECT BUSQUEDA EMISORAS"* ]] || fail 'búsqueda activa no muestra indicador de foco'
 
 UI_UPDATE_DESKTOP_ROW=8
 query_line=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)

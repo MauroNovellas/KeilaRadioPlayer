@@ -144,7 +144,7 @@ PLAYER_NAME='Radio Test'
 render=$(ui_search_desktop 119)
 first_line=${render%%$'\n'*}
 assert_eq 119 "${#first_line}" 'búsqueda desktop respeta ancho seguro'
-[[ "$render" == *'BUSCAR EMISORAS'* ]] || fail 'falta cabecera de búsqueda'
+[[ "$render" == *'BUSQUEDA EMISORAS'* ]] || fail 'falta cabecera de búsqueda'
 [[ "$render" == *'RESULTADOS (2)'* ]] || fail 'falta contador de resultados'
 [[ "$render" == *'Rock FM'* ]] || fail 'falta primer resultado'
 [[ "$render" == *'Classic Rock'* ]] || fail 'falta segundo resultado'

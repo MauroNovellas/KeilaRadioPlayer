@@ -83,7 +83,7 @@ Keila adapta automáticamente la composición al tamaño de la terminal y recalc
 < 42x11                       aviso de terminal demasiado pequeña
 ```
 
-En desktop, `Ahora suena` queda como panel contenido a la izquierda. La columna derecha se divide verticalmente en `Favoritos` y `Recientes` arriba y `Emisoras` abajo, con selección y scroll independientes. El panel de reproducción muestra emisora, canción/programa, datos técnicos, volumen, estado, grabación y favorito cuando existe espacio suficiente.
+En desktop, `Ahora suena` queda como panel contenido a la izquierda. La columna derecha se divide verticalmente en `Favoritos` y `Recientes` arriba y `BUSQUEDA EMISORAS` abajo, con selección y scroll independientes. El panel de reproducción muestra emisora, canción/programa, datos técnicos, volumen, estado, grabación y favorito cuando existe espacio suficiente.
 
 El modo ancho de PC utiliza prácticamente toda la anchura disponible, reservando una columna física de seguridad para evitar autowrap. El borde inferior tampoco imprime un salto de línea adicional, evitando que la terminal haga scroll durante los redibujados.
 
@@ -134,7 +134,7 @@ Home / End         ir al primer/último favorito
 PageUp / PageDown  saltar por la lista
 P                  pausa/reanudar
 R                  iniciar/detener grabación del stream actual
-E                  editar etiqueta del favorito seleccionado
+E                  editar etiqueta de la emisora seleccionada
 F                  añadir/eliminar la emisora en reproducción de favoritos
 J / K              mover el favorito seleccionado abajo/arriba
 X                  eliminar el favorito seleccionado
@@ -158,18 +158,19 @@ Home / End            primer/último resultado
 PageUp / PageDown     saltar por los resultados
 Enter                 reproducir el resultado seleccionado
 F                     añadir/quitar el resultado de Favoritos
+E                     editar la etiqueta del resultado seleccionado
 Backspace             borrar un carácter
 Ctrl+U                limpiar la consulta
 Esc                   volver a Favoritos conservando la consulta
 ```
 
-Los favoritos admiten una etiqueta personal: selecciona uno y pulsa `E` (por ejemplo, `Rock FM` → `Heavy Metal`). `Enter` guarda, `Esc` cancela y `Ctrl-U` vacía el campo; guarda vacío para quitar la etiqueta. Las etiquetas también se incluyen en el filtro de búsqueda.
+Todas las emisoras admiten una etiqueta personal: selecciona una en Favoritos, Recientes o la búsqueda y pulsa `E` (por ejemplo, `Rock FM` → `Heavy Metal`). `Enter` guarda, `Esc` cancela y `Ctrl-U` vacía el campo; guarda vacío para quitar la etiqueta. Las etiquetas también se incluyen en el filtro de búsqueda y aparecen en las tres listas. Sus encabezados cambian de `ETIQUETAS PERSONALES` a `ETIQUETAS` cuando disminuye el ancho disponible.
 
 Debajo de Favoritos, `Recientes` muestra emisoras escuchadas que no están en Favoritos. Usa la misma navegación y `Enter` para reproducirlas. El historial local conserva hasta 20 emisoras distintas, en orden de última escucha; una conexión que no llega a audio no se registra. Si añades una emisora a Favoritos se oculta de Recientes. Los presets `1–9/0` siguen reservados exclusivamente a favoritos.
 
 Las etiquetas se guardan en `$XDG_CONFIG_HOME/keila-radio/labels` (por defecto `~/.config/keila-radio/labels`) y el historial en `$XDG_STATE_HOME/keila-radio/history` (por defecto `~/.local/state/keila-radio/history`). El historial contiene nombres y URLs de emisoras, sin títulos de canciones ni marcas de tiempo. Puedes borrar el archivo con Keila cerrada para vaciarlo.
 
-La `f` minúscula es texto normal dentro del buscador; solo `F` mayúscula se reserva para alternar Favorito. Los resultados favoritos muestran `[★]`, y la emisora que además está sonando puede mostrar `[PLAY] [★]`.
+Las letras `e` y `f` minúsculas son texto normal dentro del buscador; `F` mayúscula alterna Favorito y `E` mayúscula abre la etiqueta. Los resultados favoritos muestran `[★]`, y la emisora que además está sonando puede mostrar `[PLAY] [★]`.
 
 Al salir de la búsqueda con `Esc`, la consulta permanece visible. Pulsar de nuevo `B` la reabre para seguir editándola. Para usar el selector externo clásico con `fzf`:
 

@@ -106,4 +106,51 @@ labels_set 'https://radio.invalid/rock' 'Heavy Metal' || fail label
 SEARCH_URLS=('https://radio.invalid/rock') SEARCH_INDEX_TEXTS=('rock fm españa') SEARCH_QUERY='heavy metal'
 search_filter
 [[ ${#SEARCH_MATCHES[@]} == 1 ]] || fail 'buscar etiqueta'
+# Las etiquetas no requieren añadir favoritos ni reproducir una emisora.
+SEARCH_ACTIVE=1
+SEARCH_NAMES=('Emisora nueva') SEARCH_URLS=('https://radio.invalid/new')
+SEARCH_AMBITS=(Nacional) SEARCH_COUNTRIES=(España) SEARCH_FORMATS=(AAC)
+SEARCH_INDEX_TEXTS=('emisora nueva nacional españa') SEARCH_QUERY='' SEARCH_SELECTED_INDEX=0
+search_filter
+search_draw_view() { :; }
+TEST_INPUT=0
+app_edit_label || fail 'editar resultado no favorito'
+[[ "${FAVORITE_LABELS[https://radio.invalid/new]}" == Q ]] || fail 'etiqueta de búsqueda no guardada'
+[[ ${#FAVORITE_URLS[@]} == 2 ]] || fail 'etiquetar añadió favorito'
+[[ " ${HISTORY_URLS[*]} " != *' https://radio.invalid/new '* ]] || fail 'etiquetar añadió historial'
+ui_search_result_parts 0
+[[ "$(ui_search_result_badge 0)" == Q ]] || fail 'etiqueta no visible en búsqueda'
+SEARCH_QUERY=q
+search_filter
+[[ ${#SEARCH_MATCHES[@]} == 1 ]] || fail 'no busca etiquetas de no favoritos'
+
+# Borrar una etiqueta que coincide con el filtro debe retirar el resultado.
+TEST_INPUT=0
+input_read() {
+    ((TEST_INPUT+=1))
+    case "$TEST_INPUT" in
+        1) INPUT_EVENT=KEY INPUT_KEY=$'\x15' ;;
+        2) INPUT_EVENT=ENTER ;;
+        *) return 1 ;;
+    esac
+}
+app_edit_label || fail 'borrar etiqueta de búsqueda'
+[[ ${#SEARCH_MATCHES[@]} == 0 && "$SEARCH_ACTIVE" == 1 ]] || fail 'filtro no actualizado'
+SEARCH_ACTIVE=0
+UI_SELECTED_INDEX=2
+TEST_INPUT=0
+input_read() {
+    ((TEST_INPUT+=1))
+    case "$TEST_INPUT" in
+        1) INPUT_EVENT=KEY INPUT_KEY=$'\x15' ;;
+        2) INPUT_EVENT=KEY INPUT_KEY=R ;;
+        3) INPUT_EVENT=ENTER ;;
+        *) return 1 ;;
+    esac
+}
+app_edit_label || fail 'etiquetar reciente'
+ui_navigation_refresh
+ui_navigation_sync 6
+ui_navigation_row "$((UI_NAV_FAVORITES_HEIGHT + 1))"
+[[ "$UI_NAV_BADGE" == R* ]] || fail 'etiqueta no visible en recientes'
 printf 'ok   etiquetas, historial, navegación y editor\n'

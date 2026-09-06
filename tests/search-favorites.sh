@@ -95,7 +95,7 @@ UI_SEP='·'
 UI_FAVORITE='★'
 ui_search_result_parts 0
 assert_eq 1 "$UI_SEARCH_IS_FAVORITE" 'renderer reconoce resultado favorito'
-assert_eq '[★] Madrid · España' "$(ui_search_result_badge 0)" 'badge de favorito'
+assert_eq '[★]' "$(ui_search_result_badge 0)" 'badge de favorito'
 assert_eq '[PLAY] [★]' "$(ui_search_result_badge 1)" 'badge combinado play y favorito'
 
 # La primera F destructiva solo arma la confirmación.

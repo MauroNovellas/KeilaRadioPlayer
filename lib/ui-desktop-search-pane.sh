@@ -84,7 +84,7 @@ ui_desktop_row() {
     # quitamos únicamente el resaltado de selección para que el foco sea inequívoco.
     if ((row == 0)); then
         right_text='  EMISORAS'
-        right_badge='ETIQUETAS PERSONALES'
+        right_badge=$(ui_labels_header "$UI_DESKTOP_RIGHT_WIDTH")
         right_style='accent'
         right_badge_style='accent'
         selected=0
@@ -101,11 +101,11 @@ ui_desktop_row() {
         right_badge_style=''
         selected=0
     elif ((row == UI_DESKTOP_FAVORITES_HEIGHT + 1)); then
-        right_text='EMISORAS'
+        right_text='BUSQUEDA EMISORAS'
         ((SEARCH_ACTIVE)) && right_text="$UI_SELECT $right_text"
-        right_badge=''
+        right_badge=$(ui_labels_header "$UI_DESKTOP_RIGHT_WIDTH")
         right_style='accent'
-        right_badge_style=''
+        right_badge_style='accent'
         selected=0
     else
         local search_row=$((row - UI_DESKTOP_FAVORITES_HEIGHT - 2))
@@ -200,7 +200,7 @@ ui_draw_responsive_controls() {
         return 0
     fi
     if ((SEARCH_ACTIVE)); then
-        ui_box_line "$width" "Escribe  $UI_SEP  ↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  F favorito  $UI_SEP  Esc favoritos" muted
+        ui_box_line "$width" "Escribe  $UI_SEP  ↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  F favorito  $UI_SEP  E etiqueta  $UI_SEP  Esc favoritos" muted
         return 0
     fi
 

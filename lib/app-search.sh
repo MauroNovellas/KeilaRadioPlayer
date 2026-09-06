@@ -53,7 +53,7 @@ search_prepare_results() {
 }
 
 # Modifica Favoritos usando el resultado activo sin abandonar la búsqueda ni
-# alterar la reproducción. Solo F mayúscula se reserva como comando; la f
+# alterar la reproducción. F y E mayúsculas se reservan como comandos; la f
 # minúscula sigue siendo texto normal para consultas como "fm" o "francia".
 # Añadir es inmediato; quitar exige una segunda F sobre el mismo resultado.
 search_toggle_selected_favorite() {
@@ -248,7 +248,11 @@ stations_select_fzf() {
                 if [[ "$INPUT_KEY" == 'F' ]]; then
                     search_toggle_selected_favorite || true
                     redraw=1
-                # El resto de caracteres, incluida f minúscula, siguen siendo
+                elif [[ "$INPUT_KEY" == 'E' ]]; then
+                    favorites_confirm_clear
+                    app_edit_label || true
+                    redraw=1
+                # El resto de caracteres, incluidas e y f minúsculas, siguen siendo
                 # texto. append/backspace solo marcan el filtro pendiente para
                 # que esta misma iteración pueda pintar el teclado al instante.
                 else

@@ -294,6 +294,10 @@ ui_draw() {
     local height
     height=$(ui_list_height)
     ui_navigation_refresh
+    if ((height >= 3)); then
+        ui_box_split_line "$width" '  EMISORAS' "$(ui_labels_header "$((width - 4))")" 0 accent accent
+        ((height -= 1))
+    fi
     ui_navigation_sync "$height"
     local row
     for ((row = 0; row < height; row++)); do

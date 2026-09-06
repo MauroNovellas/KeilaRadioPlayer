@@ -8,6 +8,10 @@ ui_search_result_parts() {
     UI_SEARCH_NAME="${SEARCH_NAMES[$source_index]}"
     UI_SEARCH_DETAIL=''
     UI_SEARCH_IS_FAVORITE=0
+    UI_SEARCH_LABEL=''
+    if declare -p FAVORITE_LABELS >/dev/null 2>&1; then
+        UI_SEARCH_LABEL="${FAVORITE_LABELS[${SEARCH_URLS[$source_index]}]:-}"
+    fi
 
     if [[ -n "${SEARCH_AMBITS[$source_index]}" ]]; then
         UI_SEARCH_DETAIL="${SEARCH_AMBITS[$source_index]}"
@@ -32,9 +36,10 @@ ui_search_result_badge() {
         ((UI_SEARCH_IS_FAVORITE)) && badge+=" [$UI_FAVORITE]"
     elif ((UI_SEARCH_IS_FAVORITE)); then
         badge="[$UI_FAVORITE]"
-        [[ -n "$UI_SEARCH_DETAIL" ]] && badge+=" $UI_SEARCH_DETAIL"
-    else
-        badge="$UI_SEARCH_DETAIL"
+    fi
+    if [[ -n "${UI_SEARCH_LABEL:-}" ]]; then
+        [[ -n "$badge" ]] && badge+=' '
+        badge+="$UI_SEARCH_LABEL"
     fi
 
     printf '%s' "$badge"
@@ -51,7 +56,7 @@ ui_search_desktop() {
 
     ui_box_rule "$width" "$UI_TL" "$UI_TR"
     ui_box_center_line "$width" "$title" title
-    ui_desktop_header_rule "$width" 'BUSCAR EMISORAS' "RESULTADOS (${#SEARCH_MATCHES[@]})"
+    ui_desktop_header_rule "$width" 'BUSQUEDA EMISORAS' "RESULTADOS (${#SEARCH_MATCHES[@]})"
 
     local row match_position source_index result_text result_badge result_style result_badge_style selected playing
     local left_text left_badge left_style left_badge_style
@@ -153,9 +158,9 @@ ui_search_single_column() {
 
     ui_box_rule "$width" "$UI_TL" "$UI_TR"
     ui_box_center_line "$width" "$title" title
-    ui_box_rule "$width" "$UI_ML" "$UI_MR" 'BUSCAR EMISORAS' accent
+    ui_box_rule "$width" "$UI_ML" "$UI_MR" 'BUSQUEDA EMISORAS' accent
     ui_box_split_line "$width" 'Buscar:' "${SEARCH_QUERY}_" 0 accent selected
-    ui_box_rule "$width" "$UI_ML" "$UI_MR" "RESULTADOS (${#SEARCH_MATCHES[@]})" accent
+    ui_box_split_line "$width" "EMISORAS (${#SEARCH_MATCHES[@]})" "$(ui_labels_header "$((width - 4))")" 0 accent accent
 
     local row match_position source_index text badge selected style badge_style playing
     for ((row = 0; row < body_height; row++)); do
@@ -196,7 +201,11 @@ ui_search_single_column() {
     done
 
     ui_box_rule "$width" "$UI_ML" "$UI_MR"
-    ui_box_line "$width" "Escribe  $UI_SEP  ↑↓  $UI_SEP  Enter play  $UI_SEP  F favorito  $UI_SEP  Esc" muted
+    if ((${LABEL_EDITOR_ACTIVE:-0})); then
+        ui_box_line "$width" 'Enter guardar · Esc cancelar · Ctrl-U borrar' muted
+    else
+        ui_box_line "$width" '↑↓ Enter  F favorito  E etiqueta  Esc volver' muted
+    fi
     if [[ -n "$UI_MESSAGE" ]]; then
         ui_box_line "$width" "$UI_MESSAGE"
     else
@@ -219,11 +228,19 @@ ui_draw_search() {
         ((tiny_width > 60)) && tiny_width=60
         ui_print_padded "$tiny_width" "Keila Radio Player ${KEILA_VERSION:-dev}"
         printf '\n\n'
-        ui_print_padded "$tiny_width" "Buscar: ${SEARCH_QUERY}_"
+        if ((${LABEL_EDITOR_ACTIVE:-0})); then
+            ui_print_padded "$tiny_width" "$UI_MESSAGE"
+        else
+            ui_print_padded "$tiny_width" "Buscar: ${SEARCH_QUERY}_"
+        fi
         printf '\n'
         ui_print_padded "$tiny_width" "Resultados: ${#SEARCH_MATCHES[@]}"
         printf '\n\n'
-        ui_print_padded "$tiny_width" 'F = favorito · Esc = volver'
+        if ((${LABEL_EDITOR_ACTIVE:-0})); then
+            ui_print_padded "$tiny_width" 'Enter guardar · Esc cancelar'
+        else
+            ui_print_padded "$tiny_width" 'F favorito · E etiqueta · Esc volver'
+        fi
         printf '\n'
         tput ed 2>/dev/null || true
         return 0

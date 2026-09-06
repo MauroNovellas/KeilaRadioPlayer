@@ -53,7 +53,7 @@ ui_desktop_row() {
     printf ' '
     if [[ "$right_style" == separator ]]; then
         # La regla ocupa también los márgenes y conecta con ambos bordes.
-        ui_style_begin separator
+        ui_style_begin muted
         printf '%s' "$UI_ML"
         ui_repeat_char "$UI_H" "$((UI_DESKTOP_RIGHT_WIDTH + 2))"
         printf '%s' "$UI_MR"

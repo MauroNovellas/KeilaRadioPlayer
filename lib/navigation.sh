@@ -63,7 +63,6 @@ ui_navigation_row() {
         index=$((UI_SCROLL_OFFSET + row))
         ((index < ${#FAVORITE_NAMES[@]})) || return 0
         name="${FAVORITE_NAMES[index]}" url="${FAVORITE_URLS[index]}"
-        if declare -p FAVORITE_LABELS >/dev/null 2>&1; then label="${FAVORITE_LABELS[$url]:-}"; fi
         case "$index" in
             [0-8]) preset="$((index + 1)). " ;;
             9) preset='0. ' ;;
@@ -84,9 +83,15 @@ ui_navigation_row() {
     elif [[ "$url" == "${STATE_LAST_URL:-}" ]]; then
         UI_NAV_BADGE='[ÚLTIMA]' UI_NAV_BADGE_STYLE=muted
     fi
+    if declare -p FAVORITE_LABELS >/dev/null 2>&1; then label="${FAVORITE_LABELS[$url]:-}"; fi
     if [[ -n "$label" ]]; then
         UI_NAV_BADGE="$label ${UI_NAV_BADGE}"
         [[ -n "$UI_NAV_BADGE_STYLE" ]] || UI_NAV_BADGE_STYLE=muted
     fi
     UI_NAV_TEXT="$marker$preset$name"
+}
+
+# Umbral común para que ambas secciones abrevien a la vez en desktop.
+ui_labels_header() {
+    if (($1 >= 68)); then printf 'ETIQUETAS PERSONALES'; else printf 'ETIQUETAS'; fi
 }
