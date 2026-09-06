@@ -2,7 +2,7 @@
 
 Keila Radio Player es un reproductor de radio en Bash para terminal, usando `mpv` como motor de reproducción.
 
-La versión candidata actual es **`2.0.0-rc3`**. Linux de escritorio sigue siendo la plataforma principal, y la TUI actual también ha sido validada en Termux/Android, incluyendo terminales de pantalla pequeña.
+La versión estable actual es **`2.0.0`**. Linux de escritorio es la plataforma principal, y la TUI también ha sido validada en Termux/Android, incluyendo terminales de pantalla pequeña.
 
 Consulta el historial de cambios en [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -14,10 +14,10 @@ La versión vive en una única fuente, `lib/version.sh`, y puede consultarse sin
 ./keila-radio --version
 ```
 
-Salida esperada para esta RC:
+Salida esperada para esta versión:
 
 ```text
-Keila Radio Player 2.0.0-rc3
+Keila Radio Player 2.0.0
 ```
 
 ## Dependencias
@@ -213,7 +213,7 @@ Las copias Git de desarrollo, como una rama distinta de `main`, no se sustituyen
 Al abrir la TUI se realiza además una comprobación de actualización en segundo plano. No retrasa el arranque: si GitHub no responde, Keila sigue funcionando sin mostrar un error. Cuando existe una versión superior, el layout desktop puede mostrar discretamente:
 
 ```text
-ACTUALIZACIÓN    2.0.0 disponible
+ACTUALIZACIÓN    2.0.1 disponible
 ```
 
 La comprobación automática puede desactivarse:
@@ -281,7 +281,7 @@ La carpeta está ignorada por Git. Al detener una grabación Keila espera a que 
 
 ## Comprobaciones
 
-RC3 incluye regresiones para configuración, estado, favoritos, grabación, tema, responsive, geometría desktop, protección contra autowrap/scroll, búsqueda integrada, Favoritos desde búsqueda, persistencia fallida, protección del terminal, autorepeat, actualización, validación de paquetes, rollback y aviso de actualización en la TUI.
+Keila 2.0.0 incluye regresiones para configuración, estado, favoritos, grabación, tema, responsive, geometría desktop, protección contra autowrap/scroll, búsqueda integrada, Favoritos desde búsqueda, persistencia fallida, protección del terminal, autorepeat, actualización, validación de paquetes, rollback y aviso de actualización en la TUI.
 
 Ejecutar la batería local principal:
 
@@ -358,6 +358,6 @@ Los scripts, listados y documentación de la antigua v1 se mantienen en el histo
 
 Al salir, Keila detiene/finaliza la grabación si existe, detiene `mpv`, cancela una comprobación de actualización en segundo plano si sigue activa, restaura el estado exacto del terminal y el cursor, abandona la pantalla alternativa de la TUI y limpia la pantalla principal para no dejar restos visuales.
 
-## Política de la RC
+## Política de estabilidad
 
-Durante `2.0.0-rc3` se priorizan exclusivamente correcciones de regresiones, estabilidad y documentación. La reconexión automática y otras funciones nuevas quedan fuera de esta release candidate. Si RC3 se mantiene estable en uso real, el siguiente objetivo es preparar `2.0.0` con cambios mínimos.
+`2.0.0` promociona el comportamiento ya validado en `2.0.0-rc3` sin introducir cambios funcionales de runtime. Las nuevas funciones quedan para versiones posteriores; los cambios sobre la línea estable deben priorizar correcciones, compatibilidad y regresiones bien cubiertas por pruebas.
