@@ -59,6 +59,7 @@ if player_ipc '{"command":["get_property","pause"]}'; then
     fail 'respuesta con request_id incorrecto fue aceptada'
 fi
 assert_eq 'ipc_response' "$PLAYER_FAILURE_REASON" 'clasifica respuesta IPC no correlacionada'
+assert_eq '' "$PLAYER_LAST_IPC_ERROR" 'un fallo IPC distinto limpia el rechazo anterior'
 
 # Una respuesta correcta limpia únicamente un fallo IPC previo.
 player_ipc_exchange() {
