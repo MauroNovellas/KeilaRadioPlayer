@@ -139,6 +139,32 @@ app_play_selected() {
     app_play "${FAVORITE_NAMES[$UI_SELECTED_INDEX]}" "${FAVORITE_URLS[$UI_SELECTED_INDEX]}"
 }
 
+# Los diez primeros favoritos funcionan como presets de una radio física:
+# 1..9 seleccionan las posiciones 1..9 y 0 selecciona la posición 10.
+# No hay buffer ni combinaciones de varias cifras; el resto sigue accesible con
+# cursores/W/S y búsqueda.
+app_play_favorite_preset() {
+    local key="$1" index
+    case "$key" in
+        [1-9]) index=$((key - 1)) ;;
+        0) index=9 ;;
+        *) return 1 ;;
+    esac
+
+    if ! favorites_load; then
+        app_message "No se pudieron cargar favoritos." 6
+        return 1
+    fi
+    if ((index >= ${#FAVORITE_NAMES[@]})); then
+        app_message "No hay favorito asignado al preset $key." 4
+        return 0
+    fi
+
+    UI_SELECTED_INDEX=$index
+    ui_sync_selection
+    app_play "${FAVORITE_NAMES[$index]}" "${FAVORITE_URLS[$index]}"
+}
+
 app_change_volume() {
     local delta="$1"
     if player_change_volume "$delta"; then
@@ -357,6 +383,7 @@ app_handle_key() {
     esac
 
     case "$key" in
+        [0-9]) app_play_favorite_preset "$key" || true ;;
         w|W) ui_move_selection -1 || true ;;
         s|S) ui_move_selection 1 || true ;;
         a|A) app_change_volume "$((-KEILA_VOLUME_STEP))" ;;
