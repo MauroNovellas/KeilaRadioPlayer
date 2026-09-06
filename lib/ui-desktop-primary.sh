@@ -51,6 +51,16 @@ ui_desktop_row() {
     printf ' '
     ui_print_split_styled "$UI_DESKTOP_LEFT_WIDTH" "$left_text" "$left_badge" "$left_style" "$left_badge_style"
     printf ' '
+    if [[ "$right_style" == separator ]]; then
+        # La regla ocupa también los márgenes y conecta con ambos bordes.
+        ui_style_begin separator
+        printf '%s' "$UI_ML"
+        ui_repeat_char "$UI_H" "$((UI_DESKTOP_RIGHT_WIDTH + 2))"
+        printf '%s' "$UI_MR"
+        ui_style_end
+        printf '\n'
+        return 0
+    fi
     ui_style_begin muted
     printf '%s' "$UI_V"
     ui_style_end

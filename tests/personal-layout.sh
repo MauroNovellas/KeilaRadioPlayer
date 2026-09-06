@@ -32,6 +32,7 @@ for size in '132 40' '112 20' '80 24' '55 15' '45 12' '45 11'; do
             [[ "$render" == *'Radio reciente'* ]] || fail "reciente invisible $size"
         fi
         if ((TEST_COLS >= 112)); then
+            [[ "$render" == *'ETIQUETAS PERSONALES'* ]] || fail 'cabecera de etiquetas invisible'
             [[ "$render" == *'Emisora inicial'* ]] || fail 'catálogo inicial invisible'
             [[ "$render" != *'Pulsa B y escribe'* && "$render" != *'BUSCAR EMISORAS'* ]] || fail 'ayuda duplicada'
             if ((selection == 0)); then

@@ -92,6 +92,7 @@ ui_style_begin() {
         record) printf '%s%s' "$UI_BOLD" "$UI_RED" ;;
         favorite|warning) printf '%s' "$UI_YELLOW" ;;
         accent) printf '%s' "$UI_CYAN" ;;
+        separator) printf '%s' "$UI_GREEN" ;;
         muted) printf '%s' "$UI_DIM" ;;
     esac
 }

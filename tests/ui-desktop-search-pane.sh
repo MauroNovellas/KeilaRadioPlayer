@@ -48,16 +48,17 @@ PLAYER_URL='none'
 
 ui_desktop_sync_selection 13
 assert_eq 6 "$UI_DESKTOP_FAVORITES_HEIGHT" 'mitad superior de favoritos'
-assert_eq 6 "$UI_DESKTOP_SEARCH_HEIGHT" 'mitad inferior de búsqueda'
-assert_eq 2 "$UI_SCROLL_OFFSET" 'favoritos hacen scroll dentro de su mitad'
-assert_eq 3 "$SEARCH_SCROLL_OFFSET" 'búsqueda hace scroll dentro de su mitad'
+assert_eq 5 "$UI_DESKTOP_SEARCH_HEIGHT" 'mitad inferior de búsqueda'
+assert_eq 3 "$UI_SCROLL_OFFSET" 'favoritos hacen scroll dentro de su mitad'
+assert_eq 4 "$SEARCH_SCROLL_OFFSET" 'búsqueda hace scroll dentro de su mitad'
 
 favorites_header=$(ui_desktop_header_rule 119 'AHORA SUENA' "FAVORITOS (${#FAVORITE_NAMES[@]})")
 [[ "$favorites_header" == *"$UI_SELECT FAVORITOS"* ]] || fail 'Favoritos activo no muestra indicador de foco'
 
 UI_UPDATE_DESKTOP_ROW=6
 separator=$(ui_desktop_row '' '' '' '' 'favorito que debe desaparecer' '' '' '' 0)
-[[ "$separator" == *'EMISORAS'* ]] || fail 'falta separador de búsqueda'
+[[ "$separator" == *"$UI_ML$(ui_repeat_char "$UI_H" "$((UI_DESKTOP_RIGHT_WIDTH + 2))")$UI_MR"* ]] || fail 'falta línea completa de separación'
+[[ "$separator" != *'EMISORAS'* ]] || fail 'el título debe quedar debajo de la línea'
 [[ "$separator" != *"$UI_SELECT EMISORAS"* ]] || fail 'búsqueda inactiva aparece como foco activo'
 [[ "$separator" != *'favorito que debe desaparecer'* ]] || fail 'el separador no sustituyó la fila de favoritos'
 
@@ -71,16 +72,16 @@ SEARCH_SCROLL_OFFSET=0
 search_header=$(ui_desktop_header_rule 119 'AHORA SUENA' "FAVORITOS (${#FAVORITE_NAMES[@]})")
 [[ "$search_header" != *"$UI_SELECT FAVORITOS"* ]] || fail 'Favoritos conserva el indicador al entrar en búsqueda'
 
-UI_UPDATE_DESKTOP_ROW=6
+UI_UPDATE_DESKTOP_ROW=7
 active_separator=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
 [[ "$active_separator" == *"$UI_SELECT EMISORAS"* ]] || fail 'búsqueda activa no muestra indicador de foco'
 
-UI_UPDATE_DESKTOP_ROW=7
+UI_UPDATE_DESKTOP_ROW=8
 query_line=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
 [[ "$query_line" == *'Buscar: rock_'* ]] || fail 'campo de búsqueda no aparece en la mitad inferior'
 [[ "$query_line" == *'2 resultados'* ]] || fail 'contador de resultados no aparece'
 
-UI_UPDATE_DESKTOP_ROW=8
+UI_UPDATE_DESKTOP_ROW=9
 result_line=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
 [[ "$result_line" == *'Rock FM'* ]] || fail 'primer resultado no aparece en la mitad inferior'
 [[ "$result_line" == *"$UI_SELECT Rock FM"* ]] || fail 'resultado activo no muestra foco'
@@ -97,7 +98,7 @@ SEARCH_ACTIVE=0
 SEARCH_QUERY=''
 SEARCH_MATCHES=()
 SEARCH_SCROLL_OFFSET=0
-UI_UPDATE_DESKTOP_ROW=7
+UI_UPDATE_DESKTOP_ROW=8
 idle_line=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
 [[ "$idle_line" != *'B  Buscar emisoras'* && "$idle_line" != *'Pulsa B'* ]] || fail 'instrucciones redundantes en búsqueda'
 [[ "$idle_line" == *'Sin catálogo disponible'* ]] || fail 'falta estado sin catálogo'

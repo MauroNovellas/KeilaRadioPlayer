@@ -13,7 +13,7 @@ ui_desktop_search_split_heights() {
 
     ((usable < 2)) && usable=2
     UI_DESKTOP_FAVORITES_HEIGHT=$((usable / 2))
-    UI_DESKTOP_SEARCH_HEIGHT=$((usable - UI_DESKTOP_FAVORITES_HEIGHT))
+    UI_DESKTOP_SEARCH_HEIGHT=$((usable - UI_DESKTOP_FAVORITES_HEIGHT - 1))
 
     ((UI_DESKTOP_FAVORITES_HEIGHT < 1)) && UI_DESKTOP_FAVORITES_HEIGHT=1
     ((UI_DESKTOP_SEARCH_HEIGHT < 1)) && UI_DESKTOP_SEARCH_HEIGHT=1
@@ -25,7 +25,8 @@ ui_desktop_sync_selection() {
     local body_height="$1"
     ui_desktop_search_split_heights "$body_height"
     ui_navigation_refresh
-    ui_navigation_sync "$UI_DESKTOP_FAVORITES_HEIGHT"
+    # Reservar la primera fila para los nombres de las dos columnas.
+    ui_navigation_sync "$((UI_DESKTOP_FAVORITES_HEIGHT - 1))"
 
     # El campo de consulta solo ocupa una fila cuando se usa.
     local search_results_height=$UI_DESKTOP_SEARCH_HEIGHT
@@ -58,19 +59,6 @@ ui_desktop_header_rule() {
     ui_desktop_header_rule_without_search_focus "$width" "$left_label" "$right_label"
 }
 
-ui_desktop_search_separator_text() {
-    local label='EMISORAS'
-    ((SEARCH_ACTIVE)) && label="$UI_SELECT $label"
-
-    local text="$UI_H $label "
-    local remaining=$((UI_DESKTOP_RIGHT_WIDTH - ${#text}))
-
-    if ((remaining > 0)); then
-        text+="$(ui_repeat_char "$UI_H" "$remaining")"
-    fi
-    ui_truncate "$text" "$UI_DESKTOP_RIGHT_WIDTH"
-}
-
 # Conservamos la fila desktop ya envuelta por ui-update-status.sh. Así el aviso
 # de actualización sigue pudiendo ocupar su fila del panel izquierdo.
 if ! declare -F ui_desktop_row_without_search_split >/dev/null 2>&1; then
@@ -94,21 +82,33 @@ ui_desktop_row() {
 
     # La mitad superior conserva Favoritos. Mientras la búsqueda tiene el foco,
     # quitamos únicamente el resaltado de selección para que el foco sea inequívoco.
-    if ((row < UI_DESKTOP_FAVORITES_HEIGHT)); then
-        ui_navigation_row "$row"
+    if ((row == 0)); then
+        right_text='  EMISORAS'
+        right_badge='ETIQUETAS PERSONALES'
+        right_style='accent'
+        right_badge_style='accent'
+        selected=0
+    elif ((row < UI_DESKTOP_FAVORITES_HEIGHT)); then
+        ui_navigation_row "$((row - 1))"
         right_text="$UI_NAV_TEXT" right_badge="$UI_NAV_BADGE"
         right_style="$UI_NAV_STYLE" right_badge_style="$UI_NAV_BADGE_STYLE"
         selected=$UI_NAV_SELECTED
     elif ((row == UI_DESKTOP_FAVORITES_HEIGHT)); then
         # Fila divisoria entre Favoritos y búsqueda.
-        right_text=$(ui_desktop_search_separator_text)
+        right_text=''
+        right_badge=''
+        right_style='separator'
+        right_badge_style=''
+        selected=0
+    elif ((row == UI_DESKTOP_FAVORITES_HEIGHT + 1)); then
+        right_text='EMISORAS'
+        ((SEARCH_ACTIVE)) && right_text="$UI_SELECT $right_text"
         right_badge=''
         right_style='accent'
         right_badge_style=''
         selected=0
-        ((SEARCH_ACTIVE)) && right_style='selected'
     else
-        local search_row=$((row - UI_DESKTOP_FAVORITES_HEIGHT - 1))
+        local search_row=$((row - UI_DESKTOP_FAVORITES_HEIGHT - 2))
         right_text=''
         right_badge=''
         right_style=''

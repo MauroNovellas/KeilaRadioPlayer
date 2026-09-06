@@ -4,6 +4,8 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - rama v2.1
 
+- Favoritos muestra encabezados de columnas «EMISORAS» y «ETIQUETAS PERSONALES». Una línea verde completa separa Favoritos/Recientes del título del buscador.
+
 - El catálogo se carga al abrir la TUI. La caché se muestra de inmediato y la descarga se realiza en segundo plano; un fallo de red conserva el catálogo anterior.
 - El panel Emisoras elimina las instrucciones duplicadas y aprovecha esa fila para mostrar resultados. `B` activa el filtro.
 - `E` edita una etiqueta personal del favorito seleccionado; Enter guarda, Esc cancela y Ctrl-U vacía. El filtro también encuentra etiquetas.
