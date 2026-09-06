@@ -15,14 +15,19 @@ spectrum_find_source() {
     command -v pactl >/dev/null 2>&1 || return 1
     command -v timeout >/dev/null 2>&1 || return 1
 
-    local sink source
+    local sink source sources fallback
     sink=$(timeout 1 pactl get-default-sink 2>/dev/null) || sink=''
     if [[ -z "$sink" ]]; then
         sink=$(timeout 1 pactl info 2>/dev/null | awk -F ': ' '$1 == "Default Sink" { print $2; exit }')
     fi
     [[ -n "$sink" ]] || return 1
     source="${sink}.monitor"
-    timeout 1 pactl list short sources 2>/dev/null | awk -v wanted="$source" '$2 == wanted { found=1 } END { exit !found }' || return 1
+    sources=$(timeout 1 pactl list short sources 2>/dev/null) || return 1
+    if ! awk -v wanted="$source" '$2 == wanted { found=1 } END { exit !found }' <<< "$sources"; then
+        fallback=$(awk '$2 ~ /\.monitor$/ { print $2; exit }' <<< "$sources")
+        [[ -n "$fallback" ]] || return 1
+        source=$fallback
+    fi
     printf '%s\n' "$source"
 }
 
@@ -72,10 +77,17 @@ spectrum_start() {
     SPECTRUM_AVAILABLE='yes'
     (
         trap spectrum_worker_stop TERM INT
-        ffmpeg -hide_banner -loglevel error \
-            -f pulse -i "$SPECTRUM_SOURCE" \
-            -lavfi 'showfreqs=s=16x8:mode=bar:ascale=cbrt:fscale=log:colors=white' \
-            -r 10 -f rawvideo -pix_fmt gray - 2>/dev/null |
+        if command -v parec >/dev/null 2>&1; then
+            parec --device="$SPECTRUM_SOURCE" --format=s16le --rate=44100 --channels=1 2>/dev/null |
+                ffmpeg -hide_banner -loglevel error -f s16le -ar 44100 -ac 1 -i - \
+                    -lavfi 'showfreqs=s=16x8:mode=bar:ascale=cbrt:fscale=log:colors=white' \
+                    -r 10 -f rawvideo -pix_fmt gray - 2>/dev/null
+        else
+            ffmpeg -hide_banner -loglevel error \
+                -f pulse -i "$SPECTRUM_SOURCE" \
+                -lavfi 'showfreqs=s=16x8:mode=bar:ascale=cbrt:fscale=log:colors=white' \
+                -r 10 -f rawvideo -pix_fmt gray - 2>/dev/null
+        fi |
             od -An -tu1 -w16 -v |
             awk '
                 {

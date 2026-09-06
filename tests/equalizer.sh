@@ -69,4 +69,27 @@ ui_equalizer_editor_row 7
 ui_equalizer_editor_row 8
 [[ "$UI_EQ_TEXT" == *'60'* && "$UI_EQ_TEXT" == *'12k'* ]] || fail 'etiquetas de bandas invisibles'
 
-printf 'ok   ecualizador: persistencia, centrado, IPC y gráficos\n'
+# Z activa un modo de edición sobre la misma vista: horizontal selecciona la
+# frecuencia, vertical cambia su valor y Z vuelve a desactivarlo.
+source "$ROOT_DIR/lib/equalizer-editor.sh"
+UI_HELP_VISIBLE=0
+EQUALIZER_SELECTED=0
+EQUALIZER_GAINS=(0 0 0 0 0)
+editor_step=0
+editor_events=(RIGHT UP LEFT UP KEY KEY)
+editor_keys=('' '' '' '' C Z)
+ui_draw() { :; }
+ui_clear_message() { :; }
+app_message() { :; }
+input_read() {
+    INPUT_EVENT=${editor_events[editor_step]}
+    INPUT_KEY=${editor_keys[editor_step]}
+    ((editor_step+=1))
+}
+app_edit_equalizer || fail 'edición integrada'
+assert_eq '0' "$EQUALIZER_SELECTED" 'flechas horizontales seleccionan frecuencia'
+assert_eq '1' "${EQUALIZER_GAINS[1]}" 'flecha arriba aumenta ganancia'
+assert_eq '0' "${EQUALIZER_GAINS[0]}" 'C centra la banda seleccionada'
+assert_eq '0' "$EQUALIZER_EDITOR_ACTIVE" 'Z cierra la edición'
+
+printf 'ok   ecualizador: gráfico integrado, flechas, centrado e IPC\n'

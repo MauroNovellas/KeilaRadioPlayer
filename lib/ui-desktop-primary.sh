@@ -174,81 +174,40 @@ ui_draw_desktop() {
                     main_style='muted'
                 fi
                 ;;
-            4)
-                main_text='REPRODUCCIÓN'
-                main_badge=$(ui_player_status)
-                main_style='muted'
-                main_style_badge=$(ui_desktop_player_state_style)
-                ;;
-            5)
+            3)
                 main_text="$volume_left"
                 main_badge="$volume_hint"
                 main_style='accent'
                 main_style_badge='muted'
                 ;;
-            6)
-                main_text="$(ui_equalizer_mini_graph)"
-                main_badge='Z ajustar'
-                main_style='accent'
+            4|5|6|7|8|9|10|11)
+                ui_equalizer_editor_row "$((row - 4))"
+                main_text="$UI_EQ_TEXT"
+                main_style="$UI_EQ_STYLE"
+                if ((row == 4)); then
+                    if ((${EQUALIZER_EDITOR_ACTIVE:-0})); then
+                        printf -v main_badge '%s  %+d dB' "${EQUALIZER_LABELS[EQUALIZER_SELECTED]}" "${EQUALIZER_GAINS[EQUALIZER_SELECTED]}"
+                        main_style_badge='selected'
+                    else
+                        main_badge='Z editar'
+                        main_style_badge='muted'
+                    fi
+                fi
+                ;;
+            12)
+                main_text='ESPECTRO'
+                if ((!${SPECTRUM_ENABLED:-0})); then
+                    main_badge='V mostrar'
+                elif [[ "${SPECTRUM_AVAILABLE:-unknown}" == no ]]; then
+                    main_badge='No disponible'
+                else
+                    main_text+="  $(ui_spectrum_bars)"
+                    main_badge='V ocultar'
+                fi
+                main_style='playing'
                 main_style_badge='muted'
                 ;;
-            7)
-                main_text='GRABACIÓN'
-                if ((RECORDING_ACTIVE)); then
-                    main_badge="$UI_RECORD REC $(recording_elapsed_display)"
-                    main_style='record'
-                    main_style_badge='record'
-                else
-                    main_badge='Inactiva'
-                    main_style='muted'
-                    main_style_badge='muted'
-                fi
-                ;;
-            8)
-                if ((RECORDING_ACTIVE)); then
-                    main_text=$(recording_filename)
-                    main_style='muted'
-                fi
-                ;;
-            10)
-                main_text='FAVORITO'
-                if player_is_running && favorites_find_url "$PLAYER_URL" >/dev/null 2>&1; then
-                    main_badge="$UI_FAVORITE Sí"
-                    main_style='muted'
-                    main_style_badge='favorite'
-                else
-                    main_badge='No'
-                    main_style='muted'
-                    main_style_badge='muted'
-                fi
-                ;;
         esac
-
-        if ((${EQUALIZER_EDITOR_ACTIVE:-0})); then
-            ui_equalizer_editor_row "$row"
-            main_text="$UI_EQ_TEXT"
-            main_badge="$UI_EQ_BADGE"
-            main_style="$UI_EQ_STYLE"
-            main_style_badge='muted'
-        elif ((row == 9)); then
-            main_text='ESPECTRO'
-            if ((!${SPECTRUM_ENABLED:-0})); then
-                main_badge='V mostrar'
-            elif [[ "${SPECTRUM_AVAILABLE:-unknown}" == no ]]; then
-                main_badge='No disponible'
-            else
-                main_badge='V ocultar'
-            fi
-            main_style='muted'
-            main_style_badge='muted'
-        elif ((row >= 10 && row <= 12 && ${SPECTRUM_ENABLED:-0})); then
-            case "$row" in
-                10) main_text="    $(ui_spectrum_row 6)" ;;
-                11) main_text="    $(ui_spectrum_row 3)" ;;
-                12) main_text="    $(ui_spectrum_row 1)" ;;
-            esac
-            main_style='playing'
-        fi
 
         index=$((UI_SCROLL_OFFSET + row))
         fav_marker='  '

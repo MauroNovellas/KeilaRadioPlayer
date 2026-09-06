@@ -54,7 +54,7 @@ TEST_COLS=132 TEST_LINES=40 UI_SELECTED_INDEX=0
 EQUALIZER_EDITOR_ACTIVE=1
 EQUALIZER_GAINS=(12 6 0 -6 -12)
 render=$(ui_draw)
-[[ "$render" == *'ECUALIZADOR · 5 BANDAS'* && "$render" == *'12k'* ]] || fail 'editor gráfico invisible'
+[[ "$render" == *'EQ   60  250  1k  4k  12k'* && "$render" == *'+12'* && "$render" == *'╋'* ]] || fail 'editor gráfico integrado invisible'
 while IFS= read -r line || [[ -n "$line" ]]; do
     ((${#line} < TEST_COLS)) || fail 'autowrap del editor gráfico'
 done <<< "$render"
@@ -63,7 +63,7 @@ SPECTRUM_ENABLED=1
 SPECTRUM_LEVELS=(0 1 2 3 4 5 6 7 8 7 6 5 4 3 2 1)
 render=$(ui_draw)
 [[ "$render" == *'ESPECTRO'* && "$render" == *'V ocultar'* ]] || fail 'analizador invisible'
-[[ "$render" == *'EQ 60:'* ]] || fail 'ecualizador permanente invisible en desktop'
+[[ "$render" == *'EQ   60  250  1k  4k  12k'* ]] || fail 'ecualizador permanente invisible en desktop'
 while IFS= read -r line || [[ -n "$line" ]]; do
     ((${#line} < TEST_COLS)) || fail 'autowrap del analizador'
 done <<< "$render"

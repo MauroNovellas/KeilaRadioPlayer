@@ -512,21 +512,29 @@ ui_equalizer_bar_cells() {
 }
 
 ui_equalizer_editor_row() {
-    local row="$1" gain label zero_axis
+    local row="$1" gain label zero_axis cross i
     UI_EQ_TEXT=''
     UI_EQ_BADGE=''
     UI_EQ_STYLE='accent'
     case "$row" in
-        0) UI_EQ_TEXT='ECUALIZADOR · 5 BANDAS'; UI_EQ_BADGE='R plano' ;;
+        0) UI_EQ_TEXT='EQ   60  250  1k  4k  12k' ;;
         1) UI_EQ_TEXT="+12 $(ui_equalizer_bar_cells positive 9)" ;;
         2) UI_EQ_TEXT=" +6 $(ui_equalizer_bar_cells positive 5)" ;;
         3) UI_EQ_TEXT=" +1 $(ui_equalizer_bar_cells positive 1)" ;;
         4)
-            if ((UI_UNICODE)); then
-                zero_axis='──┼────┼────┼────┼────┼──'
-            else
-                zero_axis='--+----+----+----+----+--'
-            fi
+            zero_axis=''
+            ((UI_UNICODE)) && zero_axis='──' || zero_axis='--'
+            for ((i=0; i<5; i++)); do
+                if ((UI_UNICODE)); then cross='┼'; else cross='+'; fi
+                if ((${EQUALIZER_EDITOR_ACTIVE:-0} && i == EQUALIZER_SELECTED)); then
+                    if ((UI_UNICODE)); then cross='╋'; else cross='#'; fi
+                fi
+                zero_axis+="$cross"
+                if ((i < 4)); then
+                    if ((UI_UNICODE)); then zero_axis+='────'; else zero_axis+='----'; fi
+                fi
+            done
+            if ((UI_UNICODE)); then zero_axis+='──'; else zero_axis+='--'; fi
             UI_EQ_TEXT="  0 $zero_axis"
             UI_EQ_STYLE='muted'
             ;;
@@ -550,6 +558,19 @@ ui_spectrum_row() {
     ((${#levels[@]} == 16)) || levels=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
     for level in "${levels[@]}"; do
         if ((level >= threshold)); then result+="$UI_BAR_FULL"; else result+=' '; fi
+    done
+    printf '%s' "$result"
+}
+
+ui_spectrum_bars() {
+    local level glyph
+    local result=''
+    local -a levels=("${SPECTRUM_LEVELS[@]:-}")
+    local -a bars=('▁' '▁' '▂' '▃' '▄' '▅' '▆' '▇' '█')
+    ((${#levels[@]} == 16)) || levels=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+    for level in "${levels[@]}"; do
+        if ((UI_UNICODE)); then glyph=${bars[level]}; elif ((level > 0)); then glyph="$UI_BAR_FULL"; else glyph="$UI_BAR_EMPTY"; fi
+        result+="$glyph"
     done
     printf '%s' "$result"
 }

@@ -35,6 +35,7 @@ assert_eq '8' "${SPECTRUM_LEVELS[8]}" 'frame inválido conservó el anterior'
 UI_UNICODE=1
 ui_configure_glyphs
 assert_eq '     ███████    ' "$(ui_spectrum_row 5)" 'fila gráfica del espectro'
+assert_eq '▁▁▂▃▄▅▆▇█▇▆▅▄▃▂▁' "$(ui_spectrum_bars)" 'barras de altura variable'
 
 # Incluso un proceso que ignore SIGTERM queda cerrado en un tiempo acotado.
 bash -c 'trap "" TERM; while :; do :; done' &
