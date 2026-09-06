@@ -13,15 +13,16 @@ SPECTRUM_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
 spectrum_find_source() {
     command -v ffmpeg >/dev/null 2>&1 || return 1
     command -v pactl >/dev/null 2>&1 || return 1
+    command -v timeout >/dev/null 2>&1 || return 1
 
     local sink source
-    sink=$(pactl get-default-sink 2>/dev/null) || sink=''
+    sink=$(timeout 1 pactl get-default-sink 2>/dev/null) || sink=''
     if [[ -z "$sink" ]]; then
-        sink=$(pactl info 2>/dev/null | awk -F ': ' '$1 == "Default Sink" { print $2; exit }')
+        sink=$(timeout 1 pactl info 2>/dev/null | awk -F ': ' '$1 == "Default Sink" { print $2; exit }')
     fi
     [[ -n "$sink" ]] || return 1
     source="${sink}.monitor"
-    pactl list short sources 2>/dev/null | awk -v wanted="$source" '$2 == wanted { found=1 } END { exit !found }' || return 1
+    timeout 1 pactl list short sources 2>/dev/null | awk -v wanted="$source" '$2 == wanted { found=1 } END { exit !found }' || return 1
     printf '%s\n' "$source"
 }
 
@@ -30,6 +31,29 @@ spectrum_worker_stop() {
     for child in $(jobs -pr); do kill "$child" 2>/dev/null || true; done
     wait
     exit 0
+}
+
+# El monitor de audio es auxiliar y nunca debe bloquear la entrada de la TUI.
+# Cerramos primero sus hijos y acotamos la espera antes de forzar la salida.
+spectrum_terminate_bounded() {
+    local pid="$1" attempt
+    [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+    kill -0 "$pid" 2>/dev/null || { wait "$pid" 2>/dev/null || true; return 0; }
+
+    if command -v pkill >/dev/null 2>&1; then
+        pkill -TERM -P "$pid" 2>/dev/null || true
+    fi
+    kill -TERM "$pid" 2>/dev/null || true
+    for ((attempt=0; attempt<10; attempt++)); do
+        kill -0 "$pid" 2>/dev/null || { wait "$pid" 2>/dev/null || true; return 0; }
+        sleep 0.05
+    done
+
+    if command -v pkill >/dev/null 2>&1; then
+        pkill -KILL -P "$pid" 2>/dev/null || true
+    fi
+    kill -KILL "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
 }
 
 spectrum_start() {
@@ -74,8 +98,7 @@ spectrum_start() {
 
 spectrum_stop() {
     if [[ -n "$SPECTRUM_PID" ]]; then
-        kill "$SPECTRUM_PID" 2>/dev/null || true
-        wait "$SPECTRUM_PID" 2>/dev/null || true
+        spectrum_terminate_bounded "$SPECTRUM_PID" || true
     fi
     SPECTRUM_PID=''
     if [[ -n "$SPECTRUM_DIR" && -d "$SPECTRUM_DIR" ]]; then

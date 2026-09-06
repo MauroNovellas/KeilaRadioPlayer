@@ -43,6 +43,8 @@ for size in '132 40' '112 20' '80 24' '55 15' '45 12' '45 11'; do
             if ((selection == 0)); then
                 [[ "$render" == *'Heavy Metal'* ]] || fail 'etiqueta invisible'
             fi
+        else
+            [[ "$render" == *'EQ ▄▄▄▄▄'* ]] || fail "ecualizador permanente invisible $size"
         fi
     done
 done
@@ -61,6 +63,7 @@ SPECTRUM_ENABLED=1
 SPECTRUM_LEVELS=(0 1 2 3 4 5 6 7 8 7 6 5 4 3 2 1)
 render=$(ui_draw)
 [[ "$render" == *'ESPECTRO'* && "$render" == *'V ocultar'* ]] || fail 'analizador invisible'
+[[ "$render" == *'EQ 60:'* ]] || fail 'ecualizador permanente invisible en desktop'
 while IFS= read -r line || [[ -n "$line" ]]; do
     ((${#line} < TEST_COLS)) || fail 'autowrap del analizador'
 done <<< "$render"

@@ -288,6 +288,7 @@ ui_draw() {
     fi
 
     ui_responsive_volume_line "$width"
+    UI_RESP_VOLUME_HINT="$(ui_equalizer_mini_graph compact)"
     ui_box_split_line "$width" "$UI_RESP_VOLUME_LEFT" "$UI_RESP_VOLUME_HINT" 0 accent muted
     ui_box_rule "$width" "$UI_ML" "$UI_MR" "$favorites_label" accent
 

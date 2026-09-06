@@ -100,6 +100,10 @@ equalizer_change_selected() {
     equalizer_set_gain "$EQUALIZER_SELECTED" "$next"
 }
 
+equalizer_center_selected() {
+    equalizer_set_gain "$EQUALIZER_SELECTED" 0
+}
+
 equalizer_reset() {
     local previous=("${EQUALIZER_GAINS[@]}")
     EQUALIZER_GAINS=(0 0 0 0 0)

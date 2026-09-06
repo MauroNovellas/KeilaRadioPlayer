@@ -196,7 +196,7 @@ ui_draw_responsive_controls() {
     local width="$1"
 
     if ((${EQUALIZER_EDITOR_ACTIVE:-0})); then
-        ui_box_line "$width" '↑↓ banda  ·  ←→ ajustar  ·  R plano  ·  Enter/Esc cerrar' muted
+        ui_box_line "$width" '↑↓ banda · ←→ ajustar · C centrar · R plano · Enter/Esc cerrar' muted
         return 0
     fi
     if ((${LABEL_EDITOR_ACTIVE:-0})); then

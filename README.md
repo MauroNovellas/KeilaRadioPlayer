@@ -186,9 +186,11 @@ Los mensajes de acciones y errores son temporales: avisos como el cambio de volu
 
 ### Ecualizador
 
-Pulsa `Z` para abrir el ecualizador de cinco bandas: 60 Hz, 250 Hz, 1 kHz, 4 kHz y 12 kHz. Usa `↑`/`↓` para elegir banda y `←`/`→` para ajustarla entre −12 y +12 dB. `R` devuelve todas las bandas al sonido plano; `Enter` o `Esc` cierran el editor.
+El ecualizador de cinco bandas —60 Hz, 250 Hz, 1 kHz, 4 kHz y 12 kHz— permanece visible junto al volumen. Cada barra representa su ganancia entre −12 y +12 dB y el punto medio corresponde a 0 dB.
 
-En el layout de escritorio, el editor sustituye temporalmente el panel `Ahora suena` por cinco barras verticales. La altura por encima o por debajo del eje de 0 dB refleja el ajuste de cada frecuencia mientras se modifica.
+Pulsa `Z` para abrir el editor. Usa `↑`/`↓` para elegir banda y `←`/`→` para ajustarla. `C` centra únicamente la banda seleccionada en 0 dB y `R` devuelve las cinco bandas al sonido plano; `Enter` o `Esc` cierran el editor.
+
+En el layout de escritorio, el editor sustituye temporalmente el panel `Ahora suena` por una vista ampliada de las cinco barras. La altura por encima o por debajo del eje de 0 dB refleja el ajuste de cada frecuencia mientras se modifica.
 
 Los cambios se aplican inmediatamente a la emisora en reproducción y se conservan para las siguientes sesiones en `~/.config/keila-radio/equalizer` (o su ruta XDG equivalente). Si una aplicación del filtro falla, Keila mantiene el ajuste anterior.
 

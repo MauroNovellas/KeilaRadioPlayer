@@ -55,6 +55,11 @@ assert_eq 'Plano' "$(equalizer_summary)" 'resumen tras reset'
 UI_UNICODE=1
 ui_configure_glyphs
 EQUALIZER_GAINS=(12 6 0 -6 -12)
+EQUALIZER_SELECTED=4
+equalizer_center_selected || fail 'centrar banda seleccionada'
+assert_eq '0' "${EQUALIZER_GAINS[4]}" 'banda centrada en 0 dB'
+EQUALIZER_GAINS=(12 6 0 -6 -12)
+assert_eq 'EQ 60:█ 250:▆ 1k:▄ 4k:▂ 12k:▁' "$(ui_equalizer_mini_graph labels)" 'gráfico permanente'
 ui_equalizer_editor_row 1
 [[ "$UI_EQ_TEXT" == *'█'* ]] || fail 'barra positiva invisible'
 ui_equalizer_editor_row 4
@@ -64,4 +69,4 @@ ui_equalizer_editor_row 7
 ui_equalizer_editor_row 8
 [[ "$UI_EQ_TEXT" == *'60'* && "$UI_EQ_TEXT" == *'12k'* ]] || fail 'etiquetas de bandas invisibles'
 
-printf 'ok   ecualizador: persistencia, límites, IPC y barras verticales\n'
+printf 'ok   ecualizador: persistencia, centrado, IPC y gráficos\n'

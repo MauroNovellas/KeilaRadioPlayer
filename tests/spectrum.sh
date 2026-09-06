@@ -36,6 +36,15 @@ UI_UNICODE=1
 ui_configure_glyphs
 assert_eq '     ███████    ' "$(ui_spectrum_row 5)" 'fila gráfica del espectro'
 
+# Incluso un proceso que ignore SIGTERM queda cerrado en un tiempo acotado.
+bash -c 'trap "" TERM; while :; do :; done' &
+stubborn_pid=$!
+SPECTRUM_PID=$stubborn_pid
+started_at=$SECONDS
+spectrum_stop
+((SECONDS - started_at <= 2)) || fail 'la detención del analizador bloqueó la TUI'
+if kill -0 "$stubborn_pid" 2>/dev/null; then fail 'el proceso auxiliar sobrevivió al cierre'; fi
+
 # Mostrarlo sin una emisora activa solo cambia la preferencia; la captura se
 # iniciará en el primer tick que confirme reproducción real.
 SPECTRUM_PID=''

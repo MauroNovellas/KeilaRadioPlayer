@@ -187,9 +187,9 @@ ui_draw_desktop() {
                 main_style_badge='muted'
                 ;;
             6)
-                main_text="$(ui_equalizer_summary)"
+                main_text="$(ui_equalizer_mini_graph)"
                 main_badge='Z ajustar'
-                main_style='muted'
+                main_style='accent'
                 main_style_badge='muted'
                 ;;
             7)

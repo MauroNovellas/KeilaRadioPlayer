@@ -25,6 +25,7 @@ app_edit_equalizer() {
             KEY)
                 case "$INPUT_KEY" in
                     r|R) equalizer_reset || app_message 'No se pudo restablecer el ecualizador.' 5 ;;
+                    c|C) equalizer_center_selected || app_message 'No se pudo centrar la banda.' 5 ;;
                 esac
                 ;;
             ENTER|ESC)

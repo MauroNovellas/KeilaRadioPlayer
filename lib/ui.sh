@@ -481,6 +481,25 @@ ui_equalizer_summary() {
     printf 'EQ %s' "$(equalizer_summary)"
 }
 
+ui_equalizer_mini_graph() {
+    local mode="${1:-labels}" i gain height glyph
+    local -a labels=(60 250 1k 4k 12k)
+    local -a bars=('▁' '▁' '▂' '▃' '▄' '▅' '▆' '▇' '█')
+
+    printf 'EQ '
+    for ((i=0; i<5; i++)); do
+        gain=${EQUALIZER_GAINS[i]}
+        height=$(((gain + 12) * 8 / 24))
+        if ((UI_UNICODE)); then glyph=${bars[height]}; else glyph=$height; fi
+        if [[ "$mode" == compact ]]; then
+            printf '%s' "$glyph"
+        else
+            printf '%s:%s' "${labels[i]}" "$glyph"
+            ((i < 4)) && printf ' '
+        fi
+    done
+}
+
 ui_equalizer_bar_cells() {
     local direction="$1" threshold="$2" gain cell='' i
     for ((i=0; i<5; i++)); do
