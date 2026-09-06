@@ -21,10 +21,14 @@ player_is_running() { return 0; }
 PLAYER_NAME='Radio Test'
 PLAYER_URL='https://example.invalid/radio'
 PLAYER_INFO_INTERVAL=1
+TEST_PLAYER_SNAPSHOT='{}'
+
+player_query_snapshot() {
+    printf '%s\n' "$TEST_PLAYER_SNAPSHOT"
+}
 
 refresh_with_snapshot() {
-    local snapshot="$1"
-    player_query_snapshot() { printf '%s\n' "$snapshot"; }
+    TEST_PLAYER_SNAPSHOT="$1"
     PLAYER_INFO_LAST_REFRESH=0
     player_refresh_info || true
 }
