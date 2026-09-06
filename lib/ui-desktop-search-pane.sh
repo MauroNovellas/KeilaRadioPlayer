@@ -55,8 +55,32 @@ ui_desktop_sync_selection() {
     fi
 }
 
+# El encabezado activo lleva el mismo glifo discreto que usamos para la selección.
+# En modo sin color sigue siendo visible, y al entrar en búsqueda desaparece de
+# Favoritos para que solo haya un indicador de foco principal en cada momento.
+if ! declare -F ui_desktop_header_rule_without_search_focus >/dev/null 2>&1; then
+    UI_DESKTOP_SEARCH_SPLIT_DEF=$(declare -f ui_desktop_header_rule)
+    UI_DESKTOP_SEARCH_SPLIT_DEF=${UI_DESKTOP_SEARCH_SPLIT_DEF/ui_desktop_header_rule ()/ui_desktop_header_rule_without_search_focus ()}
+    eval "$UI_DESKTOP_SEARCH_SPLIT_DEF"
+    unset UI_DESKTOP_SEARCH_SPLIT_DEF
+fi
+
+ui_desktop_header_rule() {
+    local width="$1"
+    local left_label="$2"
+    local right_label="$3"
+
+    if ((!SEARCH_ACTIVE)) && [[ "$right_label" == FAVORITOS* ]]; then
+        right_label="$UI_SELECT $right_label"
+    fi
+
+    ui_desktop_header_rule_without_search_focus "$width" "$left_label" "$right_label"
+}
+
 ui_desktop_search_separator_text() {
     local label='BUSCAR EMISORAS'
+    ((SEARCH_ACTIVE)) && label="$UI_SELECT $label"
+
     local text="$UI_H $label "
     local remaining=$((UI_DESKTOP_RIGHT_WIDTH - ${#text}))
 
