@@ -11,6 +11,7 @@ SPECTRUM_SOURCE=''
 SPECTRUM_FOUND_SOURCE=''
 SPECTRUM_ERROR=''
 SPECTRUM_NOTICE_PENDING=0
+SPECTRUM_FRAME_ROWS=16
 SPECTRUM_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
 
 spectrum_find_source() {
@@ -90,13 +91,13 @@ spectrum_start() {
         if command -v parec >/dev/null 2>&1; then
             parec --device="$SPECTRUM_SOURCE" --format=s16le --rate=44100 --channels=1 2>/dev/null |
                 ffmpeg -hide_banner -loglevel error -probesize 32 -analyzeduration 0 -f s16le -ar 44100 -ac 1 -i - \
-                    -lavfi 'showfreqs=s=16x8:mode=bar:ascale=cbrt:fscale=log:colors=white' \
-                    -r 10 -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
+                    -lavfi 'showfreqs=s=16x16:rate=20:mode=bar:ascale=cbrt:fscale=log:win_size=1024:overlap=0.5:colors=white' \
+                    -r 20 -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
         else
             ffmpeg -hide_banner -loglevel error \
                 -f pulse -i "$SPECTRUM_SOURCE" \
-                -lavfi 'showfreqs=s=16x8:mode=bar:ascale=cbrt:fscale=log:colors=white' \
-                -r 10 -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
+                -lavfi 'showfreqs=s=16x16:rate=20:mode=bar:ascale=cbrt:fscale=log:win_size=1024:overlap=0.5:colors=white' \
+                -r 20 -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
         fi |
             stdbuf -oL od -An -tu1 -w16 -v |
             spectrum_publish_frames
@@ -115,7 +116,7 @@ spectrum_publish_frames() {
             if ((pixels[i] > 20)); then heights[i]=$((heights[i] + 1)); fi
         done
         row=$((row + 1))
-        if ((row == 8)); then
+        if ((row == SPECTRUM_FRAME_ROWS)); then
             printf '%s\n' "${heights[*]}" > "$SPECTRUM_DIR/levels.tmp" || return 1
             mv -f "$SPECTRUM_DIR/levels.tmp" "$SPECTRUM_DIR/levels" || return 1
             heights=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
@@ -164,7 +165,7 @@ spectrum_tick() {
     IFS=' ' read -r -a values <<< "$raw"
     ((${#values[@]} == 16)) || return 1
     for ((i=0; i<16; i++)); do
-        [[ "${values[i]}" =~ ^[0-8]$ ]] || return 1
+        [[ "${values[i]}" =~ ^[0-9]+$ ]] && ((values[i] >= 0 && values[i] <= SPECTRUM_FRAME_ROWS)) || return 1
         if [[ "${SPECTRUM_LEVELS[i]}" != "${values[i]}" ]]; then changed=0; fi
     done
     SPECTRUM_LEVELS=("${values[@]}")

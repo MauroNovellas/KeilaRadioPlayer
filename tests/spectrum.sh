@@ -37,7 +37,7 @@ if command -v ffmpeg >/dev/null 2>&1; then
         [[ -s "$SPECTRUM_DIR/levels" ]] || fail 'no llegaron frames antes de cerrar el audio'
         kill -0 "$SPECTRUM_PID" || fail 'la captura terminó antes del primer frame'
         spectrum_tick || fail 'el frame continuo no llegó al estado de la TUI'
-        [[ "${SPECTRUM_LEVELS[*]}" != '0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0' ]] || fail 'audio recibido sin niveles'
+[[ "${SPECTRUM_LEVELS[*]}" != '0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0' ]] || fail 'audio recibido sin niveles'
         [[ "$(ui_spectrum_bars)" != '▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁' ]] || fail 'audio sin representación'
     ) || fail 'regresión de audio continuo'
 fi
@@ -59,6 +59,7 @@ assert_eq '8' "${SPECTRUM_LEVELS[8]}" 'frame inválido conservó el anterior'
 UI_UNICODE=1
 ui_configure_glyphs
 assert_eq '     ███████    ' "$(ui_spectrum_row 5)" 'fila gráfica del espectro'
+SPECTRUM_LEVELS=(0 2 4 6 8 10 12 14 16 14 12 10 8 6 4 2)
 assert_eq '▁▁▂▃▄▅▆▇█▇▆▅▄▃▂▁' "$(ui_spectrum_bars)" 'barras de altura variable'
 
 # Incluso un proceso que ignore SIGTERM queda cerrado en un tiempo acotado.

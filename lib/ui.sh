@@ -569,7 +569,16 @@ ui_spectrum_bars() {
     local -a bars=('▁' '▁' '▂' '▃' '▄' '▅' '▆' '▇' '█')
     ((${#levels[@]} == 16)) || levels=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
     for level in "${levels[@]}"; do
-        if ((UI_UNICODE)); then glyph=${bars[level]}; elif ((level > 0)); then glyph="$UI_BAR_FULL"; else glyph="$UI_BAR_EMPTY"; fi
+        if ((UI_UNICODE)); then
+            local height=$((level * 8 / 16))
+            ((height < 0)) && height=0
+            ((height > 8)) && height=8
+            glyph=${bars[height]}
+        elif ((level > 0)); then
+            glyph="$UI_BAR_FULL"
+        else
+            glyph="$UI_BAR_EMPTY"
+        fi
         result+="$glyph"
     done
     printf '%s' "$result"
