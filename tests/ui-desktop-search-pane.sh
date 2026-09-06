@@ -52,9 +52,13 @@ assert_eq 6 "$UI_DESKTOP_SEARCH_HEIGHT" 'mitad inferior de búsqueda'
 assert_eq 2 "$UI_SCROLL_OFFSET" 'favoritos hacen scroll dentro de su mitad'
 assert_eq 4 "$SEARCH_SCROLL_OFFSET" 'búsqueda hace scroll dentro de su mitad'
 
+favorites_header=$(ui_desktop_header_rule 119 'AHORA SUENA' "FAVORITOS (${#FAVORITE_NAMES[@]})")
+[[ "$favorites_header" == *"$UI_SELECT FAVORITOS"* ]] || fail 'Favoritos activo no muestra indicador de foco'
+
 UI_UPDATE_DESKTOP_ROW=6
 separator=$(ui_desktop_row '' '' '' '' 'favorito que debe desaparecer' '' '' '' 0)
 [[ "$separator" == *'BUSCAR EMISORAS'* ]] || fail 'falta separador de búsqueda'
+[[ "$separator" != *"$UI_SELECT BUSCAR EMISORAS"* ]] || fail 'búsqueda inactiva aparece como foco activo'
 [[ "$separator" != *'favorito que debe desaparecer'* ]] || fail 'el separador no sustituyó la fila de favoritos'
 
 SEARCH_ACTIVE=1
@@ -63,6 +67,13 @@ SEARCH_FILTER_DIRTY=0
 SEARCH_MATCHES=(0 1)
 SEARCH_SELECTED_INDEX=0
 SEARCH_SCROLL_OFFSET=0
+
+search_header=$(ui_desktop_header_rule 119 'AHORA SUENA' "FAVORITOS (${#FAVORITE_NAMES[@]})")
+[[ "$search_header" != *"$UI_SELECT FAVORITOS"* ]] || fail 'Favoritos conserva el indicador al entrar en búsqueda'
+
+UI_UPDATE_DESKTOP_ROW=6
+active_separator=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
+[[ "$active_separator" == *"$UI_SELECT BUSCAR EMISORAS"* ]] || fail 'búsqueda activa no muestra indicador de foco'
 
 UI_UPDATE_DESKTOP_ROW=7
 query_line=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
@@ -93,4 +104,4 @@ idle_line=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
 normal_controls=$(ui_draw_responsive_controls 119)
 [[ "$normal_controls" == *'Q salir'* ]] || fail 'el pie normal no vuelve al salir de búsqueda'
 
-printf 'ok   TUI desktop: favoritos arriba, búsqueda abajo y focos independientes\n'
+printf 'ok   TUI desktop: favoritos arriba, búsqueda abajo y foco visible\n'
