@@ -18,6 +18,9 @@ APP_RECONNECT_ATTEMPT_STARTED_AT=0
 APP_RECONNECT_NEXT_AT=0
 APP_RECONNECT_RECORDING_WARNED=0
 APP_RECONNECT_EXHAUSTED=0
+APP_RECONNECT_AUTOMATIC_START=0
+APP_RECONNECT_RECORDING_GUARD=0
+APP_RECONNECT_RECORDING_EXIT_EVENT=0
 
 app_reconnect_now() {
     printf '%s\n' "${EPOCHSECONDS:-$(date +%s)}"
@@ -122,7 +125,7 @@ app_reconnect_start_attempt() {
     local reason="${1:-retry}"
     local now="${2:-$(app_reconnect_now)}"
     local name="$PLAYER_NAME" url="$PLAYER_URL"
-    local attempt
+    local attempt status=0
 
     ((RECORDING_ACTIVE == 0)) || return 1
     ((PLAYER_PAUSED == 0)) || return 1
@@ -149,7 +152,11 @@ app_reconnect_start_attempt() {
             ;;
     esac
 
-    if player_start "$name" "$url"; then
+    APP_RECONNECT_AUTOMATIC_START=1
+    player_start "$name" "$url" || status=$?
+    APP_RECONNECT_AUTOMATIC_START=0
+
+    if ((status == 0)); then
         return 0
     fi
 
@@ -157,63 +164,81 @@ app_reconnect_start_attempt() {
     return 0
 }
 
-# Intercepta una caída de mpv antes del manejador genérico del launcher. Las
-# grabaciones quedan fuera deliberadamente: allí se conserva el flujo de
-# recuperación/validación del archivo existente.
-app_reconnect_handle_dead() {
-    [[ -n "${PLAYER_PID:-}" ]] || return 1
-    player_is_running && return 1
-    ((RECORDING_ACTIVE == 0)) || return 1
-    ((APP_RECONNECT_ELIGIBLE)) || return 1
-    ((APP_RECONNECT_EXHAUSTED == 0)) || return 1
-
-    local was_waiting=$APP_RECONNECT_WAITING
-    local name="$PLAYER_NAME"
-    local now
-    now=$(app_reconnect_now)
-
-    player_collect_exit_status >/dev/null 2>&1 || true
-
-    if ((was_waiting)); then
-        app_reconnect_message_retry_or_exhausted "$name" "$now"
-    else
-        app_reconnect_start_attempt exit "$now" || true
-    fi
-    return 0
-}
-
-# Atiende reintentos programados cuando el intento anterior dejó mpv detenido.
-app_reconnect_handle_no_player() {
-    local now
-
-    player_is_running && return 1
-    ((RECORDING_ACTIVE == 0)) || return 1
-    ((PLAYER_PAUSED == 0)) || return 1
-    ((APP_RECONNECT_ELIGIBLE)) || return 1
-    ((APP_RECONNECT_EXHAUSTED == 0)) || return 1
-    ((APP_RECONNECT_NEXT_AT > 0)) || return 1
-
-    now=$(app_reconnect_now)
-    ((now >= APP_RECONNECT_NEXT_AT)) || return 1
-
-    app_reconnect_start_attempt retry "$now" || true
-    return 0
-}
-
-# Se llama después de refrescar el snapshot de mpv. Detecta recuperación,
-# timeout de un intento, bloqueo seguro por grabación y estancamiento real.
-app_reconnect_after_refresh() {
+# Este tick corre después de app_poll_player: para entonces mpv ya ha actualizado
+# readiness/progreso o el launcher ya ha recogido una caída del proceso.
+# Devuelve 0 solo cuando cambia algo visible y conviene redibujar.
+app_reconnect_tick() {
     local now name attempt delay
     now=$(app_reconnect_now)
+
+    # Si mpv murió mientras se grababa, app_poll_player ya ha validado/recuperado
+    # el archivo. No arrancamos otro mpv a espaldas del usuario.
+    if ((APP_RECONNECT_RECORDING_EXIT_EVENT)); then
+        APP_RECONNECT_RECORDING_EXIT_EVENT=0
+        APP_RECONNECT_RECORDING_GUARD=0
+        app_reconnect_reset
+        return 1
+    fi
 
     if ((PLAYER_STREAM_READY)); then
         APP_RECONNECT_ELIGIBLE=1
     fi
 
-    # Si el usuario empieza a grabar mientras había una reconexión en curso,
-    # deja de haber reinicios automáticos desde ese momento.
-    if ((RECORDING_ACTIVE && APP_RECONNECT_WAITING)); then
-        app_reconnect_cancel_pending
+    # Una reproducción sana obtenida fuera de un intento automático (por ejemplo
+    # un Enter manual sobre la misma emisora) vuelve a dejar el presupuesto limpio.
+    if player_is_running && ((PLAYER_STREAM_READY && APP_RECONNECT_WAITING == 0)); then
+        if ((APP_RECONNECT_ATTEMPTS > 0 || APP_RECONNECT_NEXT_AT > 0 || APP_RECONNECT_EXHAUSTED)); then
+            app_reconnect_cancel_pending
+            APP_RECONNECT_ELIGIBLE=1
+        fi
+    fi
+
+    if ((RECORDING_ACTIVE)); then
+        APP_RECONNECT_RECORDING_GUARD=1
+        if ((APP_RECONNECT_WAITING || APP_RECONNECT_NEXT_AT > 0)); then
+            app_reconnect_cancel_pending
+            APP_RECONNECT_ELIGIBLE=$((PLAYER_STREAM_READY ? 1 : APP_RECONNECT_ELIGIBLE))
+        fi
+
+        if app_reconnect_stream_stalled "$now"; then
+            if ((APP_RECONNECT_RECORDING_WARNED == 0)); then
+                APP_RECONNECT_RECORDING_WARNED=1
+                app_message "Stream estancado durante la grabación · Reconexión automática desactivada para proteger el archivo." 9
+                return 0
+            fi
+        else
+            APP_RECONNECT_RECORDING_WARNED=0
+        fi
+        return 1
+    fi
+
+    APP_RECONNECT_RECORDING_GUARD=0
+    APP_RECONNECT_RECORDING_WARNED=0
+
+    # Una pausa manual cancela cualquier secuencia automática. Al reanudar, el
+    # wrapper de player_toggle_pause concede una ventana completa de progreso.
+    ((PLAYER_PAUSED == 0)) || return 1
+
+    if ! player_is_running; then
+        if ((APP_RECONNECT_WAITING)); then
+            name="$PLAYER_NAME"
+            app_reconnect_message_retry_or_exhausted "$name" "$now"
+            return 0
+        fi
+
+        if ((APP_RECONNECT_NEXT_AT > 0)); then
+            if ((now >= APP_RECONNECT_NEXT_AT)); then
+                app_reconnect_start_attempt retry "$now" || true
+                return 0
+            fi
+            return 1
+        fi
+
+        if ((APP_RECONNECT_ELIGIBLE && APP_RECONNECT_EXHAUSTED == 0)) && [[ -n "${PLAYER_URL:-}" ]]; then
+            app_reconnect_start_attempt exit "$now" || true
+            return 0
+        fi
+        return 1
     fi
 
     if ((APP_RECONNECT_WAITING)); then
@@ -225,7 +250,6 @@ app_reconnect_after_refresh() {
             return 0
         fi
 
-        ((PLAYER_PAUSED == 0)) || return 1
         if ((now - APP_RECONNECT_ATTEMPT_STARTED_AT >= APP_RECONNECT_START_TIMEOUT)); then
             name="$PLAYER_NAME"
             attempt=$APP_RECONNECT_ATTEMPTS
@@ -243,20 +267,6 @@ app_reconnect_after_refresh() {
         return 1
     fi
 
-    if ((RECORDING_ACTIVE)); then
-        if app_reconnect_stream_stalled "$now"; then
-            if ((APP_RECONNECT_RECORDING_WARNED == 0)); then
-                APP_RECONNECT_RECORDING_WARNED=1
-                app_message "Stream estancado durante la grabación · Reconexión automática desactivada para proteger el archivo." 9
-                return 0
-            fi
-        else
-            APP_RECONNECT_RECORDING_WARNED=0
-        fi
-        return 1
-    fi
-
-    APP_RECONNECT_RECORDING_WARNED=0
     if app_reconnect_stream_stalled "$now"; then
         app_reconnect_start_attempt stall "$now" || true
         return 0
@@ -265,22 +275,99 @@ app_reconnect_after_refresh() {
     return 1
 }
 
-app_reconnect_on_pause_change() {
-    if ((PLAYER_PAUSED)); then
-        app_reconnect_cancel_pending
-        return 0
-    fi
-
-    # Al reanudar concedemos una ventana completa antes de considerar un nuevo
-    # estancamiento, incluso si el reloj llevaba mucho tiempo quieto por la pausa.
-    if ((PLAYER_STREAM_READY)); then
-        APP_RECONNECT_ELIGIBLE=1
-        PLAYER_STREAM_LAST_PROGRESS_AT=$(app_reconnect_now)
-    fi
-}
-
-app_reconnect_on_recording_start() {
-    app_reconnect_cancel_pending
-}
-
 app_reconnect_configure
+
+# Los hooks se instalan tarde desde ui-safe-width.sh, cuando player, recording y
+# el ui_message_tick refinado por el chequeo de updates ya existen.
+if declare -F player_start >/dev/null 2>&1 && ! declare -F player_start_without_reconnect >/dev/null 2>&1; then
+    APP_RECONNECT_DEF=$(declare -f player_start)
+    APP_RECONNECT_DEF=${APP_RECONNECT_DEF/player_start ()/player_start_without_reconnect ()}
+    eval "$APP_RECONNECT_DEF"
+
+    player_start() {
+        if ((APP_RECONNECT_AUTOMATIC_START)); then
+            player_start_without_reconnect "$@"
+            return $?
+        fi
+
+        app_reconnect_reset
+        player_start_without_reconnect "$@"
+    }
+fi
+
+if declare -F player_toggle_pause >/dev/null 2>&1 && ! declare -F player_toggle_pause_without_reconnect >/dev/null 2>&1; then
+    APP_RECONNECT_DEF=$(declare -f player_toggle_pause)
+    APP_RECONNECT_DEF=${APP_RECONNECT_DEF/player_toggle_pause ()/player_toggle_pause_without_reconnect ()}
+    eval "$APP_RECONNECT_DEF"
+
+    player_toggle_pause() {
+        player_toggle_pause_without_reconnect "$@" || return $?
+
+        if ((PLAYER_PAUSED)); then
+            app_reconnect_cancel_pending
+        elif ((PLAYER_STREAM_READY)); then
+            APP_RECONNECT_ELIGIBLE=1
+            PLAYER_STREAM_LAST_PROGRESS_AT=$(app_reconnect_now)
+        fi
+    }
+fi
+
+if declare -F recording_start >/dev/null 2>&1 && ! declare -F recording_start_without_reconnect >/dev/null 2>&1; then
+    APP_RECONNECT_DEF=$(declare -f recording_start)
+    APP_RECONNECT_DEF=${APP_RECONNECT_DEF/recording_start ()/recording_start_without_reconnect ()}
+    eval "$APP_RECONNECT_DEF"
+
+    recording_start() {
+        recording_start_without_reconnect "$@" || return $?
+        APP_RECONNECT_RECORDING_GUARD=1
+        app_reconnect_cancel_pending
+    }
+fi
+
+if declare -F recording_stop >/dev/null 2>&1 && ! declare -F recording_stop_without_reconnect >/dev/null 2>&1; then
+    APP_RECONNECT_DEF=$(declare -f recording_stop)
+    APP_RECONNECT_DEF=${APP_RECONNECT_DEF/recording_stop ()/recording_stop_without_reconnect ()}
+    eval "$APP_RECONNECT_DEF"
+
+    recording_stop() {
+        local status=0
+        recording_stop_without_reconnect "$@" || status=$?
+        APP_RECONNECT_RECORDING_GUARD=0
+        return "$status"
+    }
+fi
+
+if declare -F recording_finalize_after_player_exit >/dev/null 2>&1 && ! declare -F recording_finalize_after_player_exit_without_reconnect >/dev/null 2>&1; then
+    APP_RECONNECT_DEF=$(declare -f recording_finalize_after_player_exit)
+    APP_RECONNECT_DEF=${APP_RECONNECT_DEF/recording_finalize_after_player_exit ()/recording_finalize_after_player_exit_without_reconnect ()}
+    eval "$APP_RECONNECT_DEF"
+
+    recording_finalize_after_player_exit() {
+        local status=0
+        recording_finalize_after_player_exit_without_reconnect "$@" || status=$?
+        APP_RECONNECT_RECORDING_EXIT_EVENT=1
+        APP_RECONNECT_RECORDING_GUARD=0
+        return "$status"
+    }
+fi
+
+if declare -F ui_message_tick >/dev/null 2>&1 && ! declare -F ui_message_tick_without_reconnect >/dev/null 2>&1; then
+    APP_RECONNECT_DEF=$(declare -f ui_message_tick)
+    APP_RECONNECT_DEF=${APP_RECONNECT_DEF/ui_message_tick ()/ui_message_tick_without_reconnect ()}
+    eval "$APP_RECONNECT_DEF"
+
+    ui_message_tick() {
+        local changed=1
+
+        if ui_message_tick_without_reconnect; then
+            changed=0
+        fi
+        if app_reconnect_tick; then
+            changed=0
+        fi
+
+        return "$changed"
+    }
+fi
+
+unset APP_RECONNECT_DEF
