@@ -16,8 +16,10 @@ FAVORITE_NAMES=('Radio de prueba') FAVORITE_URLS=('https://example.invalid/radio
 HISTORY_NAMES=() HISTORY_URLS=()
 SEARCH_NAMES=() SEARCH_URLS=() SEARCH_MATCHES=()
 for SPECTRUM_ENABLED in 0 1; do
-    start=${EPOCHREALTIME/./}
+    start=$EPOCHREALTIME
+    start=${start//[.,]/}
     for ((frame=0; frame<10; frame++)); do ui_draw >/dev/null; done
-    finish=${EPOCHREALTIME/./}
+    finish=$EPOCHREALTIME
+    finish=${finish//[.,]/}
     printf 'Espectro %s: %d ms por dibujo (media de 10)\n' "$SPECTRUM_ENABLED" "$(((finish-start)/10000))"
 done

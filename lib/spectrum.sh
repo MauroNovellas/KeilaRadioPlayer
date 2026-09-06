@@ -115,7 +115,11 @@ spectrum_now_ms() {
     fi
 
     if [[ -n "${EPOCHREALTIME:-}" ]]; then
-        local seconds="${EPOCHREALTIME%%.*}" fraction="${EPOCHREALTIME#*.}"
+        # Una sola lectura evita mezclar segundos y fracción de dos instantes.
+        # Bash usa el separador decimal de LC_NUMERIC (coma en español).
+        local timestamp="$EPOCHREALTIME"
+        timestamp=${timestamp/,/.}
+        local seconds="${timestamp%%.*}" fraction="${timestamp#*.}"
         fraction="${fraction}000"
         fraction="${fraction:0:3}"
         printf '%s\n' "$((seconds * 1000 + 10#$fraction))"

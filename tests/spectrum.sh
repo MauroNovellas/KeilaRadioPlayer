@@ -18,6 +18,13 @@ player_is_running() { return 0; }
 source "$ROOT_DIR/lib/spectrum.sh"
 source "$ROOT_DIR/lib/ui.sh"
 
+# Reproduce el reloj localizado, incluidas fracciones que fallaban al leerse
+# como octales. El unset se limita al subshell para preservar el reloj real.
+for timestamp in 1788726347.038054 1788726347,038054; do
+    actual=$(unset EPOCHREALTIME; EPOCHREALTIME=$timestamp; spectrum_now_ms)
+    assert_eq '1788726347038' "$actual" 'reloj con punto o coma decimal'
+done
+
 # Prueba de la tubería completa con PCM continuo, sin esperar EOF. Las pruebas
 # con archivos finitos ocultaban el buffering que dejaba inmóvil el espectro.
 if command -v ffmpeg >/dev/null 2>&1; then
