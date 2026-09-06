@@ -9,6 +9,7 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 - Añadido analizador de espectro real de 16 bandas en el panel de reproducción de escritorio, con activación mediante `V`, captura sobre el monitor PulseAudio/PipeWire y degradación limpia cuando no está disponible.
 - La detección y la detención del proceso auxiliar del espectro tienen tiempos máximos y cierre forzado para que nunca bloqueen la entrada de la TUI.
 - El espectro usa `parec` cuando está disponible para capturar de forma más compatible el monitor PulseAudio/PipeWire y muestra 16 barras de altura variable, incluida una línea base visible sin señal.
+- `--check` informa del ecualizador y explica si el analizador carece de herramientas, backend o monitor de salida; los mismos motivos aparecen en la TUI cuando falla la captura.
 - Favoritos y BUSQUEDA EMISORAS muestran una columna de etiquetas personales; el encabezado se abrevia a «ETIQUETAS» al reducir el ancho. La separación del buscador utiliza el color de los demás bordes.
 
 - El catálogo se carga al abrir la TUI. La caché se muestra de inmediato y la descarga se realiza en segundo plano; un fallo de red conserva el catálogo anterior.

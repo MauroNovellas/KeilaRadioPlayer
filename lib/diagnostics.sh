@@ -173,6 +173,42 @@ diagnostics_check_terminal() {
     fi
 }
 
+diagnostics_check_audio_features() {
+    local source backend
+
+    if declare -F equalizer_summary >/dev/null 2>&1; then
+        diagnostics_ok "Ecualizador: $(equalizer_summary) · ${KEILA_EQUALIZER_FILE:-archivo XDG no disponible}"
+    else
+        diagnostics_warn 'No se pudo comprobar el módulo de ecualización.'
+    fi
+
+    if ! declare -F spectrum_find_source >/dev/null 2>&1; then
+        diagnostics_warn 'No se pudo comprobar el módulo del analizador de espectro.'
+        return 0
+    fi
+
+    if ! spectrum_find_source; then
+        diagnostics_warn "Analizador de espectro no disponible: ${SPECTRUM_ERROR:-monitor de audio no detectado}"
+        return 0
+    fi
+    source=$SPECTRUM_FOUND_SOURCE
+
+    if command -v parec >/dev/null 2>&1; then
+        backend='parec'
+    elif timeout 2 ffmpeg -hide_banner -devices 2>/dev/null | awk '$2 == "pulse" && $1 ~ /D/ { found=1 } END { exit !found }'; then
+        backend='FFmpeg/PulseAudio'
+    else
+        diagnostics_warn 'Analizador de espectro: monitor detectado, pero no existe un backend de captura compatible.'
+        return 0
+    fi
+
+    if timeout 2 ffmpeg -hide_banner -filters 2>/dev/null | awk '$2 == "showfreqs" { found=1 } END { exit !found }'; then
+        diagnostics_ok "Analizador de espectro preparado: $backend · monitor $source"
+    else
+        diagnostics_warn 'Analizador de espectro: FFmpeg no ofrece el filtro showfreqs.'
+    fi
+}
+
 diagnostics_stop_probe_pid() {
     local pid="$1" attempt
 
@@ -276,6 +312,7 @@ diagnostics_run() {
     diagnostics_check_dependencies
     diagnostics_check_data "$base_dir"
     diagnostics_check_terminal
+    diagnostics_check_audio_features
     diagnostics_check_mpv_ipc
 
     diagnostics_summary

@@ -57,4 +57,12 @@ spectrum_start() { fail 'intentó capturar sin reproducción'; }
 spectrum_toggle || fail 'mostrar analizador sin reproducción'
 assert_eq '1' "$SPECTRUM_ENABLED" 'analizador preparado'
 
+# El motivo concreto sobrevive a la detección para poder mostrarlo en la TUI y
+# en --check; no queda encerrado en una sustitución de comandos.
+# shellcheck disable=SC2317
+timeout() { return 1; }
+if spectrum_find_source; then fail 'aceptó un servidor de audio inaccesible'; fi
+[[ -n "$SPECTRUM_ERROR" ]] || fail 'la detección no conservó el motivo del fallo'
+unset -f timeout
+
 printf 'ok   analizador: frames, representación y activación diferida\n'

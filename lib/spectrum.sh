@@ -8,27 +8,34 @@ SPECTRUM_AVAILABLE='unknown'
 SPECTRUM_PID=''
 SPECTRUM_DIR=''
 SPECTRUM_SOURCE=''
+SPECTRUM_FOUND_SOURCE=''
+SPECTRUM_ERROR=''
+SPECTRUM_NOTICE_PENDING=0
 SPECTRUM_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
 
 spectrum_find_source() {
-    command -v ffmpeg >/dev/null 2>&1 || return 1
-    command -v pactl >/dev/null 2>&1 || return 1
-    command -v timeout >/dev/null 2>&1 || return 1
+    SPECTRUM_FOUND_SOURCE=''
+    command -v ffmpeg >/dev/null 2>&1 || { SPECTRUM_ERROR='Falta ffmpeg.'; return 1; }
+    command -v pactl >/dev/null 2>&1 || { SPECTRUM_ERROR='Falta pactl.'; return 1; }
+    command -v timeout >/dev/null 2>&1 || { SPECTRUM_ERROR='Falta timeout (coreutils).'; return 1; }
 
     local sink source sources fallback
     sink=$(timeout 1 pactl get-default-sink 2>/dev/null) || sink=''
     if [[ -z "$sink" ]]; then
         sink=$(timeout 1 pactl info 2>/dev/null | awk -F ': ' '$1 == "Default Sink" { print $2; exit }')
     fi
-    [[ -n "$sink" ]] || return 1
+    [[ -n "$sink" ]] || { SPECTRUM_ERROR='PulseAudio/PipeWire no informó de una salida predeterminada.'; return 1; }
     source="${sink}.monitor"
-    sources=$(timeout 1 pactl list short sources 2>/dev/null) || return 1
+    sources=$(timeout 1 pactl list short sources 2>/dev/null) || {
+        SPECTRUM_ERROR='No se pudo consultar los monitores de salida.'
+        return 1
+    }
     if ! awk -v wanted="$source" '$2 == wanted { found=1 } END { exit !found }' <<< "$sources"; then
         fallback=$(awk '$2 ~ /\.monitor$/ { print $2; exit }' <<< "$sources")
-        [[ -n "$fallback" ]] || return 1
+        [[ -n "$fallback" ]] || { SPECTRUM_ERROR='No existe ningún monitor de salida de audio.'; return 1; }
         source=$fallback
     fi
-    printf '%s\n' "$source"
+    SPECTRUM_FOUND_SOURCE=$source
 }
 
 spectrum_worker_stop() {
@@ -66,15 +73,17 @@ spectrum_start() {
     [[ -z "$SPECTRUM_PID" ]] || return 0
 
     if [[ -z "$SPECTRUM_SOURCE" ]]; then
-        SPECTRUM_SOURCE=$(spectrum_find_source) || {
+        spectrum_find_source || {
             SPECTRUM_AVAILABLE='no'
             return 1
         }
+        SPECTRUM_SOURCE=$SPECTRUM_FOUND_SOURCE
     fi
 
     mkdir -p "$PLAYER_RUNTIME_DIR" || return 1
     SPECTRUM_DIR=$(mktemp -d "${PLAYER_RUNTIME_DIR}/spectrum.XXXXXX") || return 1
     SPECTRUM_AVAILABLE='yes'
+    SPECTRUM_ERROR=''
     (
         trap spectrum_worker_stop TERM INT
         if command -v parec >/dev/null 2>&1; then
@@ -128,12 +137,17 @@ spectrum_tick() {
 
     if [[ -z "$SPECTRUM_PID" ]]; then
         [[ "$SPECTRUM_AVAILABLE" != no ]] || return 1
-        spectrum_start || return 1
+        spectrum_start || {
+            SPECTRUM_NOTICE_PENDING=1
+            return 0
+        }
         return 0
     fi
     if ! kill -0 "$SPECTRUM_PID" 2>/dev/null; then
         spectrum_stop
         SPECTRUM_AVAILABLE='no'
+        SPECTRUM_ERROR='La captura de audio del analizador se detuvo.'
+        SPECTRUM_NOTICE_PENDING=1
         return 0
     fi
 
@@ -159,6 +173,8 @@ spectrum_toggle() {
     SPECTRUM_ENABLED=1
     SPECTRUM_AVAILABLE='unknown'
     SPECTRUM_SOURCE=''
+    SPECTRUM_ERROR=''
+    SPECTRUM_NOTICE_PENDING=0
     if player_is_running && ((PLAYER_STREAM_READY && !PLAYER_PAUSED)); then
         spectrum_start || return 2
     fi

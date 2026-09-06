@@ -209,7 +209,7 @@ app_toggle_spectrum() {
         0)
             if ((SPECTRUM_ENABLED)); then app_message 'Analizador de espectro activado.' 4; else app_message 'Analizador de espectro oculto.' 4; fi
             ;;
-        2) app_message 'El analizador necesita un monitor PulseAudio/PipeWire disponible.' 6 ;;
+        2) app_message "Analizador no disponible: ${SPECTRUM_ERROR:-comprueba PulseAudio/PipeWire}" 7 ;;
         *) app_message 'No se pudo cambiar el analizador de espectro.' 6 ;;
     esac
 }
@@ -418,6 +418,11 @@ app_poll_player() {
     fi
     if history_observe; then changed=0; fi
     if spectrum_tick; then changed=0; fi
+    if ((SPECTRUM_NOTICE_PENDING)); then
+        app_message "Analizador no disponible: ${SPECTRUM_ERROR:-error de captura}" 7
+        SPECTRUM_NOTICE_PENDING=0
+        changed=0
+    fi
     if recording_tick_changed; then changed=0; fi
     return "$changed"
 }

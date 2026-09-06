@@ -53,12 +53,13 @@ diagnostics_check_environment() { diagnostics_ok 'entorno simulado'; }
 diagnostics_check_dependencies() { diagnostics_ok 'dependencias simuladas'; }
 diagnostics_check_data() { diagnostics_ok 'datos simulados'; }
 diagnostics_check_terminal() { diagnostics_warn 'terminal no interactivo simulado'; }
+diagnostics_check_audio_features() { diagnostics_ok 'audio simulado'; }
 diagnostics_check_mpv_ipc() { diagnostics_ok 'IPC simulado'; }
 
 status=0
 output=$(diagnostics_run "$tmp") || status=$?
 assert_eq '0' "$status" 'diagnóstico sin fallos devuelve éxito'
-[[ "$output" == *'Resumen: 4 OK · 1 avisos · 0 fallos'* ]] || fail 'resumen de éxito incorrecto'
+[[ "$output" == *'Resumen: 5 OK · 1 avisos · 0 fallos'* ]] || fail 'resumen de éxito incorrecto'
 [[ "$output" == *'Keila está lista para ejecutarse'* ]] || fail 'mensaje final de éxito ausente'
 
 # Un fallo inyectado debe cambiar tanto el resumen como el código de salida.

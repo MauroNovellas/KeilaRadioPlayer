@@ -59,6 +59,8 @@ También existe un smoke check de inicialización que no abre la TUI ni inicia `
 
 Comprueba que la configuración, favoritos, estado y carpeta de grabaciones pueden inicializarse correctamente.
 
+El diagnóstico también informa del perfil de ecualización y comprueba si el analizador dispone de `ffmpeg`, un backend de captura y un monitor PulseAudio/PipeWire. La ausencia del analizador se muestra como aviso porque no impide reproducir emisoras.
+
 Los datos personales se guardan fuera del repositorio:
 
 ```text
