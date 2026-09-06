@@ -96,14 +96,14 @@ spectrum_start() {
             # centenares de ms y entregar muchos cuadros en una sola ráfaga.
             parec --device="$SPECTRUM_SOURCE" --format=s16le --rate=44100 --channels=1 \
                 --latency-msec=40 --process-time-msec=20 2>/dev/null |
-                ffmpeg -hide_banner -loglevel error -probesize 32 -analyzeduration 0 -f s16le -ar 44100 -ac 1 -i - \
+                ffmpeg -hide_banner -loglevel error -fflags nobuffer -flags low_delay -avioflags direct -probesize 32 -analyzeduration 0 -f s16le -ar 44100 -ac 1 -i - \
                     -lavfi 'showfreqs=s=16x16:rate=20:mode=bar:ascale=log:fscale=log:win_size=1024:overlap=0.5:colors=white' \
-                    -r 20 -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
+                    -fps_mode passthrough -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
         else
-            ffmpeg -hide_banner -loglevel error \
+            ffmpeg -hide_banner -loglevel error -fflags nobuffer -flags low_delay -avioflags direct \
                 -f pulse -sample_rate 44100 -channels 1 -fragment_size 1764 -i "$SPECTRUM_SOURCE" \
                 -lavfi 'showfreqs=s=16x16:rate=20:mode=bar:ascale=log:fscale=log:win_size=1024:overlap=0.5:colors=white' \
-                -r 20 -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
+                    -fps_mode passthrough -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
         fi |
             stdbuf -oL od -An -tu1 -w16 -v |
             spectrum_publish_frames

@@ -4,6 +4,7 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - rama v2.1
 
+- Ajustada la tubería FFmpeg del espectro para evitar reprogramar cuadros ya generados y solicitar baja latencia (`nobuffer`, `low_delay`, `avioflags direct`, `fps_mode passthrough`).
 - La captura del espectro solicita latencia de 40 ms y procesamiento de 20 ms para evitar las ráfagas observadas de unos 700 ms. El backend PulseAudio directo usa fragmentos equivalentes a 20 ms de PCM mono.
 - Diagnóstico opcional de pausas en reproducción con `bash tests/profile-live.sh`: registra tiempos por etapa y cadencia de cuadros, y presenta un resumen al salir.
 - Refresco parcial del espectro con un límite de 20 Hz: actualiza solo el rectángulo de barras, sin reconstruir las listas. Los editores de etiquetas y ecualizador evitan redibujos completos en cada tick; las posiciones se recalculan al redimensionar.
