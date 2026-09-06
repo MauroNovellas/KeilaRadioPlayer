@@ -35,6 +35,7 @@ update_validate_tree() {
         lib/ui-update-status.sh
         lib/ui-search.sh
         lib/app-search.sh
+        lib/app-reconnect.sh
         lib/ui-desktop-search-pane.sh
         lib/ui-terminal-guard.sh
     )
