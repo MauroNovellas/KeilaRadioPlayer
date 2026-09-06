@@ -259,7 +259,7 @@ player_refresh_info() {
             ((.["4"].samplerate // "") | if type == "number" then tostring else . end),
             ((.["4"]["hr-channels"] // .["4"].channels // "") | clean),
             ((.["5"] // false) | if . == true then "1" else "0" end),
-            ((.["10"] // true) | if . == false then "0" else "1" end),
+            (if .["10"] == false then "0" else "1" end),
             ((.["11"] // null) | number_text),
             ((.["12"] // null) | number_text)
         ' <<< "$snapshot"
