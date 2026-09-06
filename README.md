@@ -204,6 +204,8 @@ El espectro se refresca de forma independiente, con un máximo de veinte cuadros
 
 La altura utiliza una escala logarítmica de amplitud para hacer más visibles las señales suaves. Las frecuencias también se distribuyen logarítmicamente. Este ajuste es solo visual y no modifica el volumen ni el ecualizador.
 
+Para investigar saltos durante la reproducción, ejecuta `bash tests/profile-live.sh`, reproduce una emisora durante unos 30 segundos y sal con `Q`. Al cerrar aparece un resumen de tiempos de captura, consulta a mpv, teclado y dibujo, con los intervalos máximos entre cuadros. El registro temporal contiene solo etapas y tiempos, no contenido de emisoras. La instrumentación añade algo de trabajo y solo está activa en esa ejecución. Las duraciones de etapas anidadas no deben sumarse.
+
 En Linux de escritorio usa el monitor de la salida PulseAudio/PipeWire mediante `parec`, `ffmpeg` y `pactl`; analiza el audio que ya está reproduciendo `mpv` y no abre otra conexión a la emisora. Las barras de 16 frecuencias permanecen dibujadas incluso antes de recibir señal. Estas herramientas son opcionales: si no existen o el sistema no expone un monitor compatible, Keila continúa funcionando y muestra `No disponible` en el panel. En Debian/Ubuntu pueden instalarse con:
 
 ```bash

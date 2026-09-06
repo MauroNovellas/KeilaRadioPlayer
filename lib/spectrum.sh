@@ -143,6 +143,7 @@ spectrum_publish_frames() {
         if ((row == SPECTRUM_FRAME_ROWS)); then
             printf '%s\n' "${heights[*]}" > "$SPECTRUM_DIR/levels.tmp" || return 1
             mv -f "$SPECTRUM_DIR/levels.tmp" "$SPECTRUM_DIR/levels" || return 1
+            if declare -F keila_profile_frame >/dev/null; then keila_profile_frame; fi
             heights=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
             row=0
         fi
