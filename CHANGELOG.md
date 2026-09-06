@@ -2,6 +2,52 @@
 
 Todos los cambios relevantes de Keila Radio Player se documentarán en este archivo.
 
+## [2.0.0-rc3] - 2026-09-06
+
+Tercera release candidate de Keila Radio Player 2.0, centrada en integrar la búsqueda dentro de la TUI y en pulir el comportamiento del terminal bajo uso rápido e intensivo antes de la versión estable.
+
+### Añadido
+
+- Búsqueda de emisoras integrada directamente en la TUI, sin abandonar la interfaz principal.
+- En desktop, la columna de navegación se divide en `Favoritos` arriba y `Buscar emisoras` abajo, con scroll y selección independientes.
+- Filtrado incremental por nombre, ámbito, país y formato sobre el catálogo local de TDTChannels.
+- Navegación de resultados con flechas, Home/End y PageUp/PageDown, además de reproducción con `Enter`.
+- `F` mayúscula dentro de la búsqueda para añadir o quitar directamente el resultado seleccionado de Favoritos sin abandonar el buscador ni cambiar la emisora en reproducción.
+- Indicadores `[★]` y `[PLAY] [★]` en resultados de búsqueda para distinguir favoritos y emisora en reproducción.
+- `KEILA_FZF_SEARCH=1` para conservar `fzf` como selector externo opcional.
+- Protección persistente del estado `ECHO` del terminal durante toda la vida activa de la TUI, con restauración exacta al suspender o salir.
+- Agrupación y limitación de autorepeat de teclado para volumen y navegación, evitando colas de pulsaciones atrasadas tras soltar una tecla.
+- Regresiones específicas para búsqueda integrada, favoritos desde búsqueda, panel dividido, protección de terminal y autorepeat.
+
+### Corregido
+
+- Eliminados los caracteres sueltos que podían aparecer en pantalla al pulsar teclas muy rápidamente durante IPC o redibujados.
+- Eliminado el efecto de “tecla pegada” por el que volumen o selección podían seguir avanzando después de soltar una tecla mantenida.
+- `Esc` conserva ahora la consulta de búsqueda y `B editar` reabre realmente la misma búsqueda, incluso cuando no había resultados.
+- Si falla la persistencia de Favoritos, el estado en memoria vuelve inmediatamente al último estado válido del archivo y no muestra cambios fantasma.
+- La selección y el scroll de Favoritos ya no compiten con la selección y el scroll de resultados en el layout desktop dividido.
+
+### Mejorado
+
+- El filtrado de búsqueda se difiere ligeramente respecto a la escritura para que cada carácter aparezca inmediatamente incluso con catálogos grandes.
+- Se precalcula un índice de búsqueda en minúsculas para reducir el trabajo repetido durante el filtrado.
+- Las ráfagas de autorepeat se consumen en bloque y aplican un máximo de pasos útiles por frame, descartando trabajo atrasado pero conservando la siguiente tecla distinta.
+- Durante el foco de búsqueda, el pie muestra únicamente controles válidos para ese contexto y evita anunciar atajos que en ese momento son texto.
+- La búsqueda conserva reproducción, metadatos, mensajes y comprobación de actualización mientras permanece abierta.
+- El árbol obligatorio del auto-update incluye todos los módulos de búsqueda y la protección nueva del terminal.
+- La TUI actual ha sido validada en uso real tanto en Debian con `foot` como en Termux/Android, incluyendo pantallas pequeñas.
+
+### Cambiado
+
+- `B` abre por defecto la búsqueda integrada. `fzf` queda como fallback explícito mediante `KEILA_FZF_SEARCH=1`.
+- En búsqueda integrada, `f` minúscula sigue siendo texto normal y solo `F` mayúscula se reserva para alternar Favorito sobre el resultado seleccionado.
+- Termux/Android deja de figurar como adaptación pendiente: RC3 mantiene Linux de escritorio como plataforma principal, pero la TUI responsive y la interacción han sido verificadas también en Termux.
+
+### Conocido / pendiente para 2.0.0
+
+- La reconexión automática de streams no está habilitada; Keila informa de una caída de `mpv` en lugar de reintentar silenciosamente.
+- Durante RC3 se priorizarán únicamente correcciones de regresiones, estabilidad y documentación; no se añadirán funciones nuevas antes de decidir la versión estable.
+
 ## [2.0.0-rc2] - 2026-09-05
 
 Segunda release candidate de Keila Radio Player 2.0, centrada en cerrar la experiencia de escritorio y endurecer el proceso de actualización antes de la versión estable.
