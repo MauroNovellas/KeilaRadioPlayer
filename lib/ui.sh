@@ -721,7 +721,7 @@ ui_spectrum_editor_row_wide() {
     local row="$1" width="${2:-40}"
     local display_rows="${SPECTRUM_DISPLAY_ROWS:-8}" frame_rows="${SPECTRUM_FRAME_ROWS:-16}"
     local columns gap cell_width segment_remainder column start end max_level level units full_units
-    local height partial_glyph result='' i extra partial_units cells
+    local height partial_glyph result='' i extra partial_units cells side_padding
     local -a levels=("${SPECTRUM_LEVELS[@]:-}")
     local -a partial=(' ' '▁' '▂' '▃' '▄' '▅' '▆' '▇' '█')
 
@@ -738,6 +738,11 @@ ui_spectrum_editor_row_wide() {
     cell_width=$(((width - columns + 1) / columns))
     ((cell_width < 1)) && { cell_width=1; gap=0; }
     segment_remainder=$((width - columns * cell_width - gap * (columns - 1)))
+    # Las celdas extra se dejan como margen simétrico. Repartirlas desde la
+    # primera columna hacía que las barras de la izquierda parecieran más
+    # gruesas que las de la derecha.
+    side_padding=$((segment_remainder / 2))
+    ((side_padding > 0)) && result+=$(printf '%*s' "$side_padding" '')
 
     for ((column = 0; column < columns; column++)); do
         start=$((column * 16 / columns))
@@ -763,7 +768,6 @@ ui_spectrum_editor_row_wide() {
         fi
 
         local segment=$cell_width
-        ((column < segment_remainder)) && ((segment += 1))
         printf -v cells '%*s' "$segment" ''
         result+=${cells// /$partial_glyph}
         if ((gap && column < columns - 1)); then result+=' '; fi

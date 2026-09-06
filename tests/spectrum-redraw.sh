@@ -21,6 +21,8 @@ for UI_UNICODE in 0 1; do
         done
         actual=$(ui_draw_spectrum_only)
         [[ "$actual" == "$expected" ]] || fail "rectángulo incorrecto en $test_lines filas"
+        wide_row=$(ui_spectrum_editor_row_wide 7 "$UI_DESKTOP_LEFT_WIDTH")
+        [[ "$wide_row" != *"$UI_BAR_FULL$UI_BAR_FULL$UI_BAR_FULL"* ]] || fail 'barras de ancho desigual'
         # Un frame vacío debe borrar por completo las barras anteriores.
         saved=("${SPECTRUM_LEVELS[@]}")
         SPECTRUM_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
