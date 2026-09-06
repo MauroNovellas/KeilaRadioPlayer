@@ -55,6 +55,7 @@ make_release() {
         search.sh
         player.sh
         player-failure.sh
+        player-events.sh
         recording.sh
         diagnostics.sh
         input.sh
@@ -112,12 +113,12 @@ tmp=$(mktemp -d) || fail 'no se pudo crear temporal'
 trap 'rm -rf "$tmp"' EXIT
 
 # Paquete incompleto: debe rechazarse durante la validación, antes de mover
-# ningún componente de la instalación actual. El estado estructurado del player
+# ningún componente de la instalación actual. El cliente persistente de eventos
 # forma ya parte obligatoria del runtime de 2.1.
 incomplete_parent="$tmp/incomplete-release"
 mkdir -p "$incomplete_parent"
 make_release "$incomplete_parent" '2.0.1' '2.0.1'
-rm -f "$incomplete_parent/KeilaRadioPlayer-2.0.1/lib/player-failure.sh"
+rm -f "$incomplete_parent/KeilaRadioPlayer-2.0.1/lib/player-events.sh"
 tar -czf "$tmp/incomplete.tar.gz" -C "$incomplete_parent" 'KeilaRadioPlayer-2.0.1'
 
 install_incomplete="$tmp/install-incomplete"
