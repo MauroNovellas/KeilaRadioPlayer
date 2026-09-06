@@ -417,7 +417,14 @@ app_poll_player() {
         changed=0
     fi
     if history_observe; then changed=0; fi
-    if spectrum_tick; then changed=0; fi
+    local spectrum_status="$SPECTRUM_ENABLED:$SPECTRUM_AVAILABLE"
+    if spectrum_tick; then
+        if [[ "$spectrum_status" != "$SPECTRUM_ENABLED:$SPECTRUM_AVAILABLE" ]]; then
+            changed=0
+        elif ((changed != 0)); then
+            ui_draw_spectrum_only || changed=0
+        fi
+    fi
     if ((SPECTRUM_NOTICE_PENDING)); then
         app_message "Analizador no disponible: ${SPECTRUM_ERROR:-error de captura}" 7
         SPECTRUM_NOTICE_PENDING=0

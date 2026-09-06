@@ -64,7 +64,7 @@ if spectrum_tick; then fail 'un frame incompleto fue aceptado'; fi
 assert_eq '8' "${SPECTRUM_LEVELS[8]}" 'frame inválido conservó el anterior'
 
 assert_eq '8' "$SPECTRUM_DISPLAY_ROWS" 'altura vertical del analizador'
-assert_eq '250' "$SPECTRUM_DISPLAY_INTERVAL_MS" 'refresco del analizador a cuatro cuadros por segundo'
+assert_eq '50' "$SPECTRUM_DISPLAY_INTERVAL_MS" 'límite de veinte cuadros por segundo'
 UI_UNICODE=1
 ui_configure_glyphs
 SPECTRUM_LEVELS=(16 14 12 10 8 6 4 2 0 0 0 0 0 0 0 0)
@@ -80,11 +80,11 @@ SPECTRUM_TEST_NOW_MS=1000
 spectrum_tick || fail 'primer frame del intervalo de refresco'
 assert_eq '1000' "$SPECTRUM_LAST_DISPLAY_MS" 'marca temporal del frame'
 printf '2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n' > "$SPECTRUM_DIR/levels"
-SPECTRUM_TEST_NOW_MS=1100
+SPECTRUM_TEST_NOW_MS=1049
 if spectrum_tick; then fail 'frame dentro del intervalo solicitó redibujado'; fi
 assert_eq '1' "${SPECTRUM_LEVELS[0]}" 'frame prematuro conservó el anterior'
-SPECTRUM_TEST_NOW_MS=1250
-spectrum_tick || fail 'frame tras 250 ms solicitó redibujado'
+SPECTRUM_TEST_NOW_MS=1050
+spectrum_tick || fail 'frame tras 50 ms solicitó redibujado'
 assert_eq '2' "${SPECTRUM_LEVELS[0]}" 'frame tras el intervalo actualizado'
 unset SPECTRUM_TEST_NOW_MS
 

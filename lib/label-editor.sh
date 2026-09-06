@@ -27,14 +27,18 @@ app_edit_label() {
     local text="${FAVORITE_LABELS[$url]:-}" previous_help=$UI_HELP_VISIBLE
     UI_HELP_VISIBLE=0
     LABEL_EDITOR_ACTIVE=1
+    local redraw=1
     while true; do
         local visible=$((UI_COLS - 15))
         ((visible < 1)) && visible=1
         local preview="$text"
         ((${#preview} > visible)) && preview="${preview: -visible}"
         app_message "Etiqueta: ${preview}_" 0
-        if ((${SEARCH_ACTIVE:-0})); then search_draw_view; else ui_draw; fi
+        if ((redraw)); then
+            if ((${SEARCH_ACTIVE:-0})); then search_draw_view; else ui_draw; fi
+        fi
         if ! input_read; then LABEL_EDITOR_ACTIVE=0; UI_HELP_VISIBLE=$previous_help; ui_clear_message; return 1; fi
+        redraw=1
         case "$INPUT_EVENT" in
             ENTER)
                 LABEL_EDITOR_ACTIVE=0
@@ -49,7 +53,12 @@ app_edit_label() {
                 return 1
                 ;;
             ESC) LABEL_EDITOR_ACTIVE=0; UI_HELP_VISIBLE=$previous_help; ui_clear_message; return 0 ;;
-            TICK) app_poll_player || true; catalog_poll || true; ui_message_tick || true ;;
+            TICK)
+                redraw=0
+                app_poll_player && redraw=1
+                catalog_poll && redraw=1
+                ui_message_tick && redraw=1
+                ;;
             KEY)
                 case "$INPUT_KEY" in
                     $'\x7f'|$'\x08') text="${text%?}" ;;

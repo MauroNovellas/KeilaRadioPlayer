@@ -200,7 +200,7 @@ Los cambios se aplican inmediatamente a la emisora en reproducción y se conserv
 
 El panel `Ahora suena` muestra el analizador vertical de 16 bandas debajo del ecualizador, separado en su propio bloque y utilizando también todo el ancho del panel. Ocupa ocho filas cuando existe audio real, con la misma altura visible que el ecualizador. Las bandas se agrupan en columnas anchas separadas y se usan bloques parciales en la parte superior. Pulsa `V` para ocultarlo o volverlo a mostrar. La captura se detiene automáticamente al pausar o detener la reproducción y vuelve a arrancar al reanudarla.
 
-La pantalla refresca el gráfico cuatro veces por segundo; la captura y el análisis de audio continúan trabajando de forma independiente para conservar una respuesta fluida.
+El espectro se refresca de forma independiente, con un máximo de veinte cuadros por segundo. Cada frame actualiza solo sus barras; favoritos, búsqueda y ecualizador se redibujan cuando hay otros cambios. La frecuencia efectiva depende del equipo y de las demás acciones de la interfaz.
 
 La altura utiliza una escala logarítmica de amplitud para hacer más visibles las señales suaves. Las frecuencias también se distribuyen logarítmicamente. Este ajuste es solo visual y no modifica el volumen ni el ecualizador.
 

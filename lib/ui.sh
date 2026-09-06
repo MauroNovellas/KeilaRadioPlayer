@@ -771,7 +771,9 @@ ui_spectrum_editor_row_wide() {
 
     extra=$((width - ${#result}))
     if ((extra > 0)); then printf -v cells '%*s' "$extra" ''; result+="$cells"; fi
-    printf '%s' "${result:0:width}"
+    UI_SPECTRUM_ROW_TEXT="${result:0:width}"
+    [[ "${3:-}" == state ]] || printf '%s' "$UI_SPECTRUM_ROW_TEXT"
+    return 0
 }
 
 ui_audio_info() {

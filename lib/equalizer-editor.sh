@@ -6,8 +6,9 @@ app_edit_equalizer() {
     EQUALIZER_EDITOR_ACTIVE=1
     ui_clear_message
 
+    local redraw=1
     while true; do
-        ui_draw
+        ((redraw)) && ui_draw
         if ! input_read; then
             EQUALIZER_EDITOR_ACTIVE=0
             UI_HELP_VISIBLE=$previous_help
@@ -15,6 +16,7 @@ app_edit_equalizer() {
             return 1
         fi
 
+        redraw=1
         case "$INPUT_EVENT" in
             LEFT) EQUALIZER_SELECTED=$(((EQUALIZER_SELECTED + 4) % 5)) ;;
             RIGHT) EQUALIZER_SELECTED=$(((EQUALIZER_SELECTED + 1) % 5)) ;;
@@ -38,7 +40,12 @@ app_edit_equalizer() {
                 ui_clear_message
                 return 0
                 ;;
-            TICK) app_poll_player || true; catalog_poll || true; ui_message_tick || true ;;
+            TICK)
+                redraw=0
+                app_poll_player && redraw=1
+                catalog_poll && redraw=1
+                ui_message_tick && redraw=1
+                ;;
         esac
     done
 }

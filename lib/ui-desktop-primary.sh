@@ -4,6 +4,8 @@
 # izquierda y Favoritos queda como columna de navegación a la derecha.
 # Se carga después de ui-desktop.sh y redefine solo geometría/render desktop.
 
+declare -a UI_SPECTRUM_CURSOR=()
+
 ui_desktop_pane_widths() {
     local width="$1"
     local usable favorites now_playing
@@ -78,6 +80,7 @@ ui_draw_desktop() {
     local title="KEILA RADIO PLAYER  ${KEILA_VERSION:-dev}"
     local body_height
     body_height=$(ui_desktop_body_height)
+    UI_SPECTRUM_CURSOR=()
 
     ui_desktop_pane_widths "$width"
     ui_desktop_sync_selection "$body_height"
@@ -209,6 +212,7 @@ ui_draw_desktop() {
             # El analizador se apila bajo el ecualizador y se estira hasta los
             # mismos límites del panel, con columnas anchas y separadas.
             spectrum_row=$((row - spectrum_header_row - 1))
+            UI_SPECTRUM_CURSOR[spectrum_row]=$(tput cup "$((row + 3))" 2 2>/dev/null || true)
             main_text=$(ui_spectrum_editor_row_wide "$spectrum_row" "$UI_DESKTOP_LEFT_WIDTH")
             main_style='playing'
         fi
@@ -258,4 +262,18 @@ ui_draw_desktop() {
     fi
     ui_box_rule "$width" "$UI_BL" "$UI_BR"
     tput ed 2>/dev/null || true
+}
+
+# Posiciones preparadas tras cada dibujo completo y redimensionado. El tick
+# escribe solo el rectángulo del espectro, sin tput ni subprocesos por fila.
+ui_draw_spectrum_only() {
+    ((UI_ACTIVE && !UI_SUSPENDED && SPECTRUM_ENABLED)) || return 1
+    ui_desktop_enabled "$UI_COLS" "$UI_LINES" "$UI_LAYOUT_MODE" || return 0
+    local row output='' style=''
+    if ((UI_COLOR)); then style="$UI_BOLD$UI_GREEN"; fi
+    for row in "${!UI_SPECTRUM_CURSOR[@]}"; do
+        ui_spectrum_editor_row_wide "$row" "$UI_DESKTOP_LEFT_WIDTH" state
+        output+="${UI_SPECTRUM_CURSOR[row]}$style$UI_SPECTRUM_ROW_TEXT$UI_RESET"
+    done
+    printf '%s' "$output"
 }

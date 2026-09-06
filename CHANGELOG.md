@@ -4,6 +4,7 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - rama v2.1
 
+- Refresco parcial del espectro con un límite de 20 Hz: actualiza solo el rectángulo de barras, sin reconstruir las listas. Los editores de etiquetas y ecualizador evitan redibujos completos en cada tick; las posiciones se recalculan al redimensionar.
 - El espectro usa amplitud logarítmica para destacar señales suaves y aprovechar más altura, conservando el refresco a 4 Hz y el audio original.
 - Corregido el reloj del espectro con coma decimal (configuración regional española), que provocaba errores aritméticos durante el refresco. La medición de rendimiento admite también ambos separadores.
 - Eliminados subprocesos por celda al dibujar las barras ampliadas. Añadida medición aislada del dibujo con `bash tests/render-benchmark.sh`, sin audio ni red.

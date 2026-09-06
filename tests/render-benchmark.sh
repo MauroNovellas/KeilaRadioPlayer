@@ -23,3 +23,9 @@ for SPECTRUM_ENABLED in 0 1; do
     finish=${finish//[.,]/}
     printf 'Espectro %s: %d ms por dibujo (media de 10)\n' "$SPECTRUM_ENABLED" "$(((finish-start)/10000))"
 done
+start=$EPOCHREALTIME
+start=${start//[.,]/}
+for ((frame=0; frame<100; frame++)); do ui_draw_spectrum_only >/dev/null; done
+finish=$EPOCHREALTIME
+finish=${finish//[.,]/}
+printf 'Solo espectro: %d microsegundos por dibujo (media de 100)\n' "$(((finish-start)/100))"
