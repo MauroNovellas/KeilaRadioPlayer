@@ -24,6 +24,7 @@ update_validate_tree() {
         lib/stations.sh
         lib/search.sh
         lib/player.sh
+        lib/player-failure.sh
         lib/recording.sh
         lib/diagnostics.sh
         lib/input.sh
@@ -37,6 +38,7 @@ update_validate_tree() {
         lib/ui-search.sh
         lib/app-search.sh
         lib/app-reconnect.sh
+        lib/app-reconnect-failure.sh
         lib/ui-desktop-search-pane.sh
         lib/ui-terminal-guard.sh
     )
