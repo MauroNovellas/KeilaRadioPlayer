@@ -2,6 +2,10 @@
 
 Todos los cambios relevantes de Keila Radio Player se documentarán en este archivo.
 
+## [Sin publicar] - rama v2.1
+
+- Reducido el coste del sondeo de eventos de `mpv`: la TUI ya no espera innecesariamente cuando no hay notificaciones y cada evento se parsea con una sola invocación de `jq`.
+
 ## [2.1.0] - 2026-09-07
 
 Segunda versión estable de Keila Radio Player, centrada en completar la experiencia de reproducción de escritorio y cerrar la línea `v2.1` con pruebas de rendimiento, reconexión y distribución portable para Linux.

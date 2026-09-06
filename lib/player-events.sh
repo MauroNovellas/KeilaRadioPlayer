@@ -124,14 +124,17 @@ player_events_start() {
 
 player_events_handle_line() {
     local line="$1"
-    local event name
+    local event_name event name
 
     [[ -n "$line" ]] || return 1
 
-    event=$(jq -r 'if type == "object" then (.event // "") else "" end' <<< "$line" 2>/dev/null) || return 1
+    # event y name salen del mismo documento; evitar dos procesos jq por cada
+    # notificación reduce el trabajo cuando mpv cambia varios metadatos seguidos.
+    event_name=$(jq -r 'if type == "object" then [(.event // ""),(.name // "")] | @tsv else empty end' <<< "$line" 2>/dev/null) || return 1
+    [[ -n "$event_name" ]] || return 1
+    IFS=$'\t' read -r event name <<< "$event_name"
     [[ "$event" == 'property-change' ]] || return 1
 
-    name=$(jq -r '.name // ""' <<< "$line" 2>/dev/null) || return 1
     case "$name" in
         paused-for-cache|core-idle|metadata|media-title|current-tracks/audio/codec|audio-bitrate|audio-params)
             PLAYER_EVENTS_DIRTY=1
@@ -149,7 +152,7 @@ player_events_handle_line() {
 player_events_drain() {
     local fd="${PLAYER_EVENTS_READ_FD:-}"
     local pid="${PLAYER_EVENTS_PID:-}"
-    local line count=0 changed=1
+    local line ready='' count=0 changed=1
 
     ((PLAYER_EVENTS_ACTIVE)) || return 1
     [[ "$fd" =~ ^[0-9]+$ && "$pid" =~ ^[0-9]+$ ]] || return 1
@@ -160,7 +163,14 @@ player_events_drain() {
     fi
 
     while ((count < PLAYER_EVENTS_DRAIN_LIMIT)); do
-        if ! IFS= read -r -t 0.001 -u "$fd" line; then
+        # Primero comprobamos disponibilidad sin ceder 1 ms en cada vuelta del
+        # bucle principal. Cuando hay datos, la segunda lectura consume la línea
+        # completa; los eventos de mpv se escriben siempre terminados en salto
+        # de línea, por lo que esta lectura no puede dejar bloqueada la TUI.
+        if ! IFS= read -r -t 0 -u "$fd" ready; then
+            break
+        fi
+        if ! IFS= read -r -u "$fd" line; then
             break
         fi
         count=$((count + 1))
