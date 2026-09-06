@@ -14,13 +14,14 @@ jobs:
       - name: Run checks
         run: |
           ./tests/run.sh
-          shellcheck -x -e SC1090,SC1091,SC2030,SC2031,SC2034,SC2016 lib/player.sh lib/recording.sh lib/input.sh lib/ui-responsive.sh lib/ui-safe-width.sh lib/ui-desktop.sh lib/ui-desktop-primary.sh lib/ui-desktop-balance.sh lib/ui-update-status.sh lib/ui-search.sh lib/ui-desktop-search-pane.sh lib/ui-terminal-guard.sh lib/search.sh lib/app-search.sh lib/app-reconnect.sh lib/update.sh lib/update-validation.sh tests/player-ipc.sh tests/player-lifecycle.sh tests/player-readiness.sh tests/player-reconnect.sh tests/recording-validation.sh tests/recording-switch.sh tests/favorite-confirm.sh tests/favorite-presets.sh tests/ui-responsive.sh tests/ui-desktop.sh tests/ui-update-status.sh tests/search-integrated.sh tests/search-transition.sh tests/search-favorites.sh tests/input-repeat.sh tests/ui-desktop-search-pane.sh tests/ui-terminal-guard.sh tests/update-check.sh
+          shellcheck -x -e SC1090,SC1091,SC2030,SC2031,SC2034,SC2016 lib/player.sh lib/recording.sh lib/diagnostics.sh lib/input.sh lib/ui-responsive.sh lib/ui-safe-width.sh lib/ui-desktop.sh lib/ui-desktop-primary.sh lib/ui-desktop-balance.sh lib/ui-update-status.sh lib/ui-search.sh lib/ui-desktop-search-pane.sh lib/ui-terminal-guard.sh lib/search.sh lib/app-search.sh lib/app-reconnect.sh lib/update.sh lib/update-validation.sh tests/player-ipc.sh tests/player-lifecycle.sh tests/player-readiness.sh tests/player-reconnect.sh tests/recording-validation.sh tests/recording-switch.sh tests/diagnostics.sh tests/favorite-confirm.sh tests/favorite-presets.sh tests/ui-responsive.sh tests/ui-desktop.sh tests/ui-update-status.sh tests/search-integrated.sh tests/search-transition.sh tests/search-favorites.sh tests/input-repeat.sh tests/ui-desktop-search-pane.sh tests/ui-terminal-guard.sh tests/update-check.sh
           bash ./tests/player-ipc.sh
           bash ./tests/player-lifecycle.sh
           bash ./tests/player-readiness.sh
           bash ./tests/player-reconnect.sh
           bash ./tests/recording-validation.sh
           bash ./tests/recording-switch.sh
+          bash ./tests/diagnostics.sh
           bash ./tests/favorite-confirm.sh
           bash ./tests/favorite-presets.sh
           bash ./tests/recording-formats.sh
