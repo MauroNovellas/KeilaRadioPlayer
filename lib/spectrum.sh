@@ -18,6 +18,7 @@ spectrum_find_source() {
     command -v ffmpeg >/dev/null 2>&1 || { SPECTRUM_ERROR='Falta ffmpeg.'; return 1; }
     command -v pactl >/dev/null 2>&1 || { SPECTRUM_ERROR='Falta pactl.'; return 1; }
     command -v timeout >/dev/null 2>&1 || { SPECTRUM_ERROR='Falta timeout (coreutils).'; return 1; }
+    command -v stdbuf >/dev/null 2>&1 || { SPECTRUM_ERROR='Falta stdbuf (coreutils).'; return 1; }
 
     local sink source sources fallback
     sink=$(timeout 1 pactl get-default-sink 2>/dev/null) || sink=''
@@ -88,33 +89,39 @@ spectrum_start() {
         trap spectrum_worker_stop TERM INT
         if command -v parec >/dev/null 2>&1; then
             parec --device="$SPECTRUM_SOURCE" --format=s16le --rate=44100 --channels=1 2>/dev/null |
-                ffmpeg -hide_banner -loglevel error -f s16le -ar 44100 -ac 1 -i - \
+                ffmpeg -hide_banner -loglevel error -probesize 32 -analyzeduration 0 -f s16le -ar 44100 -ac 1 -i - \
                     -lavfi 'showfreqs=s=16x8:mode=bar:ascale=cbrt:fscale=log:colors=white' \
-                    -r 10 -f rawvideo -pix_fmt gray - 2>/dev/null
+                    -r 10 -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
         else
             ffmpeg -hide_banner -loglevel error \
                 -f pulse -i "$SPECTRUM_SOURCE" \
                 -lavfi 'showfreqs=s=16x8:mode=bar:ascale=cbrt:fscale=log:colors=white' \
-                -r 10 -f rawvideo -pix_fmt gray - 2>/dev/null
+                -r 10 -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
         fi |
-            od -An -tu1 -w16 -v |
-            awk '
-                {
-                    row=(NR-1)%8
-                    for (i=1; i<=16; i++) if ($i>20) height[i]++
-                    if (row==7) {
-                        for (i=1; i<=16; i++) printf "%d%s", height[i], (i==16 ? ORS : " ")
-                        fflush()
-                        delete height
-                    }
-                }
-            ' |
-            while IFS= read -r levels; do
-                printf '%s\n' "$levels" > "$SPECTRUM_DIR/levels.tmp" || exit 1
-                mv -f "$SPECTRUM_DIR/levels.tmp" "$SPECTRUM_DIR/levels" || exit 1
-            done
+            stdbuf -oL od -An -tu1 -w16 -v |
+            spectrum_publish_frames
     ) </dev/null >/dev/null 2>&1 &
     SPECTRUM_PID=$!
+}
+
+# Procesamos cada fila al recibirla: od con salida por líneas y read de Bash
+# evitan el buffering de entrada de awk sobre un flujo que nunca termina.
+spectrum_publish_frames() {
+    local row=0 i
+    local -a pixels heights=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+    while read -r -a pixels; do
+        (("${#pixels[@]}" == 16)) || return 1
+        for ((i=0; i<16; i++)); do
+            if ((pixels[i] > 20)); then heights[i]=$((heights[i] + 1)); fi
+        done
+        row=$((row + 1))
+        if ((row == 8)); then
+            printf '%s\n' "${heights[*]}" > "$SPECTRUM_DIR/levels.tmp" || return 1
+            mv -f "$SPECTRUM_DIR/levels.tmp" "$SPECTRUM_DIR/levels" || return 1
+            heights=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+            row=0
+        fi
+    done
 }
 
 spectrum_stop() {

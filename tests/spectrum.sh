@@ -18,6 +18,30 @@ player_is_running() { return 0; }
 source "$ROOT_DIR/lib/spectrum.sh"
 source "$ROOT_DIR/lib/ui.sh"
 
+# Prueba de la tubería completa con PCM continuo, sin esperar EOF. Las pruebas
+# con archivos finitos ocultaban el buffering que dejaba inmóvil el espectro.
+if command -v ffmpeg >/dev/null 2>&1; then
+    (
+        trap 'spectrum_stop' EXIT
+        SPECTRUM_SOURCE='test'
+        # shellcheck disable=SC2317
+        parec() {
+            command ffmpeg -v error -re -f lavfi \
+                -i anoisesrc=color=pink:sample_rate=44100 -t 6 -f s16le -ac 1 -
+        }
+        spectrum_start || fail 'arranque de la captura continua'
+        for ((attempt=0; attempt<20; attempt++)); do
+            [[ -s "$SPECTRUM_DIR/levels" ]] && break
+            sleep 0.1
+        done
+        [[ -s "$SPECTRUM_DIR/levels" ]] || fail 'no llegaron frames antes de cerrar el audio'
+        kill -0 "$SPECTRUM_PID" || fail 'la captura terminó antes del primer frame'
+        spectrum_tick || fail 'el frame continuo no llegó al estado de la TUI'
+        [[ "${SPECTRUM_LEVELS[*]}" != '0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0' ]] || fail 'audio recibido sin niveles'
+        [[ "$(ui_spectrum_bars)" != '▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁' ]] || fail 'audio sin representación'
+    ) || fail 'regresión de audio continuo'
+fi
+
 # La lectura acepta solamente un frame completo de 16 bandas y comunica si
 # cambió para que el bucle principal redibuje la TUI.
 SPECTRUM_DIR="$task_tmp/frame"
