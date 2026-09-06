@@ -2,6 +2,63 @@
 
 # Favoritos personales de Keila. El repositorio solo actúa como semilla inicial.
 
+# La confirmación de borrado vive en memoria y pertenece a la sesión actual.
+# Nunca se persiste: sirve únicamente como barrera contra pulsaciones accidentales.
+FAVORITES_CONFIRM_ACTION=''
+FAVORITES_CONFIRM_URL=''
+FAVORITES_CONFIRM_EXPIRES=0
+FAVORITES_CONFIRM_TIMEOUT="${KEILA_FAVORITES_CONFIRM_TIMEOUT:-4}"
+
+favorites_confirm_timeout_value() {
+    local timeout="${FAVORITES_CONFIRM_TIMEOUT:-4}"
+    [[ "$timeout" =~ ^[0-9]+$ ]] || timeout=4
+    ((timeout < 2)) && timeout=2
+    ((timeout > 10)) && timeout=10
+    printf '%s\n' "$timeout"
+}
+
+favorites_confirm_clear() {
+    FAVORITES_CONFIRM_ACTION=''
+    FAVORITES_CONFIRM_URL=''
+    FAVORITES_CONFIRM_EXPIRES=0
+}
+
+# Limpia una confirmación caducada. Devuelve 0 solo cuando había algo que
+# caducó, de modo que los bucles de UI puedan usarlo si alguna vez lo necesitan.
+favorites_confirm_expire() {
+    [[ -n "${FAVORITES_CONFIRM_ACTION:-}" ]] || return 1
+
+    local now="${EPOCHSECONDS:-$(date +%s)}"
+    if ((FAVORITES_CONFIRM_EXPIRES <= 0 || now > FAVORITES_CONFIRM_EXPIRES)); then
+        favorites_confirm_clear
+        return 0
+    fi
+    return 1
+}
+
+# Primera llamada: arma la confirmación y devuelve 2. Segunda llamada con la
+# misma acción y URL dentro de la ventana: confirma, limpia el estado y devuelve
+# 0. Una acción/URL distinta sustituye la confirmación anterior sin borrar nada.
+favorites_confirm_removal() {
+    local action="$1" url="$2"
+    [[ -n "$action" && -n "$url" ]] || return 1
+
+    local now="${EPOCHSECONDS:-$(date +%s)}"
+    local timeout
+    timeout=$(favorites_confirm_timeout_value)
+
+    if [[ "${FAVORITES_CONFIRM_ACTION:-}" == "$action" && "${FAVORITES_CONFIRM_URL:-}" == "$url" ]] &&
+        ((FAVORITES_CONFIRM_EXPIRES > 0 && now <= FAVORITES_CONFIRM_EXPIRES)); then
+        favorites_confirm_clear
+        return 0
+    fi
+
+    FAVORITES_CONFIRM_ACTION="$action"
+    FAVORITES_CONFIRM_URL="$url"
+    FAVORITES_CONFIRM_EXPIRES=$((now + timeout))
+    return 2
+}
+
 favorites_init() {
     local seed_file="${1:-}"
 
