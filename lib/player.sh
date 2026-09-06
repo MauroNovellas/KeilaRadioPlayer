@@ -9,6 +9,7 @@ PLAYER_URL=""
 PLAYER_VOLUME="${KEILA_VOLUME:-50}"
 PLAYER_PAUSED=0
 PLAYER_LAST_EXIT_STATUS=""
+PLAYER_IPC_REQUEST_ID=1000
 
 # Información real del stream obtenida desde mpv por JSON IPC.
 PLAYER_STREAM_TITLE=""
@@ -53,11 +54,43 @@ player_is_running() {
     [[ -n "$PLAYER_PID" ]] && kill -0 "$PLAYER_PID" 2>/dev/null
 }
 
-player_ipc() {
+# Intercambio de bajo nivel con el socket. Se mantiene separado de player_ipc
+# para poder probar la validación de respuestas sin necesitar un mpv real.
+player_ipc_exchange() {
     local payload="$1"
 
     [[ -S "$PLAYER_SOCKET" ]] || return 1
-    printf '%s\n' "$payload" | socat -t 1 - UNIX-CONNECT:"$PLAYER_SOCKET" >/dev/null 2>&1
+    printf '%s\n' "$payload" | socat -t 1 - UNIX-CONNECT:"$PLAYER_SOCKET" 2>/dev/null
+}
+
+# Una conexión IPC correcta no implica que mpv haya aceptado el comando. Exige
+# la respuesta del request_id enviado y un error explícito "success".
+player_ipc_response_success() {
+    local response="$1"
+    local request_id="$2"
+
+    [[ -n "$response" ]] || return 1
+    [[ "$request_id" =~ ^[0-9]+$ ]] || return 1
+
+    jq -s -e --argjson request_id "$request_id" '
+        any(.[];
+            type == "object"
+            and .request_id? == $request_id
+            and .error? == "success"
+        )
+    ' <<< "$response" >/dev/null 2>&1
+}
+
+player_ipc() {
+    local payload="$1"
+    local request_id response
+
+    PLAYER_IPC_REQUEST_ID=$((PLAYER_IPC_REQUEST_ID + 1))
+    request_id="$PLAYER_IPC_REQUEST_ID"
+
+    payload=$(jq -c --argjson request_id "$request_id" '.request_id = $request_id' <<< "$payload" 2>/dev/null) || return 1
+    response=$(player_ipc_exchange "$payload") || return 1
+    player_ipc_response_success "$response" "$request_id"
 }
 
 player_reset_info() {
@@ -301,11 +334,11 @@ player_set_volume() {
     ((volume < 0)) && volume=0
     ((volume > 100)) && volume=100
 
-    PLAYER_VOLUME="$volume"
-
     if player_is_running; then
-        player_ipc "{\"command\":[\"set_property\",\"volume\",$PLAYER_VOLUME]}" || return 1
+        player_ipc "{\"command\":[\"set_property\",\"volume\",$volume]}" || return 1
     fi
+
+    PLAYER_VOLUME="$volume"
 }
 
 player_change_volume() {
