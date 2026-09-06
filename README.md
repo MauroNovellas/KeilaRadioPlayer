@@ -208,6 +208,8 @@ La captura solicita entregas de audio pequeñas (20 ms, con latencia solicitada 
 
 Entre cuadros consecutivos se aplica un suavizado ligero: las subidas responden rápido y las caídas se amortiguan para que una entrega irregular no produzca saltos visuales. No afecta al audio ni al ecualizador.
 
+Cada banda conserva además un marcador de pico durante unos cuadros. El marcador desciende gradualmente después de que la señal baje, haciendo visible el nivel máximo reciente sin retrasar la respuesta de las barras.
+
 La altura utiliza una escala logarítmica de amplitud para hacer más visibles las señales suaves. Las frecuencias también se distribuyen logarítmicamente. Este ajuste es solo visual y no modifica el volumen ni el ecualizador.
 
 Para investigar saltos durante la reproducción, ejecuta `bash tests/profile-live.sh`, reproduce una emisora durante unos 30 segundos y sal con `Q`. Al cerrar aparece un resumen de tiempos de captura, consulta a mpv, teclado y dibujo, con los intervalos máximos entre cuadros. El registro temporal contiene solo etapas y tiempos, no contenido de emisoras. La instrumentación añade algo de trabajo y solo está activa en esa ejecución. Las duraciones de etapas anidadas no deben sumarse.

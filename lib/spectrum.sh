@@ -17,6 +17,9 @@ SPECTRUM_DISPLAY_INTERVAL_MS=50
 SPECTRUM_LAST_DISPLAY_MS=''
 SPECTRUM_SMOOTHING=1
 SPECTRUM_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+SPECTRUM_PEAK_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+SPECTRUM_PEAK_AGES=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+SPECTRUM_PEAK_HOLD_FRAMES=4
 
 spectrum_find_source() {
     SPECTRUM_FOUND_SOURCE=''
@@ -165,6 +168,8 @@ spectrum_stop() {
     SPECTRUM_DIR=''
     SPECTRUM_LAST_DISPLAY_MS=''
     SPECTRUM_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+    SPECTRUM_PEAK_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+    SPECTRUM_PEAK_AGES=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
 }
 
 spectrum_tick() {
@@ -190,6 +195,8 @@ spectrum_tick() {
     fi
 
     local now_ms file="$SPECTRUM_DIR/levels" raw values i changed=1
+    local -a peak_levels=("${SPECTRUM_PEAK_LEVELS[@]:-}")
+    local -a peak_ages=("${SPECTRUM_PEAK_AGES[@]:-}")
     now_ms=$(spectrum_now_ms)
     if [[ -n "$SPECTRUM_LAST_DISPLAY_MS" ]] &&
         ((now_ms >= SPECTRUM_LAST_DISPLAY_MS)) &&
@@ -200,20 +207,52 @@ spectrum_tick() {
     IFS= read -r raw < "$file" || return 1
     IFS=' ' read -r -a values <<< "$raw"
     ((${#values[@]} == 16)) || return 1
+    ((${#peak_levels[@]} == 16)) || peak_levels=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+    ((${#peak_ages[@]} == 16)) || peak_ages=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
     for ((i=0; i<16; i++)); do
         [[ "${values[i]}" =~ ^[0-9]+$ ]] && ((values[i] >= 0 && values[i] <= SPECTRUM_FRAME_ROWS)) || return 1
+        local previous="${SPECTRUM_LEVELS[i]:-0}" target="${values[i]}" blended
         if [[ -n "$SPECTRUM_LAST_DISPLAY_MS" && "${SPECTRUM_SMOOTHING:-1}" == 1 ]]; then
-            local previous=${SPECTRUM_LEVELS[i]} target=${values[i]} blended
-            blended=$(((previous * 2 + target + 1) / 3))
+            if ((target > previous)); then
+                # La subida sigue al ataque para que una señal nueva no tarde
+                # varios cuadros en hacerse visible.
+                blended=$(((previous + target * 2 + 1) / 3))
+            elif ((target < previous)); then
+                # La bajada conserva algo de energía entre entregas para que
+                # el gráfico no se apague de golpe cuando llega una ráfaga.
+                blended=$(((previous * 3 + target + 2) / 4))
+            else
+                blended=$previous
+            fi
             if ((blended == previous && previous != target)); then
                 ((target > previous)) && blended=$((previous + 1))
                 ((target < previous)) && blended=$((previous - 1))
             fi
             values[i]=$blended
         fi
+        target="${values[i]}"
+        local peak="${peak_levels[i]:-0}" age="${peak_ages[i]:-0}"
+        if ((target >= peak)); then
+            peak=$target
+            age=0
+        elif ((age < SPECTRUM_PEAK_HOLD_FRAMES)); then
+            ((age += 1))
+        elif ((peak > target)); then
+            ((peak -= 1))
+        else
+            peak=$target
+            age=0
+        fi
+        # La edad del retén es estado interno; solo el cambio visible del
+        # marcador debe solicitar un redibujado parcial.
+        if [[ "${peak_levels[i]}" != "$peak" ]]; then changed=0; fi
+        peak_levels[i]=$peak
+        peak_ages[i]=$age
         if [[ "${SPECTRUM_LEVELS[i]}" != "${values[i]}" ]]; then changed=0; fi
     done
     SPECTRUM_LEVELS=("${values[@]}")
+    SPECTRUM_PEAK_LEVELS=("${peak_levels[@]}")
+    SPECTRUM_PEAK_AGES=("${peak_ages[@]}")
     SPECTRUM_LAST_DISPLAY_MS=$now_ms
     return "$changed"
 }

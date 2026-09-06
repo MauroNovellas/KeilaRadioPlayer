@@ -90,12 +90,51 @@ spectrum_tick || fail 'frame tras 50 ms solicitó redibujado'
 assert_eq '2' "${SPECTRUM_LEVELS[0]}" 'frame tras el intervalo actualizado'
 unset SPECTRUM_TEST_NOW_MS
 
+# El ataque responde con rapidez, mientras que el pico se conserva unos
+# cuadros y cae de forma gradual cuando la señal ya ha bajado.
+SPECTRUM_SMOOTHING=1
+SPECTRUM_PEAK_HOLD_FRAMES=2
+SPECTRUM_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+SPECTRUM_PEAK_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+SPECTRUM_PEAK_AGES=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+SPECTRUM_LAST_DISPLAY_MS=''
+SPECTRUM_TEST_NOW_MS=2000
+printf '0 0 0 0 12 0 0 0 0 0 0 0 0 0 0 0\n' > "$SPECTRUM_DIR/levels"
+spectrum_tick || fail 'primer frame de pico'
+assert_eq '12' "${SPECTRUM_LEVELS[4]}" 'ataque inicial del espectro'
+assert_eq '12' "${SPECTRUM_PEAK_LEVELS[4]}" 'pico inicial conservado'
+SPECTRUM_TEST_NOW_MS=2050
+printf '0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n' > "$SPECTRUM_DIR/levels"
+spectrum_tick || fail 'caída suavizada del espectro'
+assert_eq '9' "${SPECTRUM_LEVELS[4]}" 'caída lenta de la barra'
+assert_eq '12' "${SPECTRUM_PEAK_LEVELS[4]}" 'pico retenido durante el primer cuadro'
+SPECTRUM_TEST_NOW_MS=2100
+spectrum_tick || fail 'segundo cuadro de caída'
+assert_eq '7' "${SPECTRUM_LEVELS[4]}" 'segunda caída lenta de la barra'
+assert_eq '12' "${SPECTRUM_PEAK_LEVELS[4]}" 'pico retenido durante el segundo cuadro'
+SPECTRUM_TEST_NOW_MS=2150
+spectrum_tick || fail 'caída progresiva del pico'
+assert_eq '11' "${SPECTRUM_PEAK_LEVELS[4]}" 'pico descendente tras la retención'
+SPECTRUM_SMOOTHING=0
+SPECTRUM_TEST_NOW_MS=2200
+SPECTRUM_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+SPECTRUM_PEAK_AGES[4]=0
+printf '0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n' > "$SPECTRUM_DIR/levels"
+if spectrum_tick; then fail 'la edad interna del pico solicitó redibujado'; fi
+unset SPECTRUM_TEST_NOW_MS
+SPECTRUM_SMOOTHING=0
+
 UI_UNICODE=1
 ui_configure_glyphs
 SPECTRUM_LEVELS=(0 1 2 3 4 5 6 7 8 7 6 5 4 3 2 1)
 assert_eq '     ███████    ' "$(ui_spectrum_row 5)" 'fila gráfica del espectro'
 SPECTRUM_LEVELS=(0 2 4 6 8 10 12 14 16 14 12 10 8 6 4 2)
 assert_eq '▁▁▂▃▄▅▆▇█▇▆▅▄▃▂▁' "$(ui_spectrum_bars)" 'barras de altura variable'
+
+SPECTRUM_LEVELS=(0 0 0 0 4 0 0 0 0 0 0 0 0 0 0 0)
+SPECTRUM_PEAK_LEVELS=(0 0 0 0 12 0 0 0 0 0 0 0 0 0 0 0)
+wide_peak_row=$(ui_spectrum_editor_row_wide 2 16)
+[[ "$wide_peak_row" == *'▔'* ]] || fail 'el pico retenido no se dibujó'
 
 # Incluso un proceso que ignore SIGTERM queda cerrado en un tiempo acotado.
 bash -c 'trap "" TERM; while :; do :; done' &

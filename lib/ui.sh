@@ -722,54 +722,104 @@ ui_spectrum_editor_row_wide() {
     local display_rows="${SPECTRUM_DISPLAY_ROWS:-8}" frame_rows="${SPECTRUM_FRAME_ROWS:-16}"
     local columns gap cell_width segment_remainder column start end max_level level units full_units
     local height partial_glyph result='' i extra partial_units cells side_padding
+    local peak_max_level peak_level peak_units peak_height peak_top current_top marker_row glyph
+    local cache_key
     local -a levels=("${SPECTRUM_LEVELS[@]:-}")
+    local -a peak_levels=("${SPECTRUM_PEAK_LEVELS[@]:-}")
     local -a partial=(' ' '▁' '▂' '▃' '▄' '▅' '▆' '▇' '█')
 
     [[ "$row" =~ ^[0-9]+$ && "$width" =~ ^[0-9]+$ ]] || return 1
     [[ "$display_rows" =~ ^[0-9]+$ && "$frame_rows" =~ ^[0-9]+$ ]] || return 1
     ((display_rows > 0 && frame_rows > 0 && row < display_rows && width > 0)) || return 1
     ((${#levels[@]} == 16)) || levels=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+    ((${#peak_levels[@]} == 16)) || peak_levels=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
 
-    gap=1
-    columns=$(((width + 1) / 3))
-    ((columns < 1)) && columns=1
-    ((columns > 16)) && columns=16
-    ((width < columns)) && columns=$width
-    cell_width=$(((width - columns + 1) / columns))
-    ((cell_width < 1)) && { cell_width=1; gap=0; }
-    segment_remainder=$((width - columns * cell_width - gap * (columns - 1)))
-    # Las celdas extra se dejan como margen simétrico. Repartirlas desde la
-    # primera columna hacía que las barras de la izquierda parecieran más
-    # gruesas que las de la derecha.
-    side_padding=$((segment_remainder / 2))
+    cache_key="$width|$display_rows|$frame_rows|${levels[*]}|${peak_levels[*]}"
+    if [[ "$cache_key" != "${UI_SPECTRUM_WIDE_CACHE_KEY:-}" ]]; then
+        gap=1
+        columns=$(((width + 1) / 3))
+        ((columns < 1)) && columns=1
+        ((columns > 16)) && columns=16
+        ((width < columns)) && columns=$width
+        cell_width=$(((width - columns + 1) / columns))
+        ((cell_width < 1)) && { cell_width=1; gap=0; }
+        segment_remainder=$((width - columns * cell_width - gap * (columns - 1)))
+        # Las celdas extra se dejan como margen simétrico. Repartirlas desde la
+        # primera columna hacía que las barras de la izquierda parecieran más
+        # gruesas que las de la derecha.
+        side_padding=$((segment_remainder / 2))
+        UI_SPECTRUM_WIDE_LEVELS=()
+        UI_SPECTRUM_WIDE_PEAKS=()
+        for ((column = 0; column < columns; column++)); do
+            start=$((column * 16 / columns))
+            end=$(((column + 1) * 16 / columns))
+            ((end <= start)) && end=$((start + 1))
+            max_level=0
+            peak_max_level=0
+            for ((i = start; i < end && i < 16; i++)); do
+                level="${levels[i]}"
+                [[ "$level" =~ ^[0-9]+$ ]] || level=0
+                ((level > max_level)) && max_level=$level
+                peak_level="${peak_levels[i]}"
+                [[ "$peak_level" =~ ^[0-9]+$ ]] || peak_level=0
+                ((peak_level > peak_max_level)) && peak_max_level=$peak_level
+            done
+            UI_SPECTRUM_WIDE_LEVELS[column]=$max_level
+            UI_SPECTRUM_WIDE_PEAKS[column]=$peak_max_level
+        done
+        UI_SPECTRUM_WIDE_COLUMNS=$columns
+        UI_SPECTRUM_WIDE_GAP=$gap
+        UI_SPECTRUM_WIDE_CELL_WIDTH=$cell_width
+        UI_SPECTRUM_WIDE_SIDE_PADDING=$side_padding
+        UI_SPECTRUM_WIDE_CACHE_KEY=$cache_key
+    fi
+
+    columns="${UI_SPECTRUM_WIDE_COLUMNS:-0}"
+    gap="${UI_SPECTRUM_WIDE_GAP:-0}"
+    cell_width="${UI_SPECTRUM_WIDE_CELL_WIDTH:-0}"
+    side_padding="${UI_SPECTRUM_WIDE_SIDE_PADDING:-0}"
+    ((columns > 0 && cell_width > 0)) || return 1
     ((side_padding > 0)) && result+=$(printf '%*s' "$side_padding" '')
 
     for ((column = 0; column < columns; column++)); do
-        start=$((column * 16 / columns))
-        end=$(((column + 1) * 16 / columns))
-        ((end <= start)) && end=$((start + 1))
-        max_level=0
-        for ((i = start; i < end && i < 16; i++)); do
-            level="${levels[i]}"
-            [[ "$level" =~ ^[0-9]+$ ]] || level=0
-            ((level > max_level)) && max_level=$level
-        done
+        max_level="${UI_SPECTRUM_WIDE_LEVELS[column]:-0}"
+        peak_max_level="${UI_SPECTRUM_WIDE_PEAKS[column]:-0}"
 
         units=$((max_level * display_rows * 8 / frame_rows))
         full_units=$((units / 8))
         partial_units=$((units % 8))
         height=$((display_rows - full_units))
-        if ((row >= height)); then
-            partial_glyph="$UI_BAR_FULL"
-        elif ((partial_units > 0 && row == height - 1)); then
-            if ((UI_UNICODE)); then partial_glyph="${partial[partial_units]}"; else partial_glyph="$UI_BAR_FULL"; fi
+        if ((max_level == 0)); then
+            current_top=$display_rows
+        elif ((partial_units > 0)); then
+            current_top=$((height - 1))
         else
-            partial_glyph=' '
+            current_top=$height
+        fi
+        marker_row=-1
+        if ((peak_max_level > max_level)); then
+            peak_units=$((peak_max_level * display_rows * 8 / frame_rows))
+            peak_height=$(((peak_units + 7) / 8))
+            peak_top=$((display_rows - peak_height))
+            marker_row=$peak_top
+            # Si el pico cae en la misma fila que la barra actual, conserva
+            # una fila libre encima para que el marcador siga siendo visible.
+            ((marker_row >= current_top)) && marker_row=$((current_top - 1))
+            ((marker_row < 0)) && marker_row=-1
+        fi
+        glyph=' '
+        if ((row >= height)); then
+            glyph="$UI_BAR_FULL"
+        elif ((partial_units > 0 && row == height - 1)); then
+            if ((UI_UNICODE)); then glyph="${partial[partial_units]}"; else glyph="$UI_BAR_FULL"; fi
+        fi
+        if ((row == marker_row)); then
+            if ((UI_UNICODE)); then glyph='▔'; else glyph='^'; fi
         fi
 
         local segment=$cell_width
         printf -v cells '%*s' "$segment" ''
-        result+=${cells// /$partial_glyph}
+        result+=${cells// /$glyph}
         if ((gap && column < columns - 1)); then result+=' '; fi
     done
 

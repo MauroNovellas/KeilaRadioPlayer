@@ -5,6 +5,7 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 ## [Sin publicar] - rama v2.1
 
 - Añadidos cinco presets de ecualizador (`1` Plano, `2` Rock, `3` Pop, `4` Jazz y `5` Voz) dentro del modo `Z`, con aplicación inmediata y persistencia.
+- Añadido pico retenido por banda en el espectro: el marcador permanece unos cuadros y cae gradualmente para dar más continuidad visual sin añadir trabajo de captura.
 - Añadido suavizado ligero entre cuadros del espectro para amortiguar ráfagas y pausas irregulares sin introducir procesos ni cambiar el audio.
 - Ajustada la tubería FFmpeg del espectro para evitar reprogramar cuadros ya generados y solicitar baja latencia (`nobuffer`, `low_delay`, `avioflags direct`, `fps_mode passthrough`).
 - La captura del espectro solicita latencia de 40 ms y procesamiento de 20 ms para evitar las ráfagas observadas de unos 700 ms. El backend PulseAudio directo usa fragmentos equivalentes a 20 ms de PCM mono.
