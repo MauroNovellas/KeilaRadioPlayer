@@ -5,6 +5,28 @@
 # Se carga después de ui-desktop.sh y redefine solo geometría/render desktop.
 
 declare -a UI_SPECTRUM_CURSOR=()
+declare -a UI_SPECTRUM_CURSOR_CACHE=()
+UI_SPECTRUM_CURSOR_CACHE_KEY=''
+
+ui_desktop_prepare_spectrum_cursor() {
+    local graph_rows="$1"
+    local cache_key="${UI_COLS}|${UI_LINES}|${UI_DESKTOP_LEFT_WIDTH}|${graph_rows}|${SPECTRUM_ENABLED:-0}"
+    local row
+
+    if [[ "$cache_key" == "$UI_SPECTRUM_CURSOR_CACHE_KEY" ]]; then
+        UI_SPECTRUM_CURSOR=("${UI_SPECTRUM_CURSOR_CACHE[@]}")
+        return 0
+    fi
+
+    UI_SPECTRUM_CURSOR=()
+    if ((SPECTRUM_ENABLED)); then
+        for ((row = 0; row < graph_rows; row++)); do
+            UI_SPECTRUM_CURSOR[row]=$(tput cup "$((row + 16))" 2 2>/dev/null || true)
+        done
+    fi
+    UI_SPECTRUM_CURSOR_CACHE=("${UI_SPECTRUM_CURSOR[@]}")
+    UI_SPECTRUM_CURSOR_CACHE_KEY="$cache_key"
+}
 
 ui_desktop_pane_widths() {
     local width="$1"
@@ -80,7 +102,6 @@ ui_draw_desktop() {
     local title="KEILA RADIO PLAYER  ${KEILA_VERSION:-dev}"
     local body_height
     body_height=$(ui_desktop_body_height)
-    UI_SPECTRUM_CURSOR=()
 
     ui_desktop_pane_widths "$width"
     ui_desktop_sync_selection "$body_height"
@@ -149,10 +170,14 @@ ui_draw_desktop() {
 
     local row index fav_marker preset_label fav_badge fav_style fav_badge_style selected
     local main_text main_badge main_style main_style_badge
-    local eq_row spectrum_row spectrum_header_row=12 spectrum_graph_rows
+    local eq_row spectrum_row spectrum_header_row=12 spectrum_graph_rows spectrum_visible_rows
     spectrum_graph_rows="${SPECTRUM_DISPLAY_ROWS:-8}"
     [[ "$spectrum_graph_rows" =~ ^[0-9]+$ ]] || spectrum_graph_rows=8
     ((spectrum_graph_rows > 8)) && spectrum_graph_rows=8
+    spectrum_visible_rows=$((body_height - spectrum_header_row - 1))
+    ((spectrum_visible_rows < 0)) && spectrum_visible_rows=0
+    ((spectrum_graph_rows > spectrum_visible_rows)) && spectrum_graph_rows=$spectrum_visible_rows
+    ui_desktop_prepare_spectrum_cursor "$spectrum_graph_rows"
     for ((row = 0; row < body_height; row++)); do
         main_text=''
         main_badge=''
@@ -212,7 +237,6 @@ ui_draw_desktop() {
             # El analizador se apila bajo el ecualizador y se estira hasta los
             # mismos límites del panel, con columnas anchas y separadas.
             spectrum_row=$((row - spectrum_header_row - 1))
-            UI_SPECTRUM_CURSOR[spectrum_row]=$(tput cup "$((row + 3))" 2 2>/dev/null || true)
             main_text=$(ui_spectrum_editor_row_wide "$spectrum_row" "$UI_DESKTOP_LEFT_WIDTH")
             main_style='playing'
         fi
