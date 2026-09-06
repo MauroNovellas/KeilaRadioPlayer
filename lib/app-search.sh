@@ -144,10 +144,13 @@ stations_select_fzf() {
         return $?
     fi
 
-    # app_search_catalog() ya suspendió la TUI antes de llamarnos. Aprovechamos
-    # ese estado para descargar el catálogo solo si aún no existe una copia útil.
+    # La búsqueda integrada vive dentro de la pantalla alternativa que ya está
+    # activa. No suspendemos/reanudamos la TUI: ui_draw reposiciona el cursor en
+    # 0,0 y repinta sin borrar toda la terminal, evitando el destello al pulsar B.
+    # Si aún no existe catálogo, la preparación se hace silenciosamente antes
+    # del primer render del buscador.
     if ! stations_catalog_valid; then
-        stations_ensure_catalog || return 1
+        stations_ensure_catalog >/dev/null 2>&1 || return 1
     fi
 
     if ! search_open; then
@@ -157,7 +160,6 @@ stations_select_fzf() {
     favorites_confirm_clear
     UI_HELP_VISIBLE=0
     ui_clear_message
-    ui_resume
     search_draw_view
 
     while true; do
