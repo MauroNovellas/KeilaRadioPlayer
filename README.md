@@ -188,17 +188,17 @@ Los mensajes de acciones y errores son temporales: avisos como el cambio de volu
 
 ### Ecualizador
 
-El ecualizador de cinco bandas —60 Hz, 250 Hz, 1 kHz, 4 kHz y 12 kHz— permanece visible junto al volumen. Cada barra representa su ganancia entre −12 y +12 dB y el punto medio corresponde a 0 dB.
+El ecualizador de cinco bandas —60 Hz, 250 Hz, 1 kHz, 4 kHz y 12 kHz— permanece visible a todo el ancho de `Ahora suena`, justo debajo del volumen. Cada barra representa su ganancia entre −12 y +12 dB y el punto medio corresponde a 0 dB.
 
 Pulsa `Z` para activar la edición sobre ese mismo panel, sin cambiar de pantalla. Usa `←`/`→` para elegir la frecuencia y `↑`/`↓` para subir o bajar su valor. `C` centra únicamente la banda seleccionada en 0 dB y `R` devuelve las cinco bandas al sonido plano; `Z`, `Enter` o `Esc` desactivan la edición.
 
-En el layout de escritorio, las cinco barras ampliadas forman parte permanente de `Ahora suena`. Durante la edición, una marca más gruesa en el eje indica la frecuencia seleccionada y el encabezado muestra su valor exacto.
+En el layout de escritorio, las cinco barras ampliadas forman parte permanente de `Ahora suena` y utilizan todo el ancho del panel. Durante la edición, una marca más gruesa en el eje indica la frecuencia seleccionada.
 
 Los cambios se aplican inmediatamente a la emisora en reproducción y se conservan para las siguientes sesiones en `~/.config/keila-radio/equalizer` (o su ruta XDG equivalente). Si una aplicación del filtro falla, Keila mantiene el ajuste anterior.
 
 ### Analizador de espectro
 
-El panel `Ahora suena` muestra un analizador vertical de 16 bandas en ocho filas cuando existe audio real, con la misma altura visible que el ecualizador. Para que cada barra se distinga dentro del panel, las bandas se agrupan en hasta ocho columnas separadas y se usan bloques parciales en la parte superior. Pulsa `V` para ocultarlo o volverlo a mostrar. La captura se detiene automáticamente al pausar o detener la reproducción y vuelve a arrancar al reanudarla.
+El panel `Ahora suena` muestra el analizador vertical de 16 bandas debajo del ecualizador, separado en su propio bloque y utilizando también todo el ancho del panel. Ocupa ocho filas cuando existe audio real, con la misma altura visible que el ecualizador. Las bandas se agrupan en columnas anchas separadas y se usan bloques parciales en la parte superior. Pulsa `V` para ocultarlo o volverlo a mostrar. La captura se detiene automáticamente al pausar o detener la reproducción y vuelve a arrancar al reanudarla.
 
 La pantalla refresca el gráfico cuatro veces por segundo; la captura y el análisis de audio continúan trabajando de forma independiente para conservar una respuesta fluida.
 

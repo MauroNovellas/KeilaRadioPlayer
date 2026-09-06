@@ -4,6 +4,7 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - rama v2.1
 
+- Reorganizada la vista desktop: el ecualizador y el espectro ocupan todo el ancho de `Ahora suena`, y el analizador queda apilado debajo del ecualizador en lugar de compartir sus filas.
 - El analizador de espectro pasa a un gráfico vertical de ocho filas, igualando la altura visible del ecualizador. Agrupa las 16 bandas en hasta ocho columnas separadas y usa bloques parciales para distinguir mejor cada barra; la pantalla se actualiza a cuatro cuadros por segundo sin reducir la frecuencia de captura.
 
 - Corregido el buffering del analizador: entrega cuadros durante la captura continua sin esperar a cerrar el flujo. Prueba integral con PCM generado en tiempo real.

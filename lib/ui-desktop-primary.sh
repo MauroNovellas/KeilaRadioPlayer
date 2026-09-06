@@ -145,99 +145,73 @@ ui_draw_desktop() {
     volume_hint='A/D  ←/→'
 
     local row index fav_marker preset_label fav_badge fav_style fav_badge_style selected
-    local main_text main_badge main_style main_style_badge spectrum_cells
-    local spectrum_columns=8 spectrum_badge_width=4 spectrum_available_width
-    if ((SPECTRUM_ENABLED)); then
-        if ((${EQUALIZER_EDITOR_ACTIVE:-0})); then
-            local selected_eq_badge
-            printf -v selected_eq_badge '%s %s  %+d dB' "$UI_SELECT" "${EQUALIZER_LABELS[EQUALIZER_SELECTED]}" "${EQUALIZER_GAINS[EQUALIZER_SELECTED]}"
-            spectrum_badge_width=${#selected_eq_badge}
-        fi
-        # Cada barra visible ocupa dos celdas: la barra y un espacio de lectura.
-        spectrum_available_width=$((UI_DESKTOP_LEFT_WIDTH - 29 - 1 - spectrum_badge_width - 1))
-        if ((spectrum_available_width < 11)); then
-            spectrum_badge_width=0
-            spectrum_available_width=$((UI_DESKTOP_LEFT_WIDTH - 29 - 1))
-        fi
-        spectrum_columns=$(((spectrum_available_width + 1) / 2))
-        ((spectrum_columns > 8)) && spectrum_columns=8
-        ((spectrum_columns < 1)) && spectrum_columns=1
-    fi
+    local main_text main_badge main_style main_style_badge
+    local eq_row spectrum_row spectrum_header_row=12 spectrum_graph_rows
+    spectrum_graph_rows="${SPECTRUM_DISPLAY_ROWS:-8}"
+    [[ "$spectrum_graph_rows" =~ ^[0-9]+$ ]] || spectrum_graph_rows=8
+    ((spectrum_graph_rows > 8)) && spectrum_graph_rows=8
     for ((row = 0; row < body_height; row++)); do
         main_text=''
         main_badge=''
         main_style=''
         main_style_badge=''
 
-        case "$row" in
-            0)
-                main_text="$marker $station"
-                main_badge="$main_badges"
-                main_style="$station_style"
-                main_style_badge="$main_badge_style"
-                ;;
-            1)
-                if player_is_running && [[ -n "${PLAYER_STREAM_TITLE:-}" ]]; then
-                    main_text="$UI_NOTE $PLAYER_STREAM_TITLE"
-                    main_style='accent'
-                else
-                    main_text='Sin título de emisión disponible'
-                    main_style='muted'
-                fi
-                ;;
-            2)
-                if [[ -n "$audio_info" ]]; then
-                    main_text="$audio_info"
-                    main_style='muted'
-                fi
-                ;;
-            3)
-                main_text="$volume_left"
-                main_badge="$volume_hint"
+        if ((row == 0)); then
+            main_text="$marker $station"
+            main_badge="$main_badges"
+            main_style="$station_style"
+            main_style_badge="$main_badge_style"
+        elif ((row == 1)); then
+            if player_is_running && [[ -n "${PLAYER_STREAM_TITLE:-}" ]]; then
+                main_text="$UI_NOTE $PLAYER_STREAM_TITLE"
                 main_style='accent'
-                main_style_badge='muted'
-                ;;
-            4|5|6|7|8|9|10|11)
-                ui_equalizer_editor_row "$((row - 4))"
-                main_text="$UI_EQ_TEXT"
-                if ((SPECTRUM_ENABLED)); then
-                    spectrum_cells=$(ui_spectrum_editor_row "$((row - 4))" "$spectrum_columns" 1)
-                    main_text+="$UI_V$spectrum_cells"
+            else
+                main_text='Sin título de emisión disponible'
+                main_style='muted'
+            fi
+        elif ((row == 2)); then
+            if [[ -n "$audio_info" ]]; then
+                main_text="$audio_info"
+                main_style='muted'
+            fi
+        elif ((row == 3)); then
+            main_text="$volume_left"
+            main_badge="$volume_hint"
+            main_style='accent'
+            main_style_badge='muted'
+        elif ((row >= 4 && row < spectrum_header_row)); then
+            # Ecualizador a ancho completo: sus cinco bandas ocupan todo el
+            # panel Ahora suena y ya no comparten fila con el espectro.
+            eq_row=$((row - 4))
+            ui_equalizer_wide_row "$eq_row" "$UI_DESKTOP_LEFT_WIDTH" >/dev/null
+            main_text="$UI_EQ_TEXT"
+            main_style="$UI_EQ_STYLE"
+            if ((row == 4)); then
+                if ((${EQUALIZER_EDITOR_ACTIVE:-0})); then
+                    # El encabezado conserva las cinco frecuencias completas;
+                    # la banda activa queda marcada en el eje central.
+                    main_badge=''
+                    main_style_badge=''
                 fi
-                main_style="$UI_EQ_STYLE"
-                if ((row == 4)); then
-                    if ((${EQUALIZER_EDITOR_ACTIVE:-0})); then
-                        if ((spectrum_badge_width > 0)); then
-                            printf -v main_badge '%s  %+d dB' "${EQUALIZER_LABELS[EQUALIZER_SELECTED]}" "${EQUALIZER_GAINS[EQUALIZER_SELECTED]}"
-                        else
-                            main_badge=''
-                        fi
-                        main_style_badge='selected'
-                    else
-                        if ((SPECTRUM_ENABLED && spectrum_badge_width > 0)); then
-                            main_badge='Z EQ'
-                        elif ((SPECTRUM_ENABLED)); then
-                            main_badge=''
-                        else
-                            main_badge='Z editar'
-                        fi
-                        main_style_badge='muted'
-                    fi
-                fi
-                ;;
-            12)
-                if ((UI_UNICODE)); then main_text='ESPECTRO 20 Hz–20 kHz'; else main_text='ESPECTRO 20Hz-20kHz'; fi
-                if ((!${SPECTRUM_ENABLED:-0})); then
-                    main_badge='V mostrar'
-                elif [[ "${SPECTRUM_AVAILABLE:-unknown}" == no ]]; then
-                    main_badge='No disponible'
-                else
-                    main_badge='V ocultar'
-                fi
-                main_style='playing'
-                main_style_badge='muted'
-                ;;
-        esac
+            fi
+        elif ((row == spectrum_header_row)); then
+            if ((UI_UNICODE)); then main_text='ESPECTRO 20 Hz–20 kHz'; else main_text='ESPECTRO 20Hz-20kHz'; fi
+            if ((!${SPECTRUM_ENABLED:-0})); then
+                main_badge='V mostrar'
+            elif [[ "${SPECTRUM_AVAILABLE:-unknown}" == no ]]; then
+                main_badge='No disponible'
+            else
+                main_badge='V ocultar'
+            fi
+            main_style='playing'
+            main_style_badge='muted'
+        elif ((SPECTRUM_ENABLED && row > spectrum_header_row && row <= spectrum_header_row + spectrum_graph_rows)); then
+            # El analizador se apila bajo el ecualizador y se estira hasta los
+            # mismos límites del panel, con columnas anchas y separadas.
+            spectrum_row=$((row - spectrum_header_row - 1))
+            main_text=$(ui_spectrum_editor_row_wide "$spectrum_row" "$UI_DESKTOP_LEFT_WIDTH")
+            main_style='playing'
+        fi
 
         index=$((UI_SCROLL_OFFSET + row))
         fav_marker='  '

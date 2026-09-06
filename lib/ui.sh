@@ -551,6 +551,93 @@ ui_equalizer_editor_row() {
     esac
 }
 
+# Renderiza el ecualizador con cinco columnas distribuidas por todo el ancho
+# disponible. Conserva las ocho filas gráficas del editor normal, pero evita
+# que el gráfico quede encajonado a la izquierda cuando comparte panel con
+# otros datos de reproducción.
+ui_equalizer_wide_row() {
+    local row="$1" width="${2:-40}"
+    local prefix threshold direction i segment_width remainder segment extra
+    local label left right gain cell result=''
+    local -a labels=(60 250 1k 4k 12k)
+
+    [[ "$row" =~ ^[0-9]+$ && "$width" =~ ^[0-9]+$ ]] || return 1
+    ((row >= 0 && row < 8 && width > 0)) || return 1
+
+    case "$row" in
+        0) prefix='EQ '; direction='labels' ;;
+        1) prefix='+12 '; direction='positive'; threshold=9 ;;
+        2) prefix=' +6 '; direction='positive'; threshold=5 ;;
+        3) prefix=' +1 '; direction='positive'; threshold=1 ;;
+        4) prefix='  0 '; direction='axis' ;;
+        5) prefix=' -1 '; direction='negative'; threshold=1 ;;
+        6) prefix=' -6 '; direction='negative'; threshold=5 ;;
+        7) prefix='-12 '; direction='negative'; threshold=9 ;;
+    esac
+
+    # El hueco entre bandas mejora la lectura sin perder el ancho completo.
+    local graph_width=$((width - ${#prefix}))
+    ((graph_width < 5)) && graph_width=5
+    local gaps=4
+    segment_width=$(((graph_width - gaps) / 5))
+    ((segment_width < 1)) && segment_width=1
+    remainder=$((graph_width - gaps - segment_width * 5))
+    result="$prefix"
+
+    for ((i = 0; i < 5; i++)); do
+        segment=$segment_width
+        ((i < remainder)) && ((segment += 1))
+
+        case "$direction" in
+            labels)
+                label="${labels[i]}"
+                if ((${#label} >= segment)); then
+                    cell=$(ui_truncate "$label" "$segment")
+                else
+                    left=$(((segment - ${#label}) / 2))
+                    right=$((segment - ${#label} - left))
+                    cell=$(ui_repeat_char ' ' "$left")$label$(ui_repeat_char ' ' "$right")
+                fi
+                ;;
+            axis)
+                if ((UI_UNICODE)); then
+                    cell=$(ui_repeat_char '─' "$segment")
+                    local axis_pos=$((segment / 2))
+                    local cross='┼'
+                    if ((${EQUALIZER_EDITOR_ACTIVE:-0} && i == EQUALIZER_SELECTED)); then cross='╋'; fi
+                    cell="${cell:0:axis_pos}${cross}${cell:axis_pos+1}"
+                else
+                    cell=$(ui_repeat_char '-' "$segment")
+                    local ascii_axis_pos=$((segment / 2))
+                    local ascii_cross='+'
+                    if ((${EQUALIZER_EDITOR_ACTIVE:-0} && i == EQUALIZER_SELECTED)); then ascii_cross='#'; fi
+                    cell="${cell:0:ascii_axis_pos}${ascii_cross}${cell:ascii_axis_pos+1}"
+                fi
+                ;;
+            positive|negative)
+                gain=${EQUALIZER_GAINS[i]:-0}
+                cell=$(ui_repeat_char ' ' "$segment")
+                if [[ "$direction" == positive && "$gain" =~ ^-?[0-9]+$ ]] && ((gain >= threshold)); then
+                    cell=$(ui_repeat_char "$UI_BAR_FULL" "$segment")
+                elif [[ "$direction" == negative && "$gain" =~ ^-?[0-9]+$ ]] && ((gain <= -threshold)); then
+                    cell=$(ui_repeat_char "$UI_BAR_FULL" "$segment")
+                fi
+                ;;
+        esac
+
+        result+="$cell"
+        if ((i < 4)); then result+=' '; fi
+    done
+
+    # El cálculo de segmentos puede dejar una o dos celdas libres por redondeo.
+    extra=$((width - ${#result}))
+    ((extra > 0)) && result+=$(ui_repeat_char ' ' "$extra")
+    UI_EQ_TEXT="${result:0:width}"
+    UI_EQ_STYLE='accent'
+    [[ "$row" == 4 ]] && UI_EQ_STYLE='muted'
+    printf '%s' "$UI_EQ_TEXT"
+}
+
 ui_spectrum_row() {
     local threshold="$1" level
     local result=''
@@ -623,6 +710,65 @@ ui_spectrum_editor_row() {
         if ((spaced && column < max_columns - 1)); then result+=' '; fi
     done
     printf '%s' "$result"
+}
+
+# Variante de ancho completo para el panel Ahora suena. Cada banda fuente se
+# agrupa en columnas visibles y cada columna ocupa varias celdas, de modo que
+# el analizador mantiene la misma anchura que el resto de la sección.
+ui_spectrum_editor_row_wide() {
+    local row="$1" width="${2:-40}"
+    local display_rows="${SPECTRUM_DISPLAY_ROWS:-8}" frame_rows="${SPECTRUM_FRAME_ROWS:-16}"
+    local columns gap cell_width segment_remainder column start end max_level level units full_units
+    local height partial_glyph result='' i extra partial_units
+    local -a levels=("${SPECTRUM_LEVELS[@]:-}")
+    local -a partial=(' ' '▁' '▂' '▃' '▄' '▅' '▆' '▇' '█')
+
+    [[ "$row" =~ ^[0-9]+$ && "$width" =~ ^[0-9]+$ ]] || return 1
+    [[ "$display_rows" =~ ^[0-9]+$ && "$frame_rows" =~ ^[0-9]+$ ]] || return 1
+    ((display_rows > 0 && frame_rows > 0 && row < display_rows && width > 0)) || return 1
+    ((${#levels[@]} == 16)) || levels=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+
+    gap=1
+    columns=$(((width + 1) / 3))
+    ((columns < 1)) && columns=1
+    ((columns > 16)) && columns=16
+    ((width < columns)) && columns=$width
+    cell_width=$(((width - columns + 1) / columns))
+    ((cell_width < 1)) && { cell_width=1; gap=0; }
+    segment_remainder=$((width - columns * cell_width - gap * (columns - 1)))
+
+    for ((column = 0; column < columns; column++)); do
+        start=$((column * 16 / columns))
+        end=$(((column + 1) * 16 / columns))
+        ((end <= start)) && end=$((start + 1))
+        max_level=0
+        for ((i = start; i < end && i < 16; i++)); do
+            level="${levels[i]}"
+            [[ "$level" =~ ^[0-9]+$ ]] || level=0
+            ((level > max_level)) && max_level=$level
+        done
+
+        units=$((max_level * display_rows * 8 / frame_rows))
+        full_units=$((units / 8))
+        partial_units=$((units % 8))
+        height=$((display_rows - full_units))
+        if ((row >= height)); then
+            partial_glyph="$UI_BAR_FULL"
+        elif ((partial_units > 0 && row == height - 1)); then
+            if ((UI_UNICODE)); then partial_glyph="${partial[partial_units]}"; else partial_glyph="$UI_BAR_FULL"; fi
+        else
+            partial_glyph=' '
+        fi
+
+        local segment=$cell_width
+        ((column < segment_remainder)) && ((segment += 1))
+        result+=$(ui_repeat_char "$partial_glyph" "$segment")
+        if ((gap && column < columns - 1)); then result+=' '; fi
+    done
+
+    extra=$((width - ${#result}))
+    ((extra > 0)) && result+=$(ui_repeat_char ' ' "$extra")
+    printf '%s' "${result:0:width}"
 }
 
 ui_audio_info() {

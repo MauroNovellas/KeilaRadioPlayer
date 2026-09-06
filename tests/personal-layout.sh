@@ -54,7 +54,7 @@ TEST_COLS=132 TEST_LINES=40 UI_SELECTED_INDEX=0
 EQUALIZER_EDITOR_ACTIVE=1
 EQUALIZER_GAINS=(12 6 0 -6 -12)
 render=$(ui_draw)
-[[ "$render" == *'EQ   60  250  1k  4k  12k'* && "$render" == *'+12'* && "$render" == *'╋'* ]] || fail 'editor gráfico integrado invisible'
+[[ "$render" == *'EQ'* && "$render" == *'60'* && "$render" == *'250'* && "$render" == *'12k'* && "$render" == *'+12'* && "$render" == *'╋'* ]] || fail 'editor gráfico integrado invisible'
 while IFS= read -r line || [[ -n "$line" ]]; do
     ((${#line} < TEST_COLS)) || fail 'autowrap del editor gráfico'
 done <<< "$render"
@@ -63,7 +63,20 @@ SPECTRUM_ENABLED=1
 SPECTRUM_LEVELS=(0 1 2 3 4 5 6 7 8 7 6 5 4 3 2 1)
 render=$(ui_draw)
 [[ "$render" == *'ESPECTRO'* && "$render" == *'V ocultar'* ]] || fail 'analizador invisible'
-[[ "$render" == *'EQ   60  250  1k  4k  12k'* ]] || fail 'ecualizador permanente invisible en desktop'
+[[ "$render" == *'EQ'* && "$render" == *'60'* && "$render" == *'12k'* ]] || fail 'ecualizador permanente invisible en desktop'
+
+# Ambos gráficos comparten el ancho completo del panel Ahora suena y el
+# espectro empieza después del bloque de ocho filas del ecualizador.
+ui_desktop_pane_widths "$((TEST_COLS - 1))"
+wide_eq=$(ui_equalizer_wide_row 4 "$UI_DESKTOP_LEFT_WIDTH")
+wide_spectrum=$(ui_spectrum_editor_row_wide 7 "$UI_DESKTOP_LEFT_WIDTH")
+assert_width=${#wide_eq}
+((assert_width == UI_DESKTOP_LEFT_WIDTH)) || fail 'ecualizador no ocupa el ancho del panel'
+assert_width=${#wide_spectrum}
+((assert_width == UI_DESKTOP_LEFT_WIDTH)) || fail 'espectro no ocupa el ancho del panel'
+eq_line=$(printf '%s\n' "$render" | awk '/│ EQ/{print NR; exit}')
+spectrum_line=$(printf '%s\n' "$render" | awk '/ESPECTRO/{print NR; exit}')
+((eq_line > 0 && spectrum_line > eq_line)) || fail 'espectro no aparece debajo del ecualizador'
 while IFS= read -r line || [[ -n "$line" ]]; do
     ((${#line} < TEST_COLS)) || fail 'autowrap del analizador'
 done <<< "$render"
