@@ -35,6 +35,8 @@ source "$BASE_DIR/lib/stations.sh"
 source "$BASE_DIR/lib/player.sh"
 # shellcheck source=lib/equalizer.sh
 source "$BASE_DIR/lib/equalizer.sh"
+# shellcheck source=lib/spectrum.sh
+source "$BASE_DIR/lib/spectrum.sh"
 # shellcheck source=lib/recording.sh
 source "$BASE_DIR/lib/recording.sh"
 # shellcheck source=lib/diagnostics.sh
@@ -56,6 +58,7 @@ source "$BASE_DIR/lib/label-editor.sh"
 source "$BASE_DIR/lib/equalizer-editor.sh"
 
 cleanup() {
+    spectrum_stop >/dev/null 2>&1 || true
     catalog_stop >/dev/null 2>&1 || true
     recording_stop >/dev/null 2>&1 || true
     input_shutdown >/dev/null 2>&1 || true
@@ -197,6 +200,18 @@ app_change_volume() {
     else
         app_message "No se pudo cambiar el volumen." 6
     fi
+}
+
+app_toggle_spectrum() {
+    local status=0
+    spectrum_toggle || status=$?
+    case "$status" in
+        0)
+            if ((SPECTRUM_ENABLED)); then app_message 'Analizador de espectro activado.' 4; else app_message 'Analizador de espectro oculto.' 4; fi
+            ;;
+        2) app_message 'El analizador necesita un monitor PulseAudio/PipeWire disponible.' 6 ;;
+        *) app_message 'No se pudo cambiar el analizador de espectro.' 6 ;;
+    esac
 }
 
 app_toggle_pause() {
@@ -402,6 +417,7 @@ app_poll_player() {
         changed=0
     fi
     if history_observe; then changed=0; fi
+    if spectrum_tick; then changed=0; fi
     if recording_tick_changed; then changed=0; fi
     return "$changed"
 }
@@ -432,6 +448,7 @@ app_handle_key() {
         u|U) app_update_catalog || true ;;
         e|E) app_edit_label || true ;;
         z|Z) app_edit_equalizer || true ;;
+        v|V) app_toggle_spectrum || true ;;
         h|H) ui_toggle_help ;;
         q|Q) app_message "Hasta luego." 0; return 2 ;;
         *) return 1 ;;

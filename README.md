@@ -136,6 +136,7 @@ P                  pausa/reanudar
 R                  iniciar/detener grabación del stream actual
 E                  editar etiqueta de la emisora seleccionada
 Z                  abrir ecualizador
+V                  mostrar/ocultar analizador de espectro
 F                  añadir/eliminar la emisora en reproducción de favoritos
 J / K              mover el favorito seleccionado abajo/arriba
 X                  eliminar el favorito seleccionado
@@ -187,7 +188,19 @@ Los mensajes de acciones y errores son temporales: avisos como el cambio de volu
 
 Pulsa `Z` para abrir el ecualizador de cinco bandas: 60 Hz, 250 Hz, 1 kHz, 4 kHz y 12 kHz. Usa `↑`/`↓` para elegir banda y `←`/`→` para ajustarla entre −12 y +12 dB. `R` devuelve todas las bandas al sonido plano; `Enter` o `Esc` cierran el editor.
 
+En el layout de escritorio, el editor sustituye temporalmente el panel `Ahora suena` por cinco barras verticales. La altura por encima o por debajo del eje de 0 dB refleja el ajuste de cada frecuencia mientras se modifica.
+
 Los cambios se aplican inmediatamente a la emisora en reproducción y se conservan para las siguientes sesiones en `~/.config/keila-radio/equalizer` (o su ruta XDG equivalente). Si una aplicación del filtro falla, Keila mantiene el ajuste anterior.
+
+### Analizador de espectro
+
+El panel `Ahora suena` muestra un analizador de 16 bandas cuando existe audio real. Pulsa `V` para ocultarlo o volverlo a mostrar. La captura se detiene automáticamente al pausar o detener la reproducción y vuelve a arrancar al reanudarla.
+
+En Linux de escritorio usa el monitor de la salida PulseAudio/PipeWire mediante `ffmpeg` y `pactl`; analiza el audio que ya está reproduciendo `mpv` y no abre otra conexión a la emisora. Estas dos herramientas son opcionales: si no existen o el sistema no expone un monitor compatible, Keila continúa funcionando y muestra `No disponible` en el panel. En Debian/Ubuntu pueden instalarse con:
+
+```bash
+sudo apt install ffmpeg pulseaudio-utils
+```
 
 ## Teclado y terminal
 
@@ -309,6 +322,8 @@ bash ./tests/ui-responsive.sh
 bash ./tests/ui-desktop.sh
 bash ./tests/ui-update-status.sh
 bash ./tests/search-integrated.sh
+bash ./tests/equalizer.sh
+bash ./tests/spectrum.sh
 bash ./tests/search-favorites.sh
 bash ./tests/ui-desktop-search-pane.sh
 bash ./tests/ui-terminal-guard.sh
@@ -338,6 +353,7 @@ KeilaRadioPlayer/
 │   ├── player.sh
 │   ├── recording.sh
 │   ├── search.sh
+│   ├── spectrum.sh
 │   ├── state.sh
 │   ├── stations.sh
 │   ├── ui.sh
@@ -360,6 +376,7 @@ KeilaRadioPlayer/
     ├── run.sh
     ├── search-favorites.sh
     ├── search-integrated.sh
+    ├── spectrum.sh
     ├── ui-desktop.sh
     ├── ui-desktop-search-pane.sh
     ├── ui-responsive.sh

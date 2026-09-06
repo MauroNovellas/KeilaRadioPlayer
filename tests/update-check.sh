@@ -56,6 +56,7 @@ make_release() {
         label-editor.sh
         equalizer.sh
         equalizer-editor.sh
+        spectrum.sh
         favorites.sh
         stations.sh
         search.sh

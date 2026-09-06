@@ -224,6 +224,32 @@ ui_draw_desktop() {
                 ;;
         esac
 
+        if ((${EQUALIZER_EDITOR_ACTIVE:-0})); then
+            ui_equalizer_editor_row "$row"
+            main_text="$UI_EQ_TEXT"
+            main_badge="$UI_EQ_BADGE"
+            main_style="$UI_EQ_STYLE"
+            main_style_badge='muted'
+        elif ((row == 9)); then
+            main_text='ESPECTRO'
+            if ((!${SPECTRUM_ENABLED:-0})); then
+                main_badge='V mostrar'
+            elif [[ "${SPECTRUM_AVAILABLE:-unknown}" == no ]]; then
+                main_badge='No disponible'
+            else
+                main_badge='V ocultar'
+            fi
+            main_style='muted'
+            main_style_badge='muted'
+        elif ((row >= 10 && row <= 12 && ${SPECTRUM_ENABLED:-0})); then
+            case "$row" in
+                10) main_text="    $(ui_spectrum_row 6)" ;;
+                11) main_text="    $(ui_spectrum_row 3)" ;;
+                12) main_text="    $(ui_spectrum_row 1)" ;;
+            esac
+            main_style='playing'
+        fi
+
         index=$((UI_SCROLL_OFFSET + row))
         fav_marker='  '
         preset_label=''

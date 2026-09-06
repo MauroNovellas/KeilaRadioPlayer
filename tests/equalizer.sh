@@ -13,6 +13,7 @@ source "$ROOT_DIR/lib/config.sh"
 source "$ROOT_DIR/lib/lock.sh"
 source "$ROOT_DIR/lib/player.sh"
 source "$ROOT_DIR/lib/equalizer.sh"
+source "$ROOT_DIR/lib/ui.sh"
 
 trap 'rm -rf "$task_tmp"' EXIT
 config_load "$task_tmp/recordings" || fail 'configuración'
@@ -51,4 +52,16 @@ assert_eq '-12' "${EQUALIZER_GAINS[1]}" 'mínimo de -12 dB'
 equalizer_reset || fail 'restablecer plano'
 assert_eq 'Plano' "$(equalizer_summary)" 'resumen tras reset'
 
-printf 'ok   ecualizador: persistencia, límites, IPC y restablecimiento\n'
+UI_UNICODE=1
+ui_configure_glyphs
+EQUALIZER_GAINS=(12 6 0 -6 -12)
+ui_equalizer_editor_row 1
+[[ "$UI_EQ_TEXT" == *'█'* ]] || fail 'barra positiva invisible'
+ui_equalizer_editor_row 4
+[[ "$UI_EQ_TEXT" == *'┼'* ]] || fail 'eje del ecualizador invisible'
+ui_equalizer_editor_row 7
+[[ "$UI_EQ_TEXT" == *'█'* ]] || fail 'barra negativa invisible'
+ui_equalizer_editor_row 8
+[[ "$UI_EQ_TEXT" == *'60'* && "$UI_EQ_TEXT" == *'12k'* ]] || fail 'etiquetas de bandas invisibles'
+
+printf 'ok   ecualizador: persistencia, límites, IPC y barras verticales\n'

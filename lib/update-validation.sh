@@ -26,6 +26,7 @@ update_validate_tree() {
         lib/label-editor.sh
         lib/equalizer.sh
         lib/equalizer-editor.sh
+        lib/spectrum.sh
         lib/favorites.sh
         lib/stations.sh
         lib/search.sh

@@ -481,6 +481,60 @@ ui_equalizer_summary() {
     printf 'EQ %s' "$(equalizer_summary)"
 }
 
+ui_equalizer_bar_cells() {
+    local direction="$1" threshold="$2" gain cell='' i
+    for ((i=0; i<5; i++)); do
+        gain=${EQUALIZER_GAINS[i]}
+        cell=' '
+        if [[ "$direction" == positive ]] && ((gain >= threshold)); then cell="$UI_BAR_FULL"; fi
+        if [[ "$direction" == negative ]] && ((gain <= -threshold)); then cell="$UI_BAR_FULL"; fi
+        printf '  %s  ' "$cell"
+    done
+}
+
+ui_equalizer_editor_row() {
+    local row="$1" gain label zero_axis
+    UI_EQ_TEXT=''
+    UI_EQ_BADGE=''
+    UI_EQ_STYLE='accent'
+    case "$row" in
+        0) UI_EQ_TEXT='ECUALIZADOR · 5 BANDAS'; UI_EQ_BADGE='R plano' ;;
+        1) UI_EQ_TEXT="+12 $(ui_equalizer_bar_cells positive 9)" ;;
+        2) UI_EQ_TEXT=" +6 $(ui_equalizer_bar_cells positive 5)" ;;
+        3) UI_EQ_TEXT=" +1 $(ui_equalizer_bar_cells positive 1)" ;;
+        4)
+            if ((UI_UNICODE)); then
+                zero_axis='──┼────┼────┼────┼────┼──'
+            else
+                zero_axis='--+----+----+----+----+--'
+            fi
+            UI_EQ_TEXT="  0 $zero_axis"
+            UI_EQ_STYLE='muted'
+            ;;
+        5) UI_EQ_TEXT=" -1 $(ui_equalizer_bar_cells negative 1)" ;;
+        6) UI_EQ_TEXT=" -6 $(ui_equalizer_bar_cells negative 5)" ;;
+        7) UI_EQ_TEXT="-12 $(ui_equalizer_bar_cells negative 9)" ;;
+        8) UI_EQ_TEXT='     60   250   1k    4k   12k'; UI_EQ_STYLE='muted' ;;
+        9)
+            label=${EQUALIZER_LABELS[EQUALIZER_SELECTED]}
+            gain=${EQUALIZER_GAINS[EQUALIZER_SELECTED]}
+            printf -v UI_EQ_TEXT '%s %s  %+d dB' "$UI_SELECT" "$label" "$gain"
+            ;;
+        *) UI_EQ_TEXT='' ;;
+    esac
+}
+
+ui_spectrum_row() {
+    local threshold="$1" level
+    local result=''
+    local -a levels=("${SPECTRUM_LEVELS[@]:-}")
+    ((${#levels[@]} == 16)) || levels=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+    for level in "${levels[@]}"; do
+        if ((level >= threshold)); then result+="$UI_BAR_FULL"; else result+=' '; fi
+    done
+    printf '%s' "$result"
+}
+
 ui_audio_info() {
     local -a parts=()
     [[ -n "${PLAYER_CODEC:-}" ]] && parts+=("${PLAYER_CODEC^^}")

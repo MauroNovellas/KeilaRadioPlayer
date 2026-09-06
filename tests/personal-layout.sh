@@ -46,4 +46,22 @@ for size in '132 40' '112 20' '80 24' '55 15' '45 12' '45 11'; do
         fi
     done
 done
+
+# El editor gráfico y el espectro conservan la geometría del panel de escritorio.
+TEST_COLS=132 TEST_LINES=40 UI_SELECTED_INDEX=0
+EQUALIZER_EDITOR_ACTIVE=1
+EQUALIZER_GAINS=(12 6 0 -6 -12)
+render=$(ui_draw)
+[[ "$render" == *'ECUALIZADOR · 5 BANDAS'* && "$render" == *'12k'* ]] || fail 'editor gráfico invisible'
+while IFS= read -r line || [[ -n "$line" ]]; do
+    ((${#line} < TEST_COLS)) || fail 'autowrap del editor gráfico'
+done <<< "$render"
+EQUALIZER_EDITOR_ACTIVE=0
+SPECTRUM_ENABLED=1
+SPECTRUM_LEVELS=(0 1 2 3 4 5 6 7 8 7 6 5 4 3 2 1)
+render=$(ui_draw)
+[[ "$render" == *'ESPECTRO'* && "$render" == *'V ocultar'* ]] || fail 'analizador invisible'
+while IFS= read -r line || [[ -n "$line" ]]; do
+    ((${#line} < TEST_COLS)) || fail 'autowrap del analizador'
+done <<< "$render"
 printf 'ok   favoritos etiquetados, recientes y catálogo en seis tamaños\n'
