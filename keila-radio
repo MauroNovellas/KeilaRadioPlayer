@@ -87,17 +87,48 @@ app_init_data() {
 
 app_play() {
     local name="$1" url="$2"
-    if ((RECORDING_ACTIVE)); then recording_stop >/dev/null 2>&1 || true; fi
+    local recording_notice=""
+
+    if ((RECORDING_ACTIVE)); then
+        local saved_file saved_size
+        saved_file=$(recording_filename)
+
+        if ! recording_stop; then
+            app_message "Grabación incompleta: ${RECORDING_LAST_ERROR:-no se pudo validar el archivo}. No se cambia de emisora." 9
+            return 1
+        fi
+
+        saved_size=$(recording_size_human)
+        if [[ -n "${RECORDING_LAST_ERROR:-}" ]]; then
+            recording_notice="Grabación conservada: $saved_file ($saved_size)"
+        else
+            recording_notice="Grabación guardada: $saved_file ($saved_size)"
+        fi
+    fi
+
     if ! player_start "$name" "$url"; then
         if [[ -n "${PLAYER_LAST_EXIT_STATUS:-}" ]]; then
-            app_message "No se pudo iniciar $name (mpv: código $PLAYER_LAST_EXIT_STATUS)." 8
+            if [[ -n "$recording_notice" ]]; then
+                app_message "$recording_notice · No se pudo iniciar $name (mpv: código $PLAYER_LAST_EXIT_STATUS)." 9
+            else
+                app_message "No se pudo iniciar $name (mpv: código $PLAYER_LAST_EXIT_STATUS)." 8
+            fi
         else
-            app_message "No se pudo iniciar la emisora: $name" 8
+            if [[ -n "$recording_notice" ]]; then
+                app_message "$recording_notice · No se pudo iniciar la emisora: $name" 9
+            else
+                app_message "No se pudo iniciar la emisora: $name" 8
+            fi
         fi
         return 1
     fi
+
     save_player_state >/dev/null 2>&1 || true
-    app_message "Conectando: $name" 5
+    if [[ -n "$recording_notice" ]]; then
+        app_message "$recording_notice · Conectando: $name" 8
+    else
+        app_message "Conectando: $name" 5
+    fi
 }
 
 app_play_selected() {
