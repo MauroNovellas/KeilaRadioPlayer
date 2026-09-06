@@ -138,6 +138,12 @@ source "$(dirname "${BASH_SOURCE[0]}")/app-reconnect.sh"
 # shellcheck source=lib/app-reconnect-failure.sh
 source "$(dirname "${BASH_SOURCE[0]}")/app-reconnect-failure.sh"
 
+# Cliente IPC persistente de eventos. Se carga después de las capas del player y
+# reconexión para envolver sus funciones finales, pero sigue antes del guard de
+# terminal para conservarlo como última protección del runtime.
+# shellcheck source=lib/player-events.sh
+source "$(dirname "${BASH_SOURCE[0]}")/player-events.sh"
+
 # Última protección del terminal: mantiene ECHO desactivado también durante los
 # intervalos entre lecturas, IPC y redibujados, y restaura el estado al salir.
 # Debe cargarse la última para envolver las versiones finales de enter/suspend/
