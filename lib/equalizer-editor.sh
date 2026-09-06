@@ -26,6 +26,13 @@ app_edit_equalizer() {
                 case "$INPUT_KEY" in
                     r|R) equalizer_reset || app_message 'No se pudo restablecer el ecualizador.' 5 ;;
                     c|C) equalizer_center_selected || app_message 'No se pudo centrar la banda.' 5 ;;
+                    [1-5])
+                        if equalizer_apply_preset "$INPUT_KEY"; then
+                            app_message "Preset ecualizador: $(equalizer_preset_name "$INPUT_KEY")" 4
+                        else
+                            app_message 'No se pudo aplicar el preset.' 5
+                        fi
+                        ;;
                     z|Z)
                         EQUALIZER_EDITOR_ACTIVE=0
                         UI_HELP_VISIBLE=$previous_help

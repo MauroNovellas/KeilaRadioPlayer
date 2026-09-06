@@ -192,6 +192,8 @@ El ecualizador de cinco bandas —60 Hz, 250 Hz, 1 kHz, 4 kHz y 12 kHz— perman
 
 Pulsa `Z` para activar la edición sobre ese mismo panel, sin cambiar de pantalla. Usa `←`/`→` para elegir la frecuencia y `↑`/`↓` para subir o bajar su valor. `C` centra únicamente la banda seleccionada en 0 dB y `R` devuelve las cinco bandas al sonido plano; `Z`, `Enter` o `Esc` desactivan la edición.
 
+Mientras editas, las teclas `1` a `5` aplican presets rápidos: `1` Plano, `2` Rock, `3` Pop, `4` Jazz y `5` Voz. Solo funcionan dentro del editor y se guardan igual que los ajustes manuales; fuera de `Z`, las teclas numéricas mantienen sus presets de Favoritos.
+
 En el layout de escritorio, las cinco barras ampliadas forman parte permanente de `Ahora suena` y utilizan todo el ancho del panel. Durante la edición, una marca más gruesa en el eje indica la frecuencia seleccionada.
 
 Los cambios se aplican inmediatamente a la emisora en reproducción y se conservan para las siguientes sesiones en `~/.config/keila-radio/equalizer` (o su ruta XDG equivalente). Si una aplicación del filtro falla, Keila mantiene el ajuste anterior.

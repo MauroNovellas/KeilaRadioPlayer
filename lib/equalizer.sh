@@ -8,6 +8,14 @@ EQUALIZER_GAINS=(0 0 0 0 0)
 EQUALIZER_SELECTED=0
 EQUALIZER_EDITOR_ACTIVE=0
 KEILA_EQUALIZER_FILE="${KEILA_CONFIG_DIR}/equalizer"
+EQUALIZER_PRESET_NAMES=(Plano Rock Pop Jazz Voz)
+EQUALIZER_PRESET_GAINS=(
+    '0,0,0,0,0'
+    '6,3,0,3,6'
+    '1,3,2,4,2'
+    '3,2,-1,2,4'
+    '-2,1,4,3,0'
+)
 
 equalizer_gain_valid() {
     [[ "$1" =~ ^-?[0-9]+$ ]] && (($1 >= -12 && $1 <= 12))
@@ -112,4 +120,45 @@ equalizer_reset() {
         return 1
     fi
     equalizer_save
+}
+
+equalizer_preset_name() {
+    local index="$1"
+    [[ "$index" =~ ^[1-5]$ ]] || return 1
+    printf '%s' "${EQUALIZER_PRESET_NAMES[index-1]}"
+}
+
+equalizer_current_preset() {
+    local current
+    current=$(IFS=,; printf '%s' "${EQUALIZER_GAINS[*]}")
+    local index
+    for ((index = 0; index < ${#EQUALIZER_PRESET_GAINS[@]}; index++)); do
+        [[ "$current" == "${EQUALIZER_PRESET_GAINS[index]}" ]] && {
+            printf '%s' "${EQUALIZER_PRESET_NAMES[index]}"
+            return 0
+        }
+    done
+    printf 'Personalizado'
+}
+
+equalizer_apply_preset() {
+    local index="$1"
+    [[ "$index" =~ ^[1-5]$ ]] || return 1
+    local raw="${EQUALIZER_PRESET_GAINS[index-1]}" previous=("${EQUALIZER_GAINS[@]}")
+    local -a gains=()
+    IFS=',' read -r -a gains <<< "$raw"
+    ((${#gains[@]} == 5)) || return 1
+    local gain
+    for gain in "${gains[@]}"; do equalizer_gain_valid "$gain" || return 1; done
+
+    EQUALIZER_GAINS=("${gains[@]}")
+    if ! equalizer_apply; then
+        EQUALIZER_GAINS=("${previous[@]}")
+        return 1
+    fi
+    if ! equalizer_save; then
+        EQUALIZER_GAINS=("${previous[@]}")
+        equalizer_apply || true
+        return 1
+    fi
 }

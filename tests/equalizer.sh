@@ -52,6 +52,12 @@ assert_eq '-12' "${EQUALIZER_GAINS[1]}" 'mínimo de -12 dB'
 equalizer_reset || fail 'restablecer plano'
 assert_eq 'Plano' "$(equalizer_summary)" 'resumen tras reset'
 
+equalizer_apply_preset 2 || fail 'aplicar preset Rock'
+assert_eq '6 3 0 3 6' "${EQUALIZER_GAINS[*]}" 'ganancias del preset Rock'
+assert_eq 'Rock' "$(equalizer_current_preset)" 'nombre del preset actual'
+if equalizer_apply_preset 9; then fail 'aceptó un preset inexistente'; fi
+equalizer_reset || fail 'restablecer tras presets'
+
 UI_UNICODE=1
 ui_configure_glyphs
 EQUALIZER_GAINS=(12 6 0 -6 -12)
