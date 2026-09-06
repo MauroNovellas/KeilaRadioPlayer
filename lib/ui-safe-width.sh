@@ -121,6 +121,13 @@ source "$(dirname "${BASH_SOURCE[0]}")/app-search.sh"
 # shellcheck source=lib/ui-desktop-search-pane.sh
 source "$(dirname "${BASH_SOURCE[0]}")/ui-desktop-search-pane.sh"
 
+# Reconexión automática conservadora: se engancha al tick ya refinado por el
+# chequeo de updates y envuelve player/recording sin bloquear el loop de input.
+# Debe cargarse antes del guard final para conservar ui-terminal-guard como la
+# última capa del runtime.
+# shellcheck source=lib/app-reconnect.sh
+source "$(dirname "${BASH_SOURCE[0]}")/app-reconnect.sh"
+
 # Última protección del terminal: mantiene ECHO desactivado también durante los
 # intervalos entre lecturas, IPC y redibujados, y restaura el estado al salir.
 # Debe cargarse la última para envolver las versiones finales de enter/suspend/
