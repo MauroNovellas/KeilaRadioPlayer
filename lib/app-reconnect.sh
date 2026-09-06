@@ -285,13 +285,15 @@ if declare -F player_start >/dev/null 2>&1 && ! declare -F player_start_without_
     eval "$APP_RECONNECT_DEF"
 
     player_start() {
+        local name="$1" url="$2"
+
         if ((APP_RECONNECT_AUTOMATIC_START)); then
-            player_start_without_reconnect "$@"
+            player_start_without_reconnect "$name" "$url"
             return $?
         fi
 
         app_reconnect_reset
-        player_start_without_reconnect "$@"
+        player_start_without_reconnect "$name" "$url"
     }
 fi
 
@@ -301,7 +303,7 @@ if declare -F player_toggle_pause >/dev/null 2>&1 && ! declare -F player_toggle_
     eval "$APP_RECONNECT_DEF"
 
     player_toggle_pause() {
-        player_toggle_pause_without_reconnect "$@" || return $?
+        player_toggle_pause_without_reconnect || return $?
 
         if ((PLAYER_PAUSED)); then
             app_reconnect_cancel_pending
@@ -318,7 +320,9 @@ if declare -F recording_start >/dev/null 2>&1 && ! declare -F recording_start_wi
     eval "$APP_RECONNECT_DEF"
 
     recording_start() {
-        recording_start_without_reconnect "$@" || return $?
+        local station_name="$1"
+
+        recording_start_without_reconnect "$station_name" || return $?
         APP_RECONNECT_RECORDING_GUARD=1
         app_reconnect_cancel_pending
     }
@@ -331,7 +335,7 @@ if declare -F recording_stop >/dev/null 2>&1 && ! declare -F recording_stop_with
 
     recording_stop() {
         local status=0
-        recording_stop_without_reconnect "$@" || status=$?
+        recording_stop_without_reconnect || status=$?
         APP_RECONNECT_RECORDING_GUARD=0
         return "$status"
     }
@@ -344,7 +348,7 @@ if declare -F recording_finalize_after_player_exit >/dev/null 2>&1 && ! declare 
 
     recording_finalize_after_player_exit() {
         local status=0
-        recording_finalize_after_player_exit_without_reconnect "$@" || status=$?
+        recording_finalize_after_player_exit_without_reconnect || status=$?
         APP_RECONNECT_RECORDING_EXIT_EVENT=1
         APP_RECONNECT_RECORDING_GUARD=0
         return "$status"
