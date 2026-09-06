@@ -220,6 +220,12 @@ En Linux de escritorio usa el monitor de la salida PulseAudio/PipeWire mediante 
 sudo apt install ffmpeg pulseaudio-utils
 ```
 
+### Reconexión automática
+
+Después de que una emisora haya reproducido audio real, Keila detecta si `mpv` termina o si el stream deja de avanzar. Mantiene la emisora y sus ajustes, muestra el intento actual y reintenta sin bloquear el teclado. Los reintentos usan una espera progresiva que empieza en 2 segundos y se duplica hasta 30, con un máximo de tres intentos por ciclo. Una reproducción que nunca llegó a producir audio no se reintenta automáticamente para evitar bucles sobre URLs inválidas.
+
+Durante una grabación la reconexión automática queda bloqueada para proteger el archivo. Pausar también cancela los intentos pendientes; al reanudar se concede una ventana nueva para que el stream avance. Los límites se pueden ajustar por entorno si el equipo o la emisora lo necesitan: `KEILA_RECONNECT_STALL_TIMEOUT`, `KEILA_RECONNECT_START_TIMEOUT`, `KEILA_RECONNECT_MAX_ATTEMPTS` y `KEILA_RECONNECT_BASE_DELAY`.
+
 ## Teclado y terminal
 
 Keila mantiene desactivado el `ECHO` del terminal durante toda la vida activa de la TUI, no solo mientras Bash espera una tecla. Esto evita que pulsaciones rápidas aparezcan directamente como caracteres sueltos durante IPC o redibujados.

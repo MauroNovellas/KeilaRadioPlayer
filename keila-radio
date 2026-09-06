@@ -388,7 +388,7 @@ app_update_catalog() {
 
 app_poll_player() {
     if [[ -n "${PLAYER_PID:-}" ]] && ! player_is_running; then
-        local was_recording=$RECORDING_ACTIVE exit_status='?'
+        local was_recording=$RECORDING_ACTIVE was_paused=${PLAYER_PAUSED:-0} exit_status='?'
         if player_collect_exit_status; then exit_status="${PLAYER_LAST_EXIT_STATUS:-?}"; fi
         if ((was_recording)); then
             local saved_file
@@ -399,7 +399,12 @@ app_poll_player() {
                 app_message "mpv se detuvo (código $exit_status) y la grabación quedó incompleta." 9
             fi
         else
-            app_message "La reproducción se detuvo inesperadamente (mpv: código $exit_status)." 9
+            # Si la emisora ya reprodujo audio, la capa de reconexión mostrará
+            # el motivo y el intento en este mismo ciclo. Evitamos enseñar
+            # antes un error genérico que parpadea y sobrescribe ese estado.
+            if ! (( ${APP_RECONNECT_ELIGIBLE:-0} && was_paused == 0 )); then
+                app_message "La reproducción se detuvo inesperadamente (mpv: código $exit_status)." 9
+            fi
         fi
         return 0
     fi
