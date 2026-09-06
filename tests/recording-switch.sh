@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+# shellcheck disable=SC2317
 set -uo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -108,7 +109,7 @@ test_failed_recording_close_blocks_switch() {
     assert_eq '0' "$START_CALLS" 'no se inicia otra emisora tras un cierre inválido' || return 1
     assert_eq 'Radio A' "$PLAYER_NAME" 'la emisora actual no se sustituye' || return 1
     assert_eq '0' "$SAVE_CALLS" 'no se persiste un cambio que no ocurrió' || return 1
-    assert_eq 'Grabación incompleta: El archivo de grabación está vacío.. No se cambia de emisora.' "$LAST_MESSAGE" 'el mensaje explica por qué se abortó el cambio' || return 1
+    assert_eq 'Grabación incompleta: El archivo de grabación está vacío. No se cambia de emisora.' "$LAST_MESSAGE" 'el mensaje explica por qué se abortó el cambio' || return 1
 }
 
 test_conserved_recording_allows_switch() {
