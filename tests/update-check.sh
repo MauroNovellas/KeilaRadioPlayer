@@ -54,6 +54,7 @@ make_release() {
         stations.sh
         search.sh
         player.sh
+        player-failure.sh
         recording.sh
         diagnostics.sh
         input.sh
@@ -67,6 +68,7 @@ make_release() {
         ui-search.sh
         app-search.sh
         app-reconnect.sh
+        app-reconnect-failure.sh
         ui-desktop-search-pane.sh
         ui-terminal-guard.sh
     )
@@ -110,12 +112,12 @@ tmp=$(mktemp -d) || fail 'no se pudo crear temporal'
 trap 'rm -rf "$tmp"' EXIT
 
 # Paquete incompleto: debe rechazarse durante la validación, antes de mover
-# ningún componente de la instalación actual. En particular, la capa de
-# reconexión ya forma parte obligatoria del runtime de 2.1.
+# ningún componente de la instalación actual. El estado estructurado del player
+# forma ya parte obligatoria del runtime de 2.1.
 incomplete_parent="$tmp/incomplete-release"
 mkdir -p "$incomplete_parent"
 make_release "$incomplete_parent" '2.0.1' '2.0.1'
-rm -f "$incomplete_parent/KeilaRadioPlayer-2.0.1/lib/app-reconnect.sh"
+rm -f "$incomplete_parent/KeilaRadioPlayer-2.0.1/lib/player-failure.sh"
 tar -czf "$tmp/incomplete.tar.gz" -C "$incomplete_parent" 'KeilaRadioPlayer-2.0.1'
 
 install_incomplete="$tmp/install-incomplete"
