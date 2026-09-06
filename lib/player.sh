@@ -54,6 +54,24 @@ player_is_running() {
     [[ -n "$PLAYER_PID" ]] && kill -0 "$PLAYER_PID" 2>/dev/null
 }
 
+# Termina un proceso de reproducción sin dejar un wait potencialmente infinito.
+# Da una breve oportunidad a SIGTERM y escala a SIGKILL si el proceso no sale.
+player_terminate_pid_bounded() {
+    local pid="$1"
+    local attempt
+
+    [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+    kill -0 "$pid" 2>/dev/null || return 0
+
+    kill "$pid" 2>/dev/null || true
+    for ((attempt = 0; attempt < 10; attempt++)); do
+        kill -0 "$pid" 2>/dev/null || return 0
+        sleep 0.05
+    done
+
+    kill -KILL "$pid" 2>/dev/null || true
+}
+
 # Intercambio de bajo nivel con el socket. Se mantiene separado de player_ipc
 # para poder probar la validación de respuestas sin necesitar un mpv real.
 player_ipc_exchange() {
@@ -301,6 +319,7 @@ player_start() {
         local failed_pid="$PLAYER_PID"
         local failed_status=0
 
+        player_terminate_pid_bounded "$failed_pid" || true
         wait "$failed_pid" 2>/dev/null || failed_status=$?
         PLAYER_LAST_EXIT_STATUS="$failed_status"
         PLAYER_PID=""
@@ -308,7 +327,7 @@ player_start() {
         player_reset_info
         rm -f "$PLAYER_SOCKET"
 
-        printf 'mpv terminó antes de crear el socket IPC.\n' >&2
+        printf 'mpv no pudo inicializar el socket IPC.\n' >&2
         return 1
     fi
 }
@@ -365,7 +384,7 @@ player_stop() {
             done
 
             if kill -0 "$pid" 2>/dev/null; then
-                kill "$pid" 2>/dev/null || true
+                player_terminate_pid_bounded "$pid" || true
             fi
         fi
 
