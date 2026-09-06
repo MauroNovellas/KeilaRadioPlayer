@@ -2,6 +2,27 @@
 
 Todos los cambios relevantes de Keila Radio Player se documentarán en este archivo.
 
+## [2.0.0] - 2026-09-06
+
+Primera versión estable de Keila Radio Player 2.0. Promociona el código validado como `2.0.0-rc3` tras pruebas intensivas en Debian con `foot`, Termux/Android y uso adicional de terceros sin regresiones reportadas.
+
+### Estable
+
+- Se declara estable la TUI responsive introducida y refinada durante RC1, RC2 y RC3.
+- La búsqueda integrada, Favoritos, reproducción, grabación, metadatos, actualización y persistencia mantienen el comportamiento validado en RC3.
+- La gestión de teclado conserva la protección de `ECHO` y el control de autorepeat que evitan caracteres fantasma y colas de pulsaciones atrasadas.
+- El actualizador seguro mantiene validación completa del paquete, backup, rollback y preservación de datos XDG y grabaciones.
+- Linux de escritorio continúa como plataforma principal y Termux/Android queda también validado para uso real, incluida la TUI en pantallas pequeñas.
+
+### Cambiado
+
+- La versión pasa de `2.0.0-rc3` a `2.0.0`.
+- No se introducen cambios funcionales de runtime respecto a RC3: la estable es una promoción del candidato ya validado.
+
+### Conocido
+
+- La reconexión automática de streams no forma parte de 2.0.0; si `mpv` cae, Keila informa del fallo en lugar de reintentar silenciosamente.
+
 ## [2.0.0-rc3] - 2026-09-06
 
 Tercera release candidate de Keila Radio Player 2.0, centrada en integrar la búsqueda dentro de la TUI y en pulir el comportamiento del terminal bajo uso rápido e intensivo antes de la versión estable.
