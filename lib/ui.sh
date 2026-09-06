@@ -585,19 +585,20 @@ ui_spectrum_bars() {
 }
 
 ui_spectrum_editor_row() {
-    local row="$1" max_columns="${2:-16}"
+    local row="$1" max_columns="${2:-16}" spaced="${3:-0}"
     local display_rows="${SPECTRUM_DISPLAY_ROWS:-8}" frame_rows="${SPECTRUM_FRAME_ROWS:-16}"
-    local threshold level height result='' column start end max_level i
+    local level height units full_units remainder result='' column start end max_level i
     local -a levels=("${SPECTRUM_LEVELS[@]:-}")
+    local -a partial=(' ' '▁' '▂' '▃' '▄' '▅' '▆' '▇' '█')
 
     [[ "$row" =~ ^[0-9]+$ ]] || return 1
     [[ "$max_columns" =~ ^[0-9]+$ ]] || return 1
+    [[ "$spaced" =~ ^[01]$ ]] || return 1
     [[ "$display_rows" =~ ^[0-9]+$ && "$frame_rows" =~ ^[0-9]+$ ]] || return 1
     ((display_rows > 0 && frame_rows > 0 && row < display_rows && max_columns > 0)) || return 1
     ((max_columns > 16)) && max_columns=16
     ((${#levels[@]} == 16)) || levels=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
 
-    threshold=$((display_rows - row))
     for ((column = 0; column < max_columns; column++)); do
         start=$((column * 16 / max_columns))
         end=$(((column + 1) * 16 / max_columns))
@@ -608,8 +609,18 @@ ui_spectrum_editor_row() {
             [[ "$level" =~ ^[0-9]+$ ]] || level=0
             ((level > max_level)) && max_level=$level
         done
-        height=$((max_level * display_rows / frame_rows))
-        if ((height >= threshold)); then result+="$UI_BAR_FULL"; else result+=' '; fi
+        units=$((max_level * display_rows * 8 / frame_rows))
+        full_units=$((units / 8))
+        remainder=$((units % 8))
+        height=$((display_rows - full_units))
+        if ((row >= height)); then
+            result+="$UI_BAR_FULL"
+        elif ((remainder > 0 && row == height - 1)); then
+            if ((UI_UNICODE)); then result+="${partial[remainder]}"; else result+="$UI_BAR_FULL"; fi
+        else
+            result+=' '
+        fi
+        if ((spaced && column < max_columns - 1)); then result+=' '; fi
     done
     printf '%s' "$result"
 }

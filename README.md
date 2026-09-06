@@ -198,7 +198,7 @@ Los cambios se aplican inmediatamente a la emisora en reproducción y se conserv
 
 ### Analizador de espectro
 
-El panel `Ahora suena` muestra un analizador vertical de 16 bandas y ocho filas cuando existe audio real, con la misma altura visible que el ecualizador. Pulsa `V` para ocultarlo o volverlo a mostrar. La captura se detiene automáticamente al pausar o detener la reproducción y vuelve a arrancar al reanudarla.
+El panel `Ahora suena` muestra un analizador vertical de 16 bandas en ocho filas cuando existe audio real, con la misma altura visible que el ecualizador. Para que cada barra se distinga dentro del panel, las bandas se agrupan en hasta ocho columnas separadas y se usan bloques parciales en la parte superior. Pulsa `V` para ocultarlo o volverlo a mostrar. La captura se detiene automáticamente al pausar o detener la reproducción y vuelve a arrancar al reanudarla.
 
 La pantalla refresca el gráfico cuatro veces por segundo; la captura y el análisis de audio continúan trabajando de forma independiente para conservar una respuesta fluida.
 

@@ -63,6 +63,8 @@ ui_configure_glyphs
 SPECTRUM_LEVELS=(16 14 12 10 8 6 4 2 0 0 0 0 0 0 0 0)
 assert_eq '█               ' "$(ui_spectrum_editor_row 0)" 'techo vertical del analizador'
 assert_eq '████████        ' "$(ui_spectrum_editor_row 7)" 'base vertical del analizador'
+SPECTRUM_LEVELS=(16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16)
+assert_eq '█ █ █' "$(ui_spectrum_editor_row 0 3 1)" 'separación entre barras del analizador'
 
 SPECTRUM_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
 printf '1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n' > "$SPECTRUM_DIR/levels"

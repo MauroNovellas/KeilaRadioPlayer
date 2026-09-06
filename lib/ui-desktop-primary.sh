@@ -146,19 +146,21 @@ ui_draw_desktop() {
 
     local row index fav_marker preset_label fav_badge fav_style fav_badge_style selected
     local main_text main_badge main_style main_style_badge spectrum_cells
-    local spectrum_columns=16 spectrum_badge_width=4 spectrum_available_width
+    local spectrum_columns=8 spectrum_badge_width=4 spectrum_available_width
     if ((SPECTRUM_ENABLED)); then
         if ((${EQUALIZER_EDITOR_ACTIVE:-0})); then
             local selected_eq_badge
             printf -v selected_eq_badge '%s %s  %+d dB' "$UI_SELECT" "${EQUALIZER_LABELS[EQUALIZER_SELECTED]}" "${EQUALIZER_GAINS[EQUALIZER_SELECTED]}"
             spectrum_badge_width=${#selected_eq_badge}
         fi
-        spectrum_available_width=$((UI_DESKTOP_LEFT_WIDTH - 29 - 2 - spectrum_badge_width - 1))
-        if ((spectrum_available_width < 10)); then
+        # Cada barra visible ocupa dos celdas: la barra y un espacio de lectura.
+        spectrum_available_width=$((UI_DESKTOP_LEFT_WIDTH - 29 - 1 - spectrum_badge_width - 1))
+        if ((spectrum_available_width < 11)); then
             spectrum_badge_width=0
-            spectrum_available_width=$((UI_DESKTOP_LEFT_WIDTH - 29 - 2))
+            spectrum_available_width=$((UI_DESKTOP_LEFT_WIDTH - 29 - 1))
         fi
-        ((spectrum_available_width < spectrum_columns)) && spectrum_columns=$spectrum_available_width
+        spectrum_columns=$(((spectrum_available_width + 1) / 2))
+        ((spectrum_columns > 8)) && spectrum_columns=8
         ((spectrum_columns < 1)) && spectrum_columns=1
     fi
     for ((row = 0; row < body_height; row++)); do
@@ -199,8 +201,8 @@ ui_draw_desktop() {
                 ui_equalizer_editor_row "$((row - 4))"
                 main_text="$UI_EQ_TEXT"
                 if ((SPECTRUM_ENABLED)); then
-                    spectrum_cells=$(ui_spectrum_editor_row "$((row - 4))" "$spectrum_columns")
-                    main_text+="  $spectrum_cells"
+                    spectrum_cells=$(ui_spectrum_editor_row "$((row - 4))" "$spectrum_columns" 1)
+                    main_text+="$UI_V$spectrum_cells"
                 fi
                 main_style="$UI_EQ_STYLE"
                 if ((row == 4)); then
@@ -224,7 +226,7 @@ ui_draw_desktop() {
                 fi
                 ;;
             12)
-                main_text='ESPECTRO'
+                if ((UI_UNICODE)); then main_text='ESPECTRO 20 Hz–20 kHz'; else main_text='ESPECTRO 20Hz-20kHz'; fi
                 if ((!${SPECTRUM_ENABLED:-0})); then
                     main_badge='V mostrar'
                 elif [[ "${SPECTRUM_AVAILABLE:-unknown}" == no ]]; then
