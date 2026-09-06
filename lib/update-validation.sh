@@ -25,6 +25,7 @@ update_validate_tree() {
         lib/search.sh
         lib/player.sh
         lib/player-failure.sh
+        lib/player-events.sh
         lib/recording.sh
         lib/diagnostics.sh
         lib/input.sh
