@@ -18,7 +18,18 @@ PLAYER_BITRATE_KBPS=""
 PLAYER_SAMPLE_RATE=""
 PLAYER_CHANNELS=""
 PLAYER_BUFFERING=0
+
+# PLAYER_INFO_READY se conserva por compatibilidad con la TUI, pero desde 2.1
+# representa que el stream ha alcanzado reproducción real, no solo que mpv ya
+# conoce el códec. PLAYER_STREAM_READY es el nombre semántico de ese estado.
+PLAYER_STREAM_READY=0
 PLAYER_INFO_READY=0
+PLAYER_STREAM_CORE_IDLE=1
+PLAYER_STREAM_AUDIO_PTS=""
+PLAYER_STREAM_PLAYBACK_TIME=""
+PLAYER_STREAM_LAST_POSITION=""
+PLAYER_STREAM_STARTED_AT=0
+PLAYER_STREAM_LAST_PROGRESS_AT=0
 PLAYER_INFO_LAST_REFRESH=0
 PLAYER_INFO_INTERVAL="${KEILA_PLAYER_INFO_INTERVAL:-1}"
 
@@ -118,7 +129,14 @@ player_reset_info() {
     PLAYER_SAMPLE_RATE=""
     PLAYER_CHANNELS=""
     PLAYER_BUFFERING=0
+    PLAYER_STREAM_READY=0
     PLAYER_INFO_READY=0
+    PLAYER_STREAM_CORE_IDLE=1
+    PLAYER_STREAM_AUDIO_PTS=""
+    PLAYER_STREAM_PLAYBACK_TIME=""
+    PLAYER_STREAM_LAST_POSITION=""
+    PLAYER_STREAM_STARTED_AT=0
+    PLAYER_STREAM_LAST_PROGRESS_AT=0
     PLAYER_INFO_LAST_REFRESH=0
 }
 
@@ -146,6 +164,10 @@ player_collect_exit_status() {
 # metadata pedimos directamente campos ICY y media-title porque algunos streams
 # actualizan esos valores durante la reproducción sin reflejarlos igual en todos
 # los demuxers/versiones de mpv.
+#
+# Las propiedades 10..12 separan "mpv conoce el stream" de "el audio ya está
+# reproduciéndose": core-idle debe ser false y debe existir un reloj real de
+# audio/reproducción antes de declarar PLAYER_STREAM_READY.
 player_query_snapshot() {
     [[ -S "$PLAYER_SOCKET" ]] || return 1
 
@@ -159,6 +181,9 @@ player_query_snapshot() {
         printf '%s\n' '{"command":["get_property","metadata/by-key/StreamTitle"],"request_id":7}'
         printf '%s\n' '{"command":["get_property","metadata/by-key/title"],"request_id":8}'
         printf '%s\n' '{"command":["get_property","media-title"],"request_id":9}'
+        printf '%s\n' '{"command":["get_property","core-idle"],"request_id":10}'
+        printf '%s\n' '{"command":["get_property","audio-pts"],"request_id":11}'
+        printf '%s\n' '{"command":["get_property","playback-time"],"request_id":12}'
     } | socat -t 1 - UNIX-CONNECT:"$PLAYER_SOCKET" 2>/dev/null |
         jq -cs '
             reduce .[] as $response ({};
@@ -200,6 +225,9 @@ player_refresh_info() {
                 | gsub("[\\r\\n\\t]+"; " ")
                 | gsub("^ +| +$"; "");
 
+            def number_text:
+                if type == "number" then tostring else "" end;
+
             def metadata_value($names):
                 (. ["1"] // {}) as $metadata
                 | if ($metadata | type) == "object" then
@@ -230,7 +258,10 @@ player_refresh_info() {
             ((.["3"] // 0) | if type == "number" and . > 0 then ((. / 1000) | round | tostring) else "" end),
             ((.["4"].samplerate // "") | if type == "number" then tostring else . end),
             ((.["4"]["hr-channels"] // .["4"].channels // "") | clean),
-            ((.["5"] // false) | if . == true then "1" else "0" end)
+            ((.["5"] // false) | if . == true then "1" else "0" end),
+            ((.["10"] // true) | if . == false then "0" else "1" end),
+            ((.["11"] // null) | number_text),
+            ((.["12"] // null) | number_text)
         ' <<< "$snapshot"
     )
 
@@ -240,10 +271,33 @@ player_refresh_info() {
     local new_samplerate="${fields[3]:-}"
     local new_channels="${fields[4]:-}"
     local new_buffering="${fields[5]:-0}"
-    local new_ready=0
+    local new_core_idle="${fields[6]:-1}"
+    local new_audio_pts="${fields[7]:-}"
+    local new_playback_time="${fields[8]:-}"
+    local new_ready=$PLAYER_STREAM_READY
+    local new_position=""
 
-    if [[ -n "$new_codec" || -n "$new_bitrate" || "$new_samplerate" =~ ^[1-9][0-9]*$ ]]; then
+    if [[ "$new_audio_pts" =~ ^-?[0-9]+([.][0-9]+)?$ ]]; then
+        new_position="$new_audio_pts"
+    elif [[ "$new_playback_time" =~ ^-?[0-9]+([.][0-9]+)?$ ]]; then
+        new_position="$new_playback_time"
+    fi
+
+    # core-idle=false es la señal de mpv de que el núcleo está reproduciendo de
+    # verdad. Exigimos además un reloj de audio/playback disponible para no
+    # confundir la mera apertura del stream con reproducción efectiva.
+    if [[ "$new_core_idle" == '0' && -n "$new_position" ]]; then
         new_ready=1
+    fi
+
+    # Una vez que un stream ha reproducido audio real, conserva el estado ready
+    # durante pausas o buffering. PLAYER_BUFFERING describe esos estados aparte.
+    if ((PLAYER_STREAM_READY == 0 && new_ready == 1)); then
+        PLAYER_STREAM_STARTED_AT=$now
+    fi
+    if [[ -n "$new_position" && "$new_position" != "$PLAYER_STREAM_LAST_POSITION" ]]; then
+        PLAYER_STREAM_LAST_POSITION="$new_position"
+        PLAYER_STREAM_LAST_PROGRESS_AT=$now
     fi
 
     # media-title puede caer al nombre/URL del stream si no hay metadatos de la
@@ -255,7 +309,7 @@ player_refresh_info() {
     esac
 
     local old_state
-    old_state="$PLAYER_STREAM_TITLE|$PLAYER_CODEC|$PLAYER_BITRATE_KBPS|$PLAYER_SAMPLE_RATE|$PLAYER_CHANNELS|$PLAYER_BUFFERING|$PLAYER_INFO_READY"
+    old_state="$PLAYER_STREAM_TITLE|$PLAYER_CODEC|$PLAYER_BITRATE_KBPS|$PLAYER_SAMPLE_RATE|$PLAYER_CHANNELS|$PLAYER_BUFFERING|$PLAYER_STREAM_READY"
     local new_state
     new_state="$new_title|$new_codec|$new_bitrate|$new_samplerate|$new_channels|$new_buffering|$new_ready"
 
@@ -265,6 +319,10 @@ player_refresh_info() {
     PLAYER_SAMPLE_RATE="$new_samplerate"
     PLAYER_CHANNELS="$new_channels"
     PLAYER_BUFFERING="$new_buffering"
+    PLAYER_STREAM_CORE_IDLE="$new_core_idle"
+    PLAYER_STREAM_AUDIO_PTS="$new_audio_pts"
+    PLAYER_STREAM_PLAYBACK_TIME="$new_playback_time"
+    PLAYER_STREAM_READY="$new_ready"
     PLAYER_INFO_READY="$new_ready"
 
     [[ "$old_state" != "$new_state" ]]
