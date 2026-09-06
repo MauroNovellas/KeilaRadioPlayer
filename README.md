@@ -2,7 +2,7 @@
 
 Keila Radio Player es un reproductor de radio en Bash para terminal, usando `mpv` como motor de reproducción.
 
-La versión candidata actual es **`2.0.0-rc2`**. La plataforma principal de esta release candidate es Linux de escritorio; Termux/Android sigue siendo compatible de forma secundaria y recibirá una pasada específica después de estabilizar la versión de PC.
+La versión candidata actual es **`2.0.0-rc3`**. Linux de escritorio sigue siendo la plataforma principal, y la TUI actual también ha sido validada en Termux/Android, incluyendo terminales de pantalla pequeña.
 
 Consulta el historial de cambios en [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -17,7 +17,7 @@ La versión vive en una única fuente, `lib/version.sh`, y puede consultarse sin
 Salida esperada para esta RC:
 
 ```text
-Keila Radio Player 2.0.0-rc2
+Keila Radio Player 2.0.0-rc3
 ```
 
 ## Dependencias
@@ -33,6 +33,8 @@ Dependencias de ejecución:
 - jq
 - fzf
 - tput
+
+`fzf` se conserva como selector externo opcional; la búsqueda integrada es la interfaz predeterminada.
 
 Gestores soportados por el instalador automático:
 
@@ -81,7 +83,7 @@ Keila adapta automáticamente la composición al tamaño de la terminal y recalc
 < 42x11                       aviso de terminal demasiado pequeña
 ```
 
-En desktop, `Ahora suena` queda como panel contenido a la izquierda y `Favoritos` ocupa la mayor parte del espacio a la derecha. El panel de reproducción muestra emisora, canción/programa, datos técnicos, volumen, estado, grabación y favorito cuando existe espacio suficiente.
+En desktop, `Ahora suena` queda como panel contenido a la izquierda. La columna derecha se divide verticalmente en `Favoritos` arriba y `Buscar emisoras` abajo, con selección y scroll independientes. El panel de reproducción muestra emisora, canción/programa, datos técnicos, volumen, estado, grabación y favorito cuando existe espacio suficiente.
 
 El modo ancho de PC utiliza prácticamente toda la anchura disponible, reservando una columna física de seguridad para evitar autowrap. El borde inferior tampoco imprime un salto de línea adicional, evitando que la terminal haga scroll durante los redibujados.
 
@@ -135,7 +137,7 @@ R                  iniciar/detener grabación del stream actual
 F                  añadir/eliminar la emisora en reproducción de favoritos
 J / K              mover el favorito seleccionado abajo/arriba
 X                  eliminar el favorito seleccionado
-B                  buscar una emisora en TDTChannels con fzf
+B                  abrir/editar la búsqueda integrada de emisoras
 U                  actualizar el catálogo de TDTChannels
 H                  abrir/cerrar la ayuda completa
 Esc                cerrar la ayuda completa
@@ -144,11 +146,41 @@ Q                  salir
 
 `U` actualiza exclusivamente el catálogo de TDTChannels; no se reutiliza para actualizar el programa.
 
-La navegación de favoritos es circular y tiene scroll automático. Al buscar con `B`, Keila suspende temporalmente la TUI, abre `fzf` y vuelve a la interfaz al seleccionar o cancelar.
+La navegación de favoritos es circular y tiene scroll automático. Al pulsar `B`, Keila abre la búsqueda integrada usando el catálogo local de TDTChannels. La reproducción, los metadatos y los avisos continúan activos mientras se busca.
 
-Por defecto la zona de controles ocupa una sola fila para dejar más espacio a favoritos. `H` despliega la ayuda completa y la lista ajusta automáticamente su altura; `H` o `Esc` vuelven a compactarla.
+Dentro de la búsqueda:
 
-Los mensajes de acciones y errores son temporales: avisos como el cambio de volumen, una búsqueda cancelada o una grabación guardada desaparecen solos después de unos segundos, mientras que el estado real de reproducción permanece en la TUI.
+```text
+escribir             filtrar por nombre, ámbito, país y formato
+↑ / ↓                mover por los resultados
+Home / End            primer/último resultado
+PageUp / PageDown     saltar por los resultados
+Enter                 reproducir el resultado seleccionado
+F                     añadir/quitar el resultado de Favoritos
+Backspace             borrar un carácter
+Ctrl+U                limpiar la consulta
+Esc                   volver a Favoritos conservando la consulta
+```
+
+La `f` minúscula es texto normal dentro del buscador; solo `F` mayúscula se reserva para alternar Favorito. Los resultados favoritos muestran `[★]`, y la emisora que además está sonando puede mostrar `[PLAY] [★]`.
+
+Al salir de la búsqueda con `Esc`, la consulta permanece visible. Pulsar de nuevo `B` la reabre para seguir editándola. Para usar el selector externo clásico con `fzf`:
+
+```bash
+KEILA_FZF_SEARCH=1 ./keila-radio
+```
+
+Por defecto la zona de controles ocupa una sola fila para dejar más espacio a la interfaz. `H` despliega la ayuda completa y la composición ajusta automáticamente su altura; `H` o `Esc` vuelven a compactarla.
+
+Los mensajes de acciones y errores son temporales: avisos como el cambio de volumen, una grabación guardada o un cambio de Favoritos desaparecen solos después de unos segundos, mientras que el estado real de reproducción permanece en la TUI.
+
+## Teclado y terminal
+
+Keila mantiene desactivado el `ECHO` del terminal durante toda la vida activa de la TUI, no solo mientras Bash espera una tecla. Esto evita que pulsaciones rápidas aparezcan directamente como caracteres sueltos durante IPC o redibujados.
+
+El estado exacto del terminal se restaura al suspender la TUI y al salir. La protección no pone el terminal completo en modo raw y no modifica el parser de flechas/secuencias ANSI.
+
+Las teclas repetibles de navegación y volumen aplican además control de autorepeat: Keila consume las ráfagas pendientes en bloque, limita el trabajo útil por frame y descarta repeticiones atrasadas. Al soltar una tecla mantenida, volumen o selección dejan de avanzar prácticamente al momento en lugar de procesar una cola antigua.
 
 ## Actualizaciones
 
@@ -195,6 +227,8 @@ KEILA_NO_UPDATE_CHECK=1 ./keila-radio
 Cada instancia de Keila usa su propio socket IPC de `mpv`, por lo que dos reproductores abiertos no se pisan entre sí.
 
 Las escrituras de `state` y `favorites` están protegidas con mutex basados en `mkdir`, sin depender de `flock`. En favoritos se bloquea la operación completa leer → modificar → guardar, no solo el reemplazo final. Las operaciones por índice conservan además la identidad de la emisora por URL para evitar actuar sobre otro favorito si una segunda instancia cambia el orden simultáneamente.
+
+Si una escritura de Favoritos falla, Keila vuelve a cargar en memoria el último estado válido del archivo para no mostrar cambios que realmente no llegaron a persistirse.
 
 ## Información del stream
 
@@ -247,7 +281,7 @@ La carpeta está ignorada por Git. Al detener una grabación Keila espera a que 
 
 ## Comprobaciones
 
-RC2 incluye regresiones para configuración, estado, favoritos, grabación, tema, responsive, geometría desktop, protección contra autowrap/scroll, actualización, validación de paquetes, rollback y aviso de actualización en la TUI.
+RC3 incluye regresiones para configuración, estado, favoritos, grabación, tema, responsive, geometría desktop, protección contra autowrap/scroll, búsqueda integrada, Favoritos desde búsqueda, persistencia fallida, protección del terminal, autorepeat, actualización, validación de paquetes, rollback y aviso de actualización en la TUI.
 
 Ejecutar la batería local principal:
 
@@ -259,6 +293,11 @@ bash ./tests/ui-theme.sh
 bash ./tests/ui-responsive.sh
 bash ./tests/ui-desktop.sh
 bash ./tests/ui-update-status.sh
+bash ./tests/search-integrated.sh
+bash ./tests/search-favorites.sh
+bash ./tests/ui-desktop-search-pane.sh
+bash ./tests/ui-terminal-guard.sh
+bash ./tests/input-repeat.sh
 bash ./tests/update-check.sh
 ```
 
@@ -275,6 +314,7 @@ KeilaRadioPlayer/
 ├── defaults/
 │   └── favorites
 ├── lib/
+│   ├── app-search.sh
 │   ├── config.sh
 │   ├── deps.sh
 │   ├── favorites.sh
@@ -282,6 +322,7 @@ KeilaRadioPlayer/
 │   ├── lock.sh
 │   ├── player.sh
 │   ├── recording.sh
+│   ├── search.sh
 │   ├── state.sh
 │   ├── stations.sh
 │   ├── ui.sh
@@ -290,25 +331,33 @@ KeilaRadioPlayer/
 │   ├── ui-desktop.sh
 │   ├── ui-desktop-primary.sh
 │   ├── ui-desktop-balance.sh
+│   ├── ui-desktop-search-pane.sh
+│   ├── ui-search.sh
+│   ├── ui-terminal-guard.sh
 │   ├── ui-update-status.sh
 │   ├── update.sh
 │   ├── update-validation.sh
 │   └── version.sh
 └── tests/
+    ├── input-repeat.sh
     ├── pre-rc.sh
     ├── recording-formats.sh
     ├── run.sh
-    ├── ui-theme.sh
-    ├── ui-responsive.sh
+    ├── search-favorites.sh
+    ├── search-integrated.sh
     ├── ui-desktop.sh
+    ├── ui-desktop-search-pane.sh
+    ├── ui-responsive.sh
+    ├── ui-terminal-guard.sh
+    ├── ui-theme.sh
     ├── ui-update-status.sh
     └── update-check.sh
 ```
 
 Los scripts, listados y documentación de la antigua v1 se mantienen en el historial de Git, pero ya no forman parte del árbol de trabajo actual.
 
-Al salir, Keila detiene/finaliza la grabación si existe, detiene `mpv`, cancela una comprobación de actualización en segundo plano si sigue activa, restaura el cursor, abandona la pantalla alternativa de la TUI y limpia la pantalla principal para no dejar restos visuales.
+Al salir, Keila detiene/finaliza la grabación si existe, detiene `mpv`, cancela una comprobación de actualización en segundo plano si sigue activa, restaura el estado exacto del terminal y el cursor, abandona la pantalla alternativa de la TUI y limpia la pantalla principal para no dejar restos visuales.
 
 ## Política de la RC
 
-Durante `2.0.0-rc2` se priorizan correcciones de regresiones y estabilidad. La reconexión automática y otras funciones nuevas quedan fuera de esta release candidate; si RC2 se mantiene estable, el siguiente objetivo es preparar `2.0.0` con cambios mínimos.
+Durante `2.0.0-rc3` se priorizan exclusivamente correcciones de regresiones, estabilidad y documentación. La reconexión automática y otras funciones nuevas quedan fuera de esta release candidate. Si RC3 se mantiene estable en uso real, el siguiente objetivo es preparar `2.0.0` con cambios mínimos.
