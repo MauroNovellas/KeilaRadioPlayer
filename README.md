@@ -2,7 +2,7 @@
 
 Keila Radio Player es un reproductor de radio en Bash para terminal, usando `mpv` como motor de reproducción.
 
-La versión estable actual es **`2.1.0`**. Linux de escritorio es la plataforma principal, y la TUI también ha sido validada en Termux/Android, incluyendo terminales de pantalla pequeña.
+La versión estable actual es **`2.1.1`**. Linux de escritorio es la plataforma principal, y la TUI también ha sido validada en Termux/Android, incluyendo terminales de pantalla pequeña.
 
 Consulta el historial de cambios en [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -17,7 +17,7 @@ La versión vive en una única fuente, `lib/version.sh`, y puede consultarse sin
 Salida esperada para esta versión:
 
 ```text
-Keila Radio Player 2.1.0
+Keila Radio Player 2.1.1
 ```
 
 ## Dependencias

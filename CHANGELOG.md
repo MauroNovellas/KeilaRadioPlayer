@@ -13,6 +13,10 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 - Reducido el coste del sondeo de eventos de `mpv`: la TUI ya no espera innecesariamente cuando no hay notificaciones y cada evento se parsea con una sola invocación de `jq`.
 - Las posiciones del rectángulo del espectro se calculan una sola vez por geometría de terminal, evitando lanzar `tput` repetidamente durante los redibujados completos.
 
+## [2.1.1] - 2026-09-07
+
+Versión de mantenimiento centrada en reducir el coste del analizador de espectro y añadir medición detallada de recursos en Linux.
+
 ## [2.1.0] - 2026-09-07
 
 Segunda versión estable de Keila Radio Player, centrada en completar la experiencia de reproducción de escritorio y cerrar la línea `v2.1` con pruebas de rendimiento, reconexión y distribución portable para Linux.
