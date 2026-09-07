@@ -66,7 +66,7 @@ if spectrum_tick; then fail 'un frame incompleto fue aceptado'; fi
 assert_eq '8' "${SPECTRUM_LEVELS[8]}" 'frame inválido conservó el anterior'
 
 assert_eq '8' "$SPECTRUM_DISPLAY_ROWS" 'altura vertical del analizador'
-assert_eq '50' "$SPECTRUM_DISPLAY_INTERVAL_MS" 'límite de veinte cuadros por segundo'
+assert_eq '66' "$SPECTRUM_DISPLAY_INTERVAL_MS" 'límite de quince cuadros por segundo'
 assert_eq '17' "$SPECTRUM_CAPTURE_COLUMNS" 'columna de guarda del renderizador'
 UI_UNICODE=1
 ui_configure_glyphs
@@ -86,7 +86,7 @@ printf '2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n' > "$SPECTRUM_DIR/levels"
 SPECTRUM_TEST_NOW_MS=1049
 if spectrum_tick; then fail 'frame dentro del intervalo solicitó redibujado'; fi
 assert_eq '1' "${SPECTRUM_LEVELS[0]}" 'frame prematuro conservó el anterior'
-SPECTRUM_TEST_NOW_MS=1050
+SPECTRUM_TEST_NOW_MS=1066
 spectrum_tick || fail 'frame tras 50 ms solicitó redibujado'
 assert_eq '2' "${SPECTRUM_LEVELS[0]}" 'frame tras el intervalo actualizado'
 unset SPECTRUM_TEST_NOW_MS
@@ -112,20 +112,20 @@ printf '0 0 0 0 12 0 0 0 0 0 0 0 0 0 0 0\n' > "$SPECTRUM_DIR/levels"
 spectrum_tick || fail 'primer frame de pico'
 assert_eq '12' "${SPECTRUM_LEVELS[4]}" 'ataque inicial del espectro'
 assert_eq '12' "${SPECTRUM_PEAK_LEVELS[4]}" 'pico inicial conservado'
-SPECTRUM_TEST_NOW_MS=2050
+SPECTRUM_TEST_NOW_MS=2066
 printf '0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n' > "$SPECTRUM_DIR/levels"
 spectrum_tick || fail 'caída suavizada del espectro'
 assert_eq '9' "${SPECTRUM_LEVELS[4]}" 'caída lenta de la barra'
 assert_eq '12' "${SPECTRUM_PEAK_LEVELS[4]}" 'pico retenido durante el primer cuadro'
-SPECTRUM_TEST_NOW_MS=2100
+SPECTRUM_TEST_NOW_MS=2132
 spectrum_tick || fail 'segundo cuadro de caída'
 assert_eq '7' "${SPECTRUM_LEVELS[4]}" 'segunda caída lenta de la barra'
 assert_eq '12' "${SPECTRUM_PEAK_LEVELS[4]}" 'pico retenido durante el segundo cuadro'
-SPECTRUM_TEST_NOW_MS=2150
+SPECTRUM_TEST_NOW_MS=2198
 spectrum_tick || fail 'caída progresiva del pico'
 assert_eq '11' "${SPECTRUM_PEAK_LEVELS[4]}" 'pico descendente tras la retención'
 SPECTRUM_SMOOTHING=0
-SPECTRUM_TEST_NOW_MS=2200
+SPECTRUM_TEST_NOW_MS=2264
 SPECTRUM_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
 SPECTRUM_PEAK_AGES[4]=0
 printf '0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n' > "$SPECTRUM_DIR/levels"
