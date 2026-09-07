@@ -80,6 +80,44 @@ ui_desktop_row() {
     local selected="${9:-0}"
     local row="${UI_UPDATE_DESKTOP_ROW:-0}"
 
+    # En terminales anchas, Favoritos y Recientes comparten la mitad superior
+    # del panel. El índice de selección sigue siendo único para no alterar la
+    # navegación; cada lista solo ocupa su propia columna visual.
+    if ((UI_DESKTOP_RIGHT_WIDTH >= 60 && row < UI_DESKTOP_FAVORITES_HEIGHT)); then
+        local column_index="$((UI_SCROLL_OFFSET + row))"
+        local recent_index="$((UI_RECENT_SCROLL + row))"
+        right_text=''
+        right_badge=''
+        right_style=''
+        right_badge_style=''
+        selected=0
+        if ((row == 0)); then
+            right_text="  EMISORAS (${#FAVORITE_NAMES[@]})"
+            right_badge="RECIENTES (${#RECENT_NAMES[@]})"
+            right_style='accent'
+            right_badge_style='accent'
+        else
+            if ((column_index < ${#FAVORITE_NAMES[@]})); then
+                right_text="  ${FAVORITE_NAMES[column_index]}"
+                if ((column_index == UI_SELECTED_INDEX && !${SEARCH_ACTIVE:-0})); then
+                    right_text="$UI_SELECT ${FAVORITE_NAMES[column_index]}"
+                    selected=1
+                fi
+            fi
+            if ((recent_index < ${#RECENT_NAMES[@]})); then
+                right_badge="${RECENT_NAMES[recent_index]}"
+                if ((recent_index + ${#FAVORITE_NAMES[@]} == UI_SELECTED_INDEX && !${SEARCH_ACTIVE:-0})); then
+                    right_badge="$UI_SELECT ${RECENT_NAMES[recent_index]}"
+                    selected=1
+                fi
+            fi
+        fi
+        ui_desktop_row_without_search_split \
+            "$left_text" "$left_badge" "$left_style" "$left_badge_style" \
+            "$right_text" "$right_badge" "$right_style" "$right_badge_style" "$selected"
+        return 0
+    fi
+
     # La mitad superior conserva Favoritos. Mientras la búsqueda tiene el foco,
     # quitamos únicamente el resaltado de selección para que el foco sea inequívoco.
     if ((row == 0)); then
