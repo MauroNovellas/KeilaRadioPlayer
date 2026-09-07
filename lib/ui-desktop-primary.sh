@@ -237,7 +237,8 @@ ui_draw_desktop() {
             # El analizador se apila bajo el ecualizador y se estira hasta los
             # mismos límites del panel, con columnas anchas y separadas.
             spectrum_row=$((row - spectrum_header_row - 1))
-            main_text=$(ui_spectrum_editor_row_wide "$spectrum_row" "$UI_DESKTOP_LEFT_WIDTH")
+            ui_spectrum_editor_row_wide "$spectrum_row" "$UI_DESKTOP_LEFT_WIDTH" state
+            main_text=$UI_SPECTRUM_ROW_TEXT
             main_style='playing'
         fi
 

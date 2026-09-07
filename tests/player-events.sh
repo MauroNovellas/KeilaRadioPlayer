@@ -55,6 +55,30 @@ player_events_configure
 assert_eq '256' "$PLAYER_EVENTS_DRAIN_LIMIT" 'límite máximo de drain'
 PLAYER_EVENTS_DRAIN_LIMIT=64
 
+# Una notificación puede llegar en varios fragmentos: el primer tick debe
+# devolver el control y el siguiente reconstruir el JSON completo exactamente.
+(
+    fragment_dir=$(mktemp -d)
+    trap 'rm -rf "$fragment_dir"' EXIT
+    mkfifo "$fragment_dir/events"
+    exec {fragment_fd}<>"$fragment_dir/events"
+    PLAYER_EVENTS_READ_FD=$fragment_fd
+    PLAYER_EVENTS_PID=$$
+    PLAYER_EVENTS_ACTIVE=1
+    PLAYER_EVENTS_DIRTY=0
+    PLAYER_EVENTS_PARTIAL=''
+    printf '%s' '{"event":"property-change","name":"meta' >&"$fragment_fd"
+    player_events_drain && fail 'fragmento tratado como evento completo'
+    [[ -n "$PLAYER_EVENTS_PARTIAL" ]] || fail 'fragmento perdido'
+    assert_eq 0 "$PLAYER_EVENTS_DIRTY" 'fragmento no solicita snapshot'
+    printf '%s\n' 'data","data":{}}' >&"$fragment_fd"
+    player_events_drain || fail 'evento fragmentado no se reconstruye'
+    assert_eq 1 "$PLAYER_EVENTS_DIRTY" 'evento reconstruido solicita snapshot'
+    assert_eq '' "$PLAYER_EVENTS_PARTIAL" 'fragmento consumido'
+    player_events_drain && fail 'descriptor vacío repite evento'
+    exec {fragment_fd}>&-
+) || fail 'lectura fragmentada de eventos'
+
 # Un evento invalida el throttle antes de delegar al snapshot existente.
 TEST_REFRESH_LAST=''
 TEST_DRAIN_DIRTY=1

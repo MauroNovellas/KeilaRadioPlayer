@@ -4,6 +4,8 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - rama v2.1
 
+- Corregida una lectura potencialmente bloqueante de eventos: un JSON fragmentado conserva sus datos entre ticks y cada lectura tiene tiempo máximo.
+- Optimizado el dibujo del espectro: alturas y marcadores se calculan una vez por cuadro; se eliminan subprocesos para márgenes y filas del dibujo completo. Añadido benchmark con niveles cambiantes.
 - Reducido el coste del sondeo de eventos de `mpv`: la TUI ya no espera innecesariamente cuando no hay notificaciones y cada evento se parsea con una sola invocación de `jq`.
 - Las posiciones del rectángulo del espectro se calculan una sola vez por geometría de terminal, evitando lanzar `tput` repetidamente durante los redibujados completos.
 

@@ -29,3 +29,15 @@ for ((frame=0; frame<100; frame++)); do ui_draw_spectrum_only >/dev/null; done
 finish=$EPOCHREALTIME
 finish=${finish//[.,]/}
 printf 'Solo espectro: %d microsegundos por dibujo (media de 100)\n' "$(((finish-start)/100))"
+
+# Evita medir únicamente cuadros idénticos que aprovechan toda la caché.
+start=${EPOCHREALTIME//[.,]/}
+for ((frame=0; frame<100; frame++)); do
+    for ((band=0; band<16; band++)); do
+        SPECTRUM_LEVELS[band]=$(((frame + band) % 17))
+        SPECTRUM_PEAK_LEVELS[band]=$(((frame + band * 3) % 17))
+    done
+    ui_draw_spectrum_only >/dev/null
+done
+finish=${EPOCHREALTIME//[.,]/}
+printf 'Espectro cambiante: %d microsegundos por dibujo (media de 100)\n' "$(((finish-start)/100))"

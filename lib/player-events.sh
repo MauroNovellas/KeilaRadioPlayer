@@ -15,6 +15,7 @@ PLAYER_EVENTS_DIRTY="${PLAYER_EVENTS_DIRTY:-0}"
 PLAYER_EVENTS_PROPERTY_CHANGES="${PLAYER_EVENTS_PROPERTY_CHANGES:-0}"
 PLAYER_EVENTS_LAST_AT="${PLAYER_EVENTS_LAST_AT:-0}"
 PLAYER_EVENTS_DRAIN_LIMIT="${KEILA_PLAYER_EVENT_DRAIN_LIMIT:-64}"
+PLAYER_EVENTS_PARTIAL=''
 
 player_events_now() {
     printf '%s\n' "${EPOCHSECONDS:-$(date +%s)}"
@@ -27,6 +28,7 @@ player_events_configure() {
 }
 
 player_events_reset_state() {
+    PLAYER_EVENTS_PARTIAL=''
     PLAYER_EVENTS_ACTIVE=0
     PLAYER_EVENTS_DIRTY=0
     PLAYER_EVENTS_PROPERTY_CHANGES=0
@@ -163,16 +165,19 @@ player_events_drain() {
     fi
 
     while ((count < PLAYER_EVENTS_DRAIN_LIMIT)); do
-        # Primero comprobamos disponibilidad sin ceder 1 ms en cada vuelta del
-        # bucle principal. Cuando hay datos, la segunda lectura consume la línea
-        # completa; los eventos de mpv se escriben siempre terminados en salto
-        # de línea, por lo que esta lectura no puede dejar bloqueada la TUI.
+        # Disponibilidad no garantiza una línea completa: el socket puede
+        # entregar un JSON fragmentado. Acotamos la lectura y conservamos el
+        # fragmento para el próximo tick sin bloquear el teclado.
         if ! IFS= read -r -t 0 -u "$fd" ready; then
             break
         fi
-        if ! IFS= read -r -u "$fd" line; then
+        line=''
+        if ! IFS= read -r -t 0.001 -u "$fd" line; then
+            PLAYER_EVENTS_PARTIAL+="$line"
             break
         fi
+        line="$PLAYER_EVENTS_PARTIAL$line"
+        PLAYER_EVENTS_PARTIAL=''
         count=$((count + 1))
         if player_events_handle_line "$line"; then
             changed=0

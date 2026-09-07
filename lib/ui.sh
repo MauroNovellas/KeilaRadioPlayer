@@ -721,8 +721,8 @@ ui_spectrum_editor_row_wide() {
     local row="$1" width="${2:-40}"
     local display_rows="${SPECTRUM_DISPLAY_ROWS:-8}" frame_rows="${SPECTRUM_FRAME_ROWS:-16}"
     local columns gap cell_width segment_remainder column start end max_level level units full_units
-    local height partial_glyph result='' i extra partial_units cells side_padding
-    local peak_max_level peak_level peak_units peak_height peak_top current_top marker_row glyph
+    local height result='' i extra partial_units cells side_padding
+    local peak_max_level peak_level peak_units peak_height current_top marker_row glyph
     local cache_key
     local -a levels=("${SPECTRUM_LEVELS[@]:-}")
     local -a peak_levels=("${SPECTRUM_PEAK_LEVELS[@]:-}")
@@ -766,6 +766,25 @@ ui_spectrum_editor_row_wide() {
             done
             UI_SPECTRUM_WIDE_LEVELS[column]=$max_level
             UI_SPECTRUM_WIDE_PEAKS[column]=$peak_max_level
+            # Altura y pico dependen del cuadro, no de la fila que se dibuja.
+            units=$((max_level * display_rows * 8 / frame_rows))
+            full_units=$((units / 8))
+            partial_units=$((units % 8))
+            height=$((display_rows - full_units))
+            current_top=$height
+            ((max_level == 0)) && current_top=$display_rows
+            ((partial_units > 0)) && current_top=$((height - 1))
+            marker_row=-1
+            if ((peak_max_level > max_level)); then
+                peak_units=$((peak_max_level * display_rows * 8 / frame_rows))
+                peak_height=$(((peak_units + 7) / 8))
+                marker_row=$((display_rows - peak_height))
+                ((marker_row >= current_top)) && marker_row=$((current_top - 1))
+                ((marker_row < 0)) && marker_row=-1
+            fi
+            UI_SPECTRUM_WIDE_HEIGHTS[column]=$height
+            UI_SPECTRUM_WIDE_PARTIALS[column]=$partial_units
+            UI_SPECTRUM_WIDE_MARKERS[column]=$marker_row
         done
         UI_SPECTRUM_WIDE_COLUMNS=$columns
         UI_SPECTRUM_WIDE_GAP=$gap
@@ -779,34 +798,15 @@ ui_spectrum_editor_row_wide() {
     cell_width="${UI_SPECTRUM_WIDE_CELL_WIDTH:-0}"
     side_padding="${UI_SPECTRUM_WIDE_SIDE_PADDING:-0}"
     ((columns > 0 && cell_width > 0)) || return 1
-    ((side_padding > 0)) && result+=$(printf '%*s' "$side_padding" '')
+    if ((side_padding > 0)); then
+        printf -v cells '%*s' "$side_padding" ''
+        result+="$cells"
+    fi
 
     for ((column = 0; column < columns; column++)); do
-        max_level="${UI_SPECTRUM_WIDE_LEVELS[column]:-0}"
-        peak_max_level="${UI_SPECTRUM_WIDE_PEAKS[column]:-0}"
-
-        units=$((max_level * display_rows * 8 / frame_rows))
-        full_units=$((units / 8))
-        partial_units=$((units % 8))
-        height=$((display_rows - full_units))
-        if ((max_level == 0)); then
-            current_top=$display_rows
-        elif ((partial_units > 0)); then
-            current_top=$((height - 1))
-        else
-            current_top=$height
-        fi
-        marker_row=-1
-        if ((peak_max_level > max_level)); then
-            peak_units=$((peak_max_level * display_rows * 8 / frame_rows))
-            peak_height=$(((peak_units + 7) / 8))
-            peak_top=$((display_rows - peak_height))
-            marker_row=$peak_top
-            # Si el pico cae en la misma fila que la barra actual, conserva
-            # una fila libre encima para que el marcador siga siendo visible.
-            ((marker_row >= current_top)) && marker_row=$((current_top - 1))
-            ((marker_row < 0)) && marker_row=-1
-        fi
+        height=${UI_SPECTRUM_WIDE_HEIGHTS[column]}
+        partial_units=${UI_SPECTRUM_WIDE_PARTIALS[column]}
+        marker_row=${UI_SPECTRUM_WIDE_MARKERS[column]}
         glyph=' '
         if ((row >= height)); then
             glyph="$UI_BAR_FULL"
