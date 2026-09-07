@@ -225,28 +225,36 @@ ui_leave() {
 ui_truncate() {
     local text="$1"
     local max="$2"
-    if ((max <= 0)); then return 0; fi
-    if ((${#text} <= max)); then printf '%s' "$text"; return 0; fi
-    if ((max <= 3)); then printf '%s' "${text:0:max}"; return 0; fi
-    local cut=$((max - 3))
-    printf '%s...' "${text:0:cut}"
+    if ((max <= 0)); then
+        UI_TRUNCATED_TEXT=''
+    elif ((${#text} <= max)); then
+        UI_TRUNCATED_TEXT=$text
+    elif ((max <= 3)); then
+        UI_TRUNCATED_TEXT=${text:0:max}
+    else
+        UI_TRUNCATED_TEXT="${text:0:max-3}..."
+    fi
+    # Los helpers de dibujo reutilizan el resultado sin crear un subshell
+    # por cada celda. El modo predeterminado conserva la salida pública.
+    [[ "${3:-}" == state ]] || printf '%s' "$UI_TRUNCATED_TEXT"
+    return 0
 }
 
 ui_repeat_char() {
     local char="$1"
     local count="$2"
     local output=''
-    while ((count > 0)); do
-        output+="$char"
-        ((count -= 1))
-    done
+    ((count > 0)) || return 0
+    printf -v output '%*s' "$count" ''
+    output=${output// /"$char"}
     printf '%s' "$output"
 }
 
 ui_print_padded() {
     local width="$1"
     local text="${2:-}"
-    text=$(ui_truncate "$text" "$width")
+    ui_truncate "$text" "$width" state
+    text=$UI_TRUNCATED_TEXT
     local padding=$((width - ${#text}))
     printf '%s' "$text"
     if ((padding > 0)); then ui_repeat_char ' ' "$padding"; fi
@@ -257,7 +265,8 @@ ui_print_styled_padded() {
     local width="$1"
     local text="${2:-}"
     local style="${3:-}"
-    text=$(ui_truncate "$text" "$width")
+    ui_truncate "$text" "$width" state
+    text=$UI_TRUNCATED_TEXT
     local padding=$((width - ${#text}))
 
     ui_style_begin "$style"
@@ -285,7 +294,8 @@ ui_print_split_styled() {
     fi
 
     local left_max=$((width - right_len - 1))
-    left=$(ui_truncate "$left" "$left_max")
+    ui_truncate "$left" "$left_max" state
+    left=$UI_TRUNCATED_TEXT
     local gap=$((width - ${#left} - right_len))
     ((gap < 1)) && gap=1
 
