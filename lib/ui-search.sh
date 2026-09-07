@@ -37,6 +37,10 @@ ui_search_result_badge() {
     elif ((UI_SEARCH_IS_FAVORITE)); then
         badge="[$UI_FAVORITE]"
     fi
+    if [[ -n "${UI_SEARCH_DETAIL:-}" ]]; then
+        [[ -n "$badge" ]] && badge+=' '
+        badge+="$UI_SEARCH_DETAIL"
+    fi
     if [[ -n "${UI_SEARCH_LABEL:-}" ]]; then
         [[ -n "$badge" ]] && badge+=' '
         badge+="$UI_SEARCH_LABEL"
