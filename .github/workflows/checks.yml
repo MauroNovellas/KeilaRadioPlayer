@@ -21,6 +21,7 @@ jobs:
           bash ./tests/equalizer.sh
           bash ./tests/spectrum.sh
           bash ./tests/spectrum-redraw.sh
+          bash ./tests/player-info-redraw.sh
           bash ./tests/player-ipc.sh
           bash ./tests/player-lifecycle.sh
           bash ./tests/player-readiness.sh

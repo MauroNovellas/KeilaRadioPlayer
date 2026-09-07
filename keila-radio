@@ -412,14 +412,18 @@ app_poll_player() {
     player_is_running || return 1
     local changed=1 was_ready=$PLAYER_INFO_READY was_buffering=$PLAYER_BUFFERING
     if player_refresh_info; then
+        changed=0
         if ((!was_ready && PLAYER_INFO_READY)); then
             app_message "Reproduciendo: $PLAYER_NAME" 3
         elif ((!was_buffering && PLAYER_BUFFERING)); then
             app_message "Esperando datos del stream..." 5
         elif ((was_buffering && !PLAYER_BUFFERING && PLAYER_INFO_READY)); then
             app_message "Reproducción reanudada." 3
+        elif ((was_ready == PLAYER_INFO_READY && was_buffering == PLAYER_BUFFERING)); then
+            # Un cambio solo de título/datos técnicos no modifica el layout.
+            # Si el modo actual no permite dibujo parcial, conserva el completo.
+            if ui_draw_player_info_only; then changed=1; fi
         fi
-        changed=0
     fi
     if history_observe; then changed=0; fi
     local spectrum_status="$SPECTRUM_ENABLED:$SPECTRUM_AVAILABLE"

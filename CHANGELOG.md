@@ -4,6 +4,7 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - rama v2.1
 
+- Los cambios exclusivos de título y datos técnicos actualizan dos filas de Ahora suena en escritorio; los cambios de estado y los modos pequeños conservan el redibujado completo. El diagnóstico mide esta ruta por separado.
 - Reducido el coste del redibujado completo: los helpers de relleno y texto usan truncado en el mismo proceso y generan espacios/bordes con operaciones internas de Bash.
 - Corregida una lectura potencialmente bloqueante de eventos: un JSON fragmentado conserva sus datos entre ticks y cada lectura tiene tiempo máximo.
 - Optimizado el dibujo del espectro: alturas y marcadores se calculan una vez por cuadro; se eliminan subprocesos para márgenes y filas del dibujo completo. Añadido benchmark con niveles cambiantes.

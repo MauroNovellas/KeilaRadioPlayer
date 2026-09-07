@@ -36,7 +36,7 @@ keila_profile_frame() {
 }
 
 for profile_stage in input_read catalog_poll app_poll_player player_refresh_info \
-    player_query_snapshot spectrum_tick ui_draw ui_draw_spectrum_only; do
+    player_query_snapshot spectrum_tick ui_draw ui_draw_spectrum_only ui_draw_player_info_only; do
     profile_definition=$(declare -f "$profile_stage")
     profile_definition=${profile_definition/"$profile_stage ()"/"profile_original_$profile_stage ()"}
     eval "$profile_definition"

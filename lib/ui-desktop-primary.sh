@@ -7,6 +7,29 @@
 declare -a UI_SPECTRUM_CURSOR=()
 declare -a UI_SPECTRUM_CURSOR_CACHE=()
 UI_SPECTRUM_CURSOR_CACHE_KEY=''
+UI_PLAYER_INFO_CURSOR_KEY=''
+UI_PLAYER_TITLE_CURSOR=''
+UI_PLAYER_AUDIO_CURSOR=''
+
+# Metadatos y bitrate ocupan dos filas fijas del panel de reproducción.
+# No afectan a favoritos, búsqueda, volumen ni al rectángulo del espectro.
+ui_draw_player_info_only() {
+    ((UI_ACTIVE && !UI_SUSPENDED && !${INPUT_RESIZE_PENDING:-0})) || return 1
+    ui_desktop_enabled "$UI_COLS" "$UI_LINES" "$UI_LAYOUT_MODE" || return 1
+    [[ "$UI_PLAYER_INFO_CURSOR_KEY" == "${TERM:-}|$UI_COLS|$UI_LINES|$UI_DESKTOP_LEFT_WIDTH" ]] || return 1
+    [[ -n "$UI_PLAYER_TITLE_CURSOR" && -n "$UI_PLAYER_AUDIO_CURSOR" ]] || return 1
+    local title='Sin título de emisión disponible' style=muted audio
+    if [[ -n "${PLAYER_STREAM_TITLE:-}" ]]; then
+        title="$UI_NOTE $PLAYER_STREAM_TITLE"
+        style=accent
+    fi
+    audio=$(ui_audio_info)
+    printf '%s' "$UI_PLAYER_TITLE_CURSOR"
+    ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$title" "$style"
+    printf '%s' "$UI_PLAYER_AUDIO_CURSOR"
+    ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$audio" muted
+    return 0
+}
 
 ui_desktop_prepare_spectrum_cursor() {
     local graph_rows="$1"
@@ -105,6 +128,12 @@ ui_draw_desktop() {
 
     ui_desktop_pane_widths "$width"
     ui_desktop_sync_selection "$body_height"
+    local info_key="${TERM:-}|$UI_COLS|$UI_LINES|$UI_DESKTOP_LEFT_WIDTH"
+    if [[ "$info_key" != "$UI_PLAYER_INFO_CURSOR_KEY" ]]; then
+        UI_PLAYER_TITLE_CURSOR=$(tput cup 4 2 2>/dev/null || true)
+        UI_PLAYER_AUDIO_CURSOR=$(tput cup 5 2 2>/dev/null || true)
+        UI_PLAYER_INFO_CURSOR_KEY=$info_key
+    fi
 
     ui_box_rule "$width" "$UI_TL" "$UI_TR"
     ui_box_center_line "$width" "$title" title

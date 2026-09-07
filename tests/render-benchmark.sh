@@ -6,7 +6,7 @@ set -- --version
 source "$ROOT_DIR/keila-radio" >/dev/null
 trap - EXIT
 player_is_running() { return 1; }
-tput() { :; }
+tput() { if [[ "$1" == cup ]]; then printf '\033[%d;%dH' "$(( $2 + 1 ))" "$(( $3 + 1 ))"; fi; }
 ui_refresh_size() { UI_COLS=132; UI_LINES=40; }
 UI_ACTIVE=1 UI_SUSPENDED=0 UI_COLOR=0 UI_UNICODE=1 UI_HELP_VISIBLE=0
 ui_configure_glyphs
@@ -41,3 +41,10 @@ for ((frame=0; frame<100; frame++)); do
 done
 finish=${EPOCHREALTIME//[.,]/}
 printf 'Espectro cambiante: %d microsegundos por dibujo (media de 100)\n' "$(((finish-start)/100))"
+start=${EPOCHREALTIME//[.,]/}
+for ((frame=0; frame<100; frame++)); do
+    PLAYER_BITRATE_KBPS=$((128 + frame))
+    ui_draw_player_info_only >/dev/null || exit 1
+done
+finish=${EPOCHREALTIME//[.,]/}
+printf 'Solo metadatos: %d microsegundos por dibujo (media de 100)\n' "$(((finish-start)/100))"
