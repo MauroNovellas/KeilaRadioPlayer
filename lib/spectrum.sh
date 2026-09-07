@@ -18,6 +18,7 @@ SPECTRUM_CAPTURE_COLUMNS=17
 SPECTRUM_DISPLAY_ROWS=8
 SPECTRUM_DISPLAY_INTERVAL_MS=50
 SPECTRUM_LAST_DISPLAY_MS=''
+SPECTRUM_NOW_MS=''
 SPECTRUM_SMOOTHING=1
 SPECTRUM_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
 SPECTRUM_PEAK_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
@@ -120,7 +121,8 @@ spectrum_start() {
 
 spectrum_now_ms() {
     if [[ -n "${SPECTRUM_TEST_NOW_MS:-}" && "${SPECTRUM_TEST_NOW_MS}" =~ ^[0-9]+$ ]]; then
-        printf '%s\n' "$SPECTRUM_TEST_NOW_MS"
+        SPECTRUM_NOW_MS=$SPECTRUM_TEST_NOW_MS
+        printf '%s\n' "$SPECTRUM_NOW_MS"
         return 0
     fi
 
@@ -132,11 +134,13 @@ spectrum_now_ms() {
         local seconds="${timestamp%%.*}" fraction="${timestamp#*.}"
         fraction="${fraction}000"
         fraction="${fraction:0:3}"
-        printf '%s\n' "$((seconds * 1000 + 10#$fraction))"
+        SPECTRUM_NOW_MS=$((seconds * 1000 + 10#$fraction))
+        printf '%s\n' "$SPECTRUM_NOW_MS"
         return 0
     fi
 
-    date +%s%3N
+    SPECTRUM_NOW_MS=$(date +%s%3N)
+    printf '%s\n' "$SPECTRUM_NOW_MS"
 }
 
 # Procesamos cada fila al recibirla: od con salida por líneas y read de Bash
@@ -200,7 +204,8 @@ spectrum_tick() {
     local now_ms file="$SPECTRUM_DIR/levels" raw values i changed=1
     local -a peak_levels=("${SPECTRUM_PEAK_LEVELS[@]:-}")
     local -a peak_ages=("${SPECTRUM_PEAK_AGES[@]:-}")
-    now_ms=$(spectrum_now_ms)
+    spectrum_now_ms >/dev/null
+    now_ms=$SPECTRUM_NOW_MS
     if [[ -n "$SPECTRUM_LAST_DISPLAY_MS" ]] &&
         ((now_ms >= SPECTRUM_LAST_DISPLAY_MS)) &&
         ((now_ms - SPECTRUM_LAST_DISPLAY_MS < SPECTRUM_DISPLAY_INTERVAL_MS)); then
