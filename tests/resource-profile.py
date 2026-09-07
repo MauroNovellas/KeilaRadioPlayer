@@ -13,9 +13,18 @@ import tempfile
 import time
 
 
-def tree_rss(pid):
-    """Sample summed resident memory; disappearing processes are normal."""
-    pending, seen, total, count = [pid], set(), 0, 0
+def parse_stat(text):
+    # comm can contain spaces and parentheses. Fields after its last ')' start
+    # at field 3 (state); CPU fields 14/15 exclude waited-for children.
+    prefix, _, suffix = text.rpartition(')')
+    fields = suffix.split()
+    return (prefix.split('(', 1)[1], int(fields[19]),
+            int(fields[11]) + int(fields[12]))
+
+
+def tree_sample(pid):
+    """Sample own CPU and RSS; never attribute child CPU twice to Bash."""
+    pending, seen, rows = [pid], set(), []
     while pending:
         current = pending.pop()
         if current in seen:
@@ -26,17 +35,59 @@ def tree_rss(pid):
             pending.extend(int(child) for child in
                            (root / 'task' / str(current) / 'children').read_text().split())
             pages = int((root / 'statm').read_text().split()[1])
+            name, birth, ticks = parse_stat((root / 'stat').read_text())
         except (OSError, ValueError, IndexError):
             continue
-        total += pages * os.sysconf('SC_PAGE_SIZE')
-        count += 1
-    return total, count
+        rows.append((current, birth, name, ticks, pages * os.sysconf('SC_PAGE_SIZE')))
+    return rows
+
+
+def process_group(pid, root_pid, name):
+    if pid == root_pid:
+        return 'Keila (Bash principal)'
+    if name in ('bash', 'sh'):
+        return 'Bash auxiliares'
+    if name in ('mpv', 'ffmpeg', 'parec', 'od', 'jq', 'socat', 'mv', 'curl', 'tput'):
+        return name
+    return 'Otros auxiliares'
+
+
+class ProcessTotals:
+    def __init__(self):
+        self.previous = {}
+        self.groups = {}
+        self.samples = 0
+
+    def add(self, rows, root_pid):
+        self.samples += 1
+        memory = {}
+        for pid, birth, name, ticks, rss in rows:
+            identity = (pid, birth)  # PID reuse must not inherit an old counter.
+            group = process_group(pid, root_pid, name)
+            totals = self.groups.setdefault(group, {'ticks': 0, 'rss_sum': 0, 'rss_peak': 0})
+            totals['ticks'] += max(0, ticks - self.previous.get(identity, 0))
+            self.previous[identity] = ticks
+            memory[group] = memory.get(group, 0) + rss
+        for group, rss in memory.items():
+            self.groups[group]['rss_sum'] += rss
+            self.groups[group]['rss_peak'] = max(self.groups[group]['rss_peak'], rss)
+
+    def report(self, elapsed):
+        hz = os.sysconf('SC_CLK_TCK')
+        return [dict(group=group,
+                     cpu_seconds_observed=round(values['ticks'] / hz, 3),
+                     cpu_percent_one_core_observed=round(100 * values['ticks'] / hz / elapsed, 2),
+                     rss_mean_mib=round(values['rss_sum'] / max(self.samples, 1) / 1048576, 2),
+                     rss_peak_sampled_mib=round(values['rss_peak'] / 1048576, 2))
+                for group, values in sorted(self.groups.items(),
+                                            key=lambda item: item[1]['ticks'], reverse=True)]
 
 
 def measure(command):
     before = resource.getrusage(resource.RUSAGE_CHILDREN)
     started = time.monotonic()
     memory, processes = [], []
+    per_process = ProcessTotals()
     child = subprocess.Popen(command)
     previous_handlers = {}
 
@@ -50,10 +101,12 @@ def measure(command):
         previous_handlers[signum] = signal.signal(signum, forward)
     try:
         while child.poll() is None:
-            rss, count = tree_rss(child.pid)
+            rows = tree_sample(child.pid)
+            rss, count = sum(row[4] for row in rows), len(rows)
             if count:
                 memory.append(rss)
                 processes.append(count)
+                per_process.add(rows, child.pid)
             time.sleep(0.25)
         status = child.wait()
     finally:
@@ -62,6 +115,8 @@ def measure(command):
     elapsed = time.monotonic() - started
     after = resource.getrusage(resource.RUSAGE_CHILDREN)
     cpu = after.ru_utime + after.ru_stime - before.ru_utime - before.ru_stime
+    groups = per_process.report(elapsed)
+    attributed = sum(values['ticks'] for values in per_process.groups.values()) / os.sysconf('SC_CLK_TCK')
     return {
         'duration_seconds': round(elapsed, 3),
         'cpu_seconds': round(cpu, 3),
@@ -71,6 +126,10 @@ def measure(command):
         'processes_peak_sampled': max(processes, default=0),
         'samples': len(memory),
         'exit_code': status,
+        'process_groups': groups,
+        'cpu_seconds_observed': round(attributed, 3),
+        'cpu_seconds_unattributed': round(max(0, cpu - attributed), 3),
+        'cpu_seconds_observed_excess': round(max(0, attributed - cpu), 3),
     }
 
 
@@ -100,7 +159,21 @@ def self_test():
     assert result['rss_peak_sampled_mib'] >= 12, result
     assert result['processes_peak_sampled'] >= 2, result
     assert result['samples'] >= 2, result
-    assert tree_rss(999999999) == (0, 0)
+    assert tree_sample(999999999) == []
+    observed = result['cpu_seconds_observed']
+    assert observed >= 0.2, result
+    assert observed <= result['cpu_seconds'] + 0.03, result
+    # Repeated samples, exited children and reused PIDs must not double CPU.
+    totals = ProcessTotals()
+    totals.add([(10, 1, 'bash', 5, 1024), (11, 2, 'ffmpeg', 10, 2048)], 10)
+    totals.add([(10, 1, 'bash', 7, 1024), (11, 2, 'ffmpeg', 14, 2048)], 10)
+    totals.add([(10, 1, 'bash', 8, 1024), (11, 3, 'jq', 2, 512)], 10)
+    assert sum(group['ticks'] for group in totals.groups.values()) == 24
+    assert totals.groups['ffmpeg']['rss_sum'] == 4096
+    assert totals.groups['Keila (Bash principal)']['ticks'] == 8
+    fields = ['0'] * 22
+    fields[11], fields[12], fields[19] = '7', '3', '123'
+    assert parse_stat('10 (name with ) space) ' + ' '.join(fields)) == ('name with ) space', 123, 10)
     with tempfile.TemporaryDirectory(prefix='keila-test ') as directory:
         launcher = Path(directory) / 'fake launcher'
         launcher.write_text(
@@ -113,7 +186,7 @@ def self_test():
         for mode, expected in [('on', '1'), ('off', '0')]:
             output = subprocess.check_output(launcher_command(launcher, mode), text=True)
             assert output == expected + '\ncleanup\n', output
-    print('ok   recursos: CPU descendiente, memoria, modos on/off y cierre')
+    print('ok   recursos: CPU descendiente, desglose sin duplicados, memoria, modos y cierre')
 
 
 def main():
@@ -144,6 +217,16 @@ def main():
           f"máximo muestreado {result['rss_peak_sampled_mib']:.1f} MiB")
     print(f"Procesos simultáneos: máximo muestreado {result['processes_peak_sampled']}")
     print(f"Código de salida: {result['exit_code']}")
+    print('\nDESGLOSE OBSERVADO (agrupado por programa)')
+    print(f"{'Programa':<24} {'CPU s':>8} {'CPU %':>8} {'RSS media MiB':>14}")
+    for row in result['process_groups']:
+        print(f"{row['group']:<24} {row['cpu_seconds_observed']:>8.2f} "
+              f"{row['cpu_percent_one_core_observed']:>8.1f} {row['rss_mean_mib']:>14.1f}")
+    print(f"CPU sin atribuir por muestreo: {result['cpu_seconds_unattributed']:.2f} s")
+    if result['cpu_seconds_observed_excess'] > 0.03:
+        print('Aviso: el desglose supera el total contabilizado al cierre; '
+              'pueden existir descendientes no recogidos por Keila.')
+    print('El desglose omite procesos breves y tramos finales entre muestras; no sustituye al total.')
     print('Incluye arranque, reproducción y cierre; el medidor queda fuera de la CPU.')
     print('CPU: Keila y descendientes contabilizados al cerrar; RSS muestreada cada 250 ms.')
     print('RSS puede contar páginas compartidas varias veces y omitir picos breves.')
