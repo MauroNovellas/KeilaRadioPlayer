@@ -214,6 +214,17 @@ La altura utiliza una escala logarítmica de amplitud para hacer más visibles l
 
 Para investigar saltos durante la reproducción, ejecuta `bash tests/profile-live.sh`, reproduce una emisora durante unos 30 segundos y sal con `Q`. Al cerrar aparece un resumen de tiempos de captura, consulta a mpv, teclado y dibujo, con los intervalos máximos entre cuadros. El registro temporal contiene solo etapas y tiempos, no contenido de emisoras. La instrumentación añade algo de trabajo y solo está activa en esa ejecución. Las duraciones de etapas anidadas no deben sumarse.
 
+Para comparar recursos en Linux, usa Python 3 (solo necesario para esta prueba):
+
+```bash
+python3 tests/resource-profile.py --spectrum on
+python3 tests/resource-profile.py --spectrum off
+```
+
+Son dos sesiones independientes: en cada una reproduce la misma emisora durante al menos un minuto, conserva el tamaño de terminal y sal con `Q`. No pulses `V`, no grabes ni cambies de emisora durante la comparación. No combines esta prueba con `profile-live.sh`. El modo `off` desactiva la captura del espectro solo en esa sesión.
+
+Al salir se muestra CPU acumulada y media (100 % equivale a un núcleo), memoria residente sumada y número de procesos. La CPU incluye el proceso de Keila y el uso de descendientes contabilizado por Linux al cerrarlos, incluidos procesos breves ya terminados. La memoria se muestrea cada 250 ms: puede contar páginas compartidas varias veces y omitir picos breves. El resumen incluye arranque y cierre; no mide el emulador de terminal ni el servidor de audio compartido. Se guarda también en un archivo temporal `summary.json`, sin URLs, títulos ni configuración personal. Para validar el medidor sin radio ni red: `python3 tests/resource-profile.py --self-test`.
+
 En Linux de escritorio usa el monitor de la salida PulseAudio/PipeWire mediante `parec`, `ffmpeg` y `pactl`; analiza el audio que ya está reproduciendo `mpv` y no abre otra conexión a la emisora. Las barras de 16 frecuencias permanecen dibujadas incluso antes de recibir señal. Estas herramientas son opcionales: si no existen o el sistema no expone un monitor compatible, Keila continúa funcionando y muestra `No disponible` en el panel. En Debian/Ubuntu pueden instalarse con:
 
 ```bash

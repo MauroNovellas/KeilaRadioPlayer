@@ -4,6 +4,7 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - rama v2.1
 
+- Añadida medición opcional de CPU y memoria en Linux, con sesiones comparables de espectro activado/desactivado, resumen local y prueba del contador de procesos descendientes.
 - Los cambios exclusivos de título y datos técnicos actualizan dos filas de Ahora suena en escritorio; los cambios de estado y los modos pequeños conservan el redibujado completo. El diagnóstico mide esta ruta por separado.
 - Reducido el coste del redibujado completo: los helpers de relleno y texto usan truncado en el mismo proceso y generan espacios/bordes con operaciones internas de Bash.
 - Corregida una lectura potencialmente bloqueante de eventos: un JSON fragmentado conserva sus datos entre ticks y cada lectura tiene tiempo máximo.
