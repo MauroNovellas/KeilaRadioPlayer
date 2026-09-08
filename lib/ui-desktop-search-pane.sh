@@ -104,6 +104,8 @@ ui_desktop_row() {
         if ((row == 0)); then
             right_text="FAVORITAS (${#FAVORITE_NAMES[@]})"
             right_badge="RECIENTES (${#RECENT_NAMES[@]})"
+            UI_DESKTOP_LEFT_COMMENT='COMENTARIOS'
+            UI_DESKTOP_RIGHT_COMMENT='COMENTARIOS'
             right_style='accent'
             right_badge_style='accent'
         else
@@ -130,7 +132,7 @@ ui_desktop_row() {
                     [0-8]) recent_preset="$((recent_index + 1)). " ;;
                     9) recent_preset='0. ' ;;
                 esac
-                right_badge="${recent_preset}${RECENT_NAMES[recent_index]}"
+                right_badge="  ${recent_preset}${RECENT_NAMES[recent_index]}"
                 local recent_comment=''
                 if declare -p FAVORITE_LABELS >/dev/null 2>&1; then
                     recent_comment="${FAVORITE_LABELS[${RECENT_URLS[recent_index]}]:-}"
