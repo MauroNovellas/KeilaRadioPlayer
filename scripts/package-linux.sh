@@ -24,7 +24,7 @@ trap 'rm -rf "$staging_dir"' EXIT
 
 mkdir -p "$OUTPUT_DIR" "$staging_dir/$package_name"
 cp -- "$ROOT_DIR/keila-radio" "$staging_dir/$package_name/"
-cp -- "$ROOT_DIR/README.md" "$ROOT_DIR/CHANGELOG.md" "$staging_dir/$package_name/"
+cp -- "$ROOT_DIR/README.md" "$ROOT_DIR/CHANGELOG.md" "$ROOT_DIR/LICENSE" "$staging_dir/$package_name/"
 cp -a -- "$ROOT_DIR/defaults" "$ROOT_DIR/lib" "$staging_dir/$package_name/"
 chmod +x "$staging_dir/$package_name/keila-radio"
 

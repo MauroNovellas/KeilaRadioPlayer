@@ -1,0 +1,11 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_install:
+	install -d debian/keila-radio/usr/bin debian/keila-radio/usr/lib/keila-radio
+	install -d debian/keila-radio/usr/share/doc/keila-radio
+	install -m 0755 keila-radio debian/keila-radio/usr/bin/keila-radio
+	cp -a lib defaults debian/keila-radio/usr/lib/keila-radio/
+	install -m 0644 README.md CHANGELOG.md PERFORMANCE.md LICENSE debian/keila-radio/usr/share/doc/keila-radio/

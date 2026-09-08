@@ -6,6 +6,12 @@ La versión estable actual es **`2.1.1`**. Linux de escritorio es la plataforma 
 
 Consulta el historial de cambios en [`CHANGELOG.md`](CHANGELOG.md).
 
+## Licencia
+
+Keila Radio Player se distribuye bajo la licencia **GNU General Public License
+3 o posterior** (`GPL-3.0-or-later`). Consulta el texto en [`LICENSE`](LICENSE).
+El copyright corresponde a Mauro Novellas.
+
 ## Versión
 
 La versión vive en una única fuente, `lib/version.sh`, y puede consultarse sin inicializar dependencias ni abrir la TUI:
