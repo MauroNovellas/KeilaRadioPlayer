@@ -102,7 +102,7 @@ assert_eq '[PLAY] [★] Madrid · España' "$(ui_search_result_badge 1)" 'badge 
 search_toggle_selected_favorite || fail 'segunda F no armó confirmación'
 assert_eq 1 "${#FAVORITE_NAMES[@]}" 'primera pulsación destructiva conserva favorito'
 assert_eq '' "${FAVORITES_TOGGLE_ACTION:-}" 'confirmación no se confunde con una baja'
-[[ "$LAST_MESSAGE" == *'Pulsa F otra vez para eliminar de favoritos: Rock FM'* ]] || fail 'falta mensaje de confirmación'
+[[ "$LAST_MESSAGE" == *'Pulsa X otra vez para eliminar de favoritos: Rock FM'* ]] || fail 'falta mensaje de confirmación'
 assert_eq 'search' "${FAVORITES_CONFIRM_ACTION:-}" 'confirmación queda ligada a búsqueda'
 assert_eq 'https://example.invalid/rock' "${FAVORITES_CONFIRM_URL:-}" 'confirmación queda ligada a la URL'
 
@@ -118,4 +118,4 @@ assert_eq 0 "$SEARCH_SELECTED_INDEX" 'eliminar favorito conserva resultado selec
 ui_search_result_parts 0
 assert_eq 0 "$UI_SEARCH_IS_FAVORITE" 'renderer retira marca tras eliminar'
 
-printf 'ok   búsqueda integrada: F añade al instante y confirma antes de quitar favoritos\n'
+printf 'ok   búsqueda integrada: alta inmediata y confirmación de baja\n'

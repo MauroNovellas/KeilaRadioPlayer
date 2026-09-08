@@ -55,7 +55,7 @@ search_prepare_results() {
 # Modifica Favoritos usando el resultado activo sin abandonar la búsqueda ni
 # alterar la reproducción. F y E mayúsculas se reservan como comandos; la f
 # minúscula sigue siendo texto normal para consultas como "fm" o "francia".
-# Añadir es inmediato; quitar exige una segunda F sobre el mismo resultado.
+# Añadir es inmediato; quitar exige una segunda X sobre el mismo resultado.
 search_toggle_selected_favorite() {
     search_prepare_results
     if ! search_selected_load; then
@@ -75,7 +75,7 @@ search_toggle_selected_favorite() {
     if index=$(favorites_find_url "$url"); then
         favorites_confirm_removal 'search' "$url" || confirm_status=$?
         if ((confirm_status == 2)); then
-            app_message "Pulsa F otra vez para eliminar de favoritos: $name" 4
+            app_message "Pulsa X otra vez para eliminar de favoritos: $name" 4
             return 0
         fi
         if ((confirm_status != 0)); then
@@ -245,8 +245,16 @@ stations_select_fzf() {
                 redraw=1
                 ;;
             KEY)
-                if [[ "$INPUT_KEY" == 'F' ]]; then
+                if [[ "$INPUT_KEY" == 'X' ]]; then
                     search_toggle_selected_favorite || true
+                    redraw=1
+                elif [[ "$INPUT_KEY" == 'F' || "$INPUT_KEY" == 'R' ]]; then
+                    favorites_confirm_clear
+                    search_close
+                    if [[ "$INPUT_KEY" == 'F' ]]; then ui_select_emisoras || true; else ui_select_recientes || true; fi
+                    return 1
+                elif [[ "$INPUT_KEY" == 'M' ]]; then
+                    app_toggle_mute || true
                     redraw=1
                 elif [[ "$INPUT_KEY" == 'C' ]]; then
                     favorites_confirm_clear

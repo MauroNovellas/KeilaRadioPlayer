@@ -23,7 +23,8 @@ ui_draw_player_info_only() {
         title="$UI_NOTE $PLAYER_STREAM_TITLE"
         style=accent
     fi
-    audio=$(ui_audio_info)
+    ui_audio_info state
+    audio=$UI_AUDIO_INFO
     printf '%s' "$UI_PLAYER_TITLE_CURSOR"
     ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$title" "$style"
     printf '%s' "$UI_PLAYER_AUDIO_CURSOR"
@@ -44,7 +45,7 @@ ui_desktop_prepare_spectrum_cursor() {
     UI_SPECTRUM_CURSOR=()
     if ((SPECTRUM_ENABLED)); then
         for ((row = 0; row < graph_rows; row++)); do
-            UI_SPECTRUM_CURSOR[row]=$(tput cup "$((row + 16))" 2 2>/dev/null || true)
+            UI_SPECTRUM_CURSOR[row]=$(tput cup "$((row + 18))" 2 2>/dev/null || true)
         done
     fi
     UI_SPECTRUM_CURSOR_CACHE=("${UI_SPECTRUM_CURSOR[@]}")
@@ -86,6 +87,28 @@ ui_desktop_row() {
     local right_badge_style="${8:-}"
     local selected="${9:-0}"
 
+    # La cabecera de búsqueda es una regla continua: el cruce central debe
+    # ser el mismo que en la cabecera superior, no un `│ ├─` separado.
+    if [[ "$right_style" == separator_label ]]; then
+        ui_style_begin muted
+        printf '%s' "$UI_V"
+        ui_style_end
+        printf ' '
+        ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" '' muted
+        printf ' '
+        ui_style_begin muted
+        printf '%s' "$UI_V"
+        ui_style_end
+        printf ' '
+        ui_desktop_rule_segment "$UI_DESKTOP_RIGHT_WIDTH" "$right_text" accent
+        printf ' '
+        ui_style_begin muted
+        printf '%s' "$UI_V"
+        ui_style_end
+        printf '\n'
+        return 0
+    fi
+
     # La selección pertenece ahora al panel derecho de Favoritos.
     if ((selected)); then
         right_style='selected'
@@ -113,7 +136,9 @@ ui_desktop_row() {
     ui_style_end
     printf ' '
     if (( ${UI_DESKTOP_NAV_COLUMNS:-0} )); then
-        ui_print_navigation_columns "$UI_DESKTOP_RIGHT_WIDTH" "$right_text" "${UI_DESKTOP_LEFT_COMMENT:-}" "$right_style" "$right_badge" "${UI_DESKTOP_RIGHT_COMMENT:-}" "$right_badge_style"
+        ui_print_navigation_columns "$UI_DESKTOP_RIGHT_WIDTH" "$right_text" "${UI_DESKTOP_LEFT_COMMENT:-}" "$right_style" "$right_badge" "${UI_DESKTOP_RIGHT_COMMENT:-}" "$right_badge_style" "${UI_DESKTOP_LEFT_COMMENT_STYLE:-comment}" "${UI_DESKTOP_RIGHT_COMMENT_STYLE:-comment}"
+    elif (( ${UI_DESKTOP_SEARCH_COLUMNS:-0} )); then
+        ui_print_search_columns "$UI_DESKTOP_RIGHT_WIDTH" "$right_text" "${UI_DESKTOP_SEARCH_AMBIT:-}" "${UI_DESKTOP_SEARCH_COUNTRY:-}" "${UI_DESKTOP_SEARCH_FORMAT:-}" "${UI_DESKTOP_SEARCH_COMMENT:-}" "$right_style"
     else
         ui_print_split_styled "$UI_DESKTOP_RIGHT_WIDTH" "$right_text" "$right_badge" "$right_style" "$right_badge_style"
     fi
@@ -203,7 +228,7 @@ ui_draw_desktop() {
 
     local row index fav_marker preset_label fav_badge fav_style fav_badge_style selected
     local main_text main_badge main_style main_style_badge
-    local eq_row spectrum_row spectrum_header_row=12 spectrum_graph_rows spectrum_visible_rows
+    local eq_row spectrum_row spectrum_header_row=14 spectrum_graph_rows spectrum_visible_rows
     spectrum_graph_rows="${SPECTRUM_DISPLAY_ROWS:-8}"
     [[ "$spectrum_graph_rows" =~ ^[0-9]+$ ]] || spectrum_graph_rows=8
     ((spectrum_graph_rows > 8)) && spectrum_graph_rows=8
@@ -240,14 +265,14 @@ ui_draw_desktop() {
             main_badge="$volume_hint"
             main_style='accent'
             main_style_badge='muted'
-        elif ((row >= 4 && row < spectrum_header_row)); then
+        elif ((row >= 5 && row < spectrum_header_row - 1)); then
             # Ecualizador a ancho completo: sus cinco bandas ocupan todo el
             # panel Ahora suena y ya no comparten fila con el espectro.
-            eq_row=$((row - 4))
+            eq_row=$((row - 5))
             ui_equalizer_wide_row "$eq_row" "$UI_DESKTOP_LEFT_WIDTH" >/dev/null
             main_text="$UI_EQ_TEXT"
             main_style="$UI_EQ_STYLE"
-            if ((row == 4)); then
+            if ((row == 5)); then
                 if ((${EQUALIZER_EDITOR_ACTIVE:-0})); then
                     # El encabezado conserva las cinco frecuencias completas;
                     # la banda activa queda marcada en el eje central.
@@ -256,16 +281,8 @@ ui_draw_desktop() {
                 fi
             fi
         elif ((row == spectrum_header_row)); then
-            if ((UI_UNICODE)); then main_text='ESPECTRO 20 Hz–20 kHz'; else main_text='ESPECTRO 20Hz-20kHz'; fi
-            if ((!${SPECTRUM_ENABLED:-0})); then
-                main_badge='V mostrar'
-            elif [[ "${SPECTRUM_AVAILABLE:-unknown}" == no ]]; then
-                main_badge='No disponible'
-            else
-                main_badge='V ocultar'
-            fi
+            main_text='[V] ESPECTROGRAMA'
             main_style='playing'
-            main_style_badge='muted'
         elif ((SPECTRUM_ENABLED && row > spectrum_header_row && row <= spectrum_header_row + spectrum_graph_rows)); then
             # El analizador se apila bajo el ecualizador y se estira hasta los
             # mismos límites del panel, con columnas anchas y separadas.
@@ -328,10 +345,19 @@ ui_draw_spectrum_only() {
     ((UI_ACTIVE && !UI_SUSPENDED && SPECTRUM_ENABLED)) || return 1
     ui_desktop_enabled "$UI_COLS" "$UI_LINES" "$UI_LAYOUT_MODE" || return 0
     local row output='' style=''
+    # Reutilizar el cuadro completo evita recorrer ocho filas idénticas.
+    # Se sigue emitiendo: un redibujado completo puede haber borrado el panel.
+    local frame_key="$UI_DESKTOP_LEFT_WIDTH|${UI_SPECTRUM_CURSOR[*]}|${SPECTRUM_LEVELS[*]}|${SPECTRUM_PEAK_LEVELS[*]}|${SPECTRUM_DISPLAY_ROWS:-8}|${SPECTRUM_FRAME_ROWS:-16}|$UI_UNICODE|$UI_BAR_FULL|$UI_COLOR|$UI_BOLD|$UI_GREEN|$UI_RESET"
+    if [[ "$frame_key" == "${UI_SPECTRUM_FRAME_CACHE_KEY:-}" ]]; then
+        printf '%s' "$UI_SPECTRUM_FRAME_CACHE"
+        return 0
+    fi
     if ((UI_COLOR)); then style="$UI_BOLD$UI_GREEN"; fi
     for row in "${!UI_SPECTRUM_CURSOR[@]}"; do
         ui_spectrum_editor_row_wide "$row" "$UI_DESKTOP_LEFT_WIDTH" state
         output+="${UI_SPECTRUM_CURSOR[row]}$style$UI_SPECTRUM_ROW_TEXT$UI_RESET"
     done
+    UI_SPECTRUM_FRAME_CACHE_KEY=$frame_key
+    UI_SPECTRUM_FRAME_CACHE=$output
     printf '%s' "$output"
 }

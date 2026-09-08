@@ -358,6 +358,7 @@ player_start() {
 
     PLAYER_NAME="$name"
     PLAYER_URL="$url"
+    PLAYER_MUTED=0
     PLAYER_PAUSED=0
     PLAYER_LAST_EXIT_STATUS=""
     player_reset_info
@@ -373,6 +374,7 @@ player_start() {
         --audio-display=no \
         --input-ipc-server="$PLAYER_SOCKET" \
         --volume="$PLAYER_VOLUME" \
+        --mute=no \
         ${equalizer_filter:+"--af=$equalizer_filter"} \
         "$PLAYER_URL" \
         >/dev/null 2>&1 &

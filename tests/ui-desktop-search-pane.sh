@@ -51,16 +51,14 @@ ui_desktop_sync_selection 13
 assert_eq 6 "$UI_DESKTOP_FAVORITES_HEIGHT" 'mitad superior de favoritos'
 assert_eq 5 "$UI_DESKTOP_SEARCH_HEIGHT" 'mitad inferior de búsqueda'
 assert_eq 3 "$UI_SCROLL_OFFSET" 'favoritos hacen scroll dentro de su mitad'
-assert_eq 4 "$SEARCH_SCROLL_OFFSET" 'búsqueda hace scroll dentro de su mitad'
+assert_eq 5 "$SEARCH_SCROLL_OFFSET" 'búsqueda hace scroll dentro de su mitad'
 
 favorites_header=$(ui_desktop_header_rule 119 'AHORA SUENA' "FAVORITOS (${#FAVORITE_NAMES[@]})")
 [[ "$favorites_header" == *"$UI_SELECT FAVORITOS"* ]] || fail 'Favoritos activo no muestra indicador de foco'
 
 UI_UPDATE_DESKTOP_ROW=6
 separator=$(ui_desktop_row '' '' '' '' 'favorito que debe desaparecer' '' '' '' 0)
-[[ "$separator" == *"$UI_ML$(ui_repeat_char "$UI_H" "$((UI_DESKTOP_RIGHT_WIDTH + 2))")$UI_MR"* ]] || fail 'falta línea completa de separación'
-[[ "$separator" != *'EMISORAS'* ]] || fail 'el título debe quedar debajo de la línea'
-[[ "$separator" != *"$UI_SELECT BUSQUEDA EMISORAS"* ]] || fail 'búsqueda inactiva aparece como foco activo'
+[[ "$separator" == *'[B] BUSQUEDA EMISORAS'* ]] || fail 'falta cabecera de búsqueda en la línea divisoria'
 [[ "$separator" != *'favorito que debe desaparecer'* ]] || fail 'el separador no sustituyó la fila de favoritos'
 
 SEARCH_ACTIVE=1
@@ -73,9 +71,9 @@ SEARCH_SCROLL_OFFSET=0
 search_header=$(ui_desktop_header_rule 119 'AHORA SUENA' "FAVORITOS (${#FAVORITE_NAMES[@]})")
 [[ "$search_header" != *"$UI_SELECT FAVORITOS"* ]] || fail 'Favoritos conserva el indicador al entrar en búsqueda'
 
-UI_UPDATE_DESKTOP_ROW=7
+UI_UPDATE_DESKTOP_ROW=6
 active_separator=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
-[[ "$active_separator" == *"$UI_SELECT BUSQUEDA EMISORAS"* ]] || fail 'búsqueda activa no muestra indicador de foco'
+[[ "$active_separator" == *"$UI_SELECT [B] BUSQUEDA EMISORAS"* ]] || fail 'búsqueda activa no muestra indicador de foco'
 
 UI_UPDATE_DESKTOP_ROW=8
 query_line=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)

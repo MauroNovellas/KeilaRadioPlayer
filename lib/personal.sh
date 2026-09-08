@@ -83,14 +83,8 @@ history_record() {
 }
 
 history_recent_refresh() {
-    RECENT_NAMES=()
-    RECENT_URLS=()
-    local i
-    for ((i=0; i<${#HISTORY_URLS[@]}; i++)); do
-        favorites_find_url "${HISTORY_URLS[i]}" >/dev/null && continue
-        RECENT_NAMES+=("${HISTORY_NAMES[i]}")
-        RECENT_URLS+=("${HISTORY_URLS[i]}")
-    done
+    RECENT_NAMES=("${HISTORY_NAMES[@]}")
+    RECENT_URLS=("${HISTORY_URLS[@]}")
     return 0
 }
 
@@ -108,8 +102,14 @@ history_observe() {
         return 0
     }
     history_recent_refresh
-    if [[ -n "$selected_url" ]] && declare -F ui_select_url >/dev/null; then
-        ui_select_url "$selected_url" || true
+    if [[ -n "$selected_url" ]]; then
+        for recent_index in "${!RECENT_URLS[@]}"; do
+            if [[ "${RECENT_URLS[recent_index]}" == "$selected_url" ]]; then
+                UI_SELECTED_INDEX=$((${#FAVORITE_URLS[@]} + recent_index))
+                ui_sync_selection
+                break
+            fi
+        done
     fi
     return 0
 }

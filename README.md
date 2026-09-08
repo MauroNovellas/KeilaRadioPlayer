@@ -136,6 +136,8 @@ Home / End         ir al primer/último favorito
 PageUp / PageDown  saltar por la lista
 0–9                reproducir un preset de Emisoras favoritas o Recientes según la sección activa
 P                  pausa/reanudar
+M                  silenciar/recuperar el sonido sin cambiar volumen
+L                  configurar o cancelar alarma (HH:MM)
 F                  ir a Favoritas
 C                  editar comentario de la emisora seleccionada
 R                  ir a Recientes
@@ -163,20 +165,21 @@ escribir             filtrar por nombre, ámbito, país y formato
 Home / End            primer/último resultado
 PageUp / PageDown     saltar por los resultados
 Enter                 reproducir el resultado seleccionado
-F                     añadir/quitar el resultado de Favoritos
+X                     añadir/quitar el resultado de Favoritas
+F / R                 salir de búsqueda e ir a Favoritas / Recientes
 C                     editar el comentario del resultado seleccionado
 Backspace             borrar un carácter
 Ctrl+U                limpiar la consulta
 Esc                   volver a Favoritos conservando la consulta
 ```
 
-Todas las emisoras admiten un comentario personal: selecciona una en Favoritos, Recientes o la búsqueda y pulsa `C` (por ejemplo, `Rock FM` → `Heavy Metal`). `Enter` guarda, `Esc` cancela y `Ctrl-U` vacía el campo; guarda vacío para quitar el comentario. Los comentarios también se incluyen en el filtro de búsqueda y aparecen en las tres listas. Sus encabezados cambian de `COMENTARIOS PERSONALES` a `COMENTARIOS` cuando disminuye el ancho disponible.
+Todas las emisoras admiten un comentario personal: selecciona una en Favoritos, Recientes o la búsqueda y pulsa `C` (por ejemplo, `Rock FM` → `Heavy Metal`). `Enter` guarda, `Esc` cancela y `Ctrl-U` vacía el campo; guarda vacío para quitar el comentario. Los comentarios también se incluyen en el filtro de búsqueda y aparecen en las tres listas. Sus encabezados se muestran siempre como `COMENTARIOS` y conservan el color de su sección.
 
-Debajo de Favoritos, `Recientes` muestra emisoras escuchadas que no están en Favoritos. Usa la misma navegación y `Enter` para reproducirlas. El historial local conserva hasta 20 emisoras distintas, en orden de última escucha; una conexión que no llega a audio no se registra. Si añades una emisora a Favoritos se oculta de Recientes. Los presets `1–9/0` siguen reservados exclusivamente a favoritos.
+`Recientes` muestra las últimas 20 emisoras distintas escuchadas, de más reciente a más antigua, incluidas las favoritas, marcadas con `★`. Una conexión que no llega a audio no se registra. `X` añade o quita de Favoritas la entrada reciente seleccionada; añadir es inmediato y quitar exige una segunda pulsación. La selección permanece en Recientes. Los presets `1–9` y `0` corresponden a las diez primeras entradas de la sección activa; las demás se recorren con cursores.
 
 Los comentarios se guardan en `$XDG_CONFIG_HOME/keila-radio/labels` (por defecto `~/.config/keila-radio/labels`) y el historial en `$XDG_STATE_HOME/keila-radio/history` (por defecto `~/.local/state/keila-radio/history`). El historial contiene nombres y URLs de emisoras, sin títulos de canciones ni marcas de tiempo. Puedes borrar el archivo con Keila cerrada para vaciarlo.
 
-Las letras `c` y `f` minúsculas son texto normal dentro del buscador; `F` mayúscula alterna Favorito y `C` mayúscula abre el comentario. Los resultados favoritos muestran `[★]`, y la emisora que además está sonando puede mostrar `[PLAY] [★]`.
+Las minúsculas son texto normal dentro del buscador. `X` mayúscula añade o solicita confirmación para quitar el resultado de Favoritas; `C` abre su comentario y `F`/`R` cambian de sección. Los números siguen siendo texto de consulta.
 
 Al salir de la búsqueda con `Esc`, la consulta permanece visible. Pulsar de nuevo `B` la reabre para seguir editándola. Para usar el selector externo clásico con `fzf`:
 
@@ -310,7 +313,25 @@ Las filas son dinámicas: si una emisora no publica título en emisión o datos 
 
 El bitrate mostrado procede de `audio-bitrate` de `mpv`. Para el título en emisión Keila consulta tanto el objeto general de metadatos como campos ICY específicos y `media-title`, de modo que los cambios de canción puedan reflejarse mientras el stream sigue reproduciéndose.
 
-## Grabaciones
+## Alarma y silencio
+
+`L` abre el editor de alarma: escribe `HH:MM` y pulsa Enter. Si la hora ya ha
+pasado, se programa para mañana (hora local del equipo). Enter con el campo
+vacío cancela la alarma; Esc vuelve sin modificarla. La cabecera indica la
+fecha y hora programadas. Solo hay una alarma por sesión, de una ejecución.
+
+Keila debe permanecer abierto y el equipo despierto; no es un despertador del
+sistema ni persiste al cerrar el programa. Al llegar la hora intenta reproducir
+la última emisora escuchada, incluidas escuchas posteriores a la programación,
+y desactiva el silencio. Usa el volumen configurado: compruébalo antes, así
+como la conexión. Un fallo de conexión se muestra en pantalla. Durante una
+grabación se aplica el mismo cierre seguro que al cambiar de emisora.
+
+`M` alterna el silencio sin cambiar el volumen ni interrumpir las grabaciones.
+En la búsqueda se usa `M` mayúscula; la minúscula sigue siendo texto. Una nueva
+reproducción comienza con sonido. El indicador `MUTE` aparece en la cabecera.
+
+## Grabación del stream
 
 `G` activa o desactiva la grabación del stream que ya está recibiendo el mismo proceso de `mpv`; no se abre una segunda conexión a la emisora.
 

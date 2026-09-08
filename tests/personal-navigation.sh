@@ -28,7 +28,7 @@ history_record 'Radio 10' 'https://radio.invalid/10' || fail dedup
 [[ ${#HISTORY_URLS[@]} == 20 && "${HISTORY_NAMES[0]}" == 'Radio 10' ]] || fail 'reciente único'
 favorites_add 'Radio 10' 'https://radio.invalid/10' || fail add
 history_recent_refresh
-[[ " ${RECENT_URLS[*]} " != *' https://radio.invalid/10 '* ]] || fail 'favorito en recientes'
+[[ "${RECENT_URLS[0]}" == 'https://radio.invalid/10' ]] || fail 'favorito desaparece del historial'
 favorites_remove_index 2 || fail remove
 history_recent_refresh
 [[ "${RECENT_URLS[0]}" == 'https://radio.invalid/10' ]] || fail 'historial reaparece'

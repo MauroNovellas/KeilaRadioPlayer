@@ -60,7 +60,7 @@ ui_search_desktop() {
 
     ui_box_rule "$width" "$UI_TL" "$UI_TR"
     ui_box_center_line "$width" "$title" title
-    ui_desktop_header_rule "$width" 'BUSQUEDA EMISORAS' "RESULTADOS (${#SEARCH_MATCHES[@]})"
+    ui_desktop_header_rule "$width" '[B] BUSQUEDA EMISORAS' "RESULTADOS (${#SEARCH_MATCHES[@]})"
 
     local row match_position source_index result_text result_badge result_style result_badge_style selected playing
     local left_text left_badge left_style left_badge_style
@@ -94,7 +94,7 @@ ui_search_desktop() {
                 left_style='muted'
                 ;;
             6)
-                left_text='F favorito  ·  Esc volver'
+                left_text='X favorito  ·  Esc volver'
                 left_style='muted'
                 ;;
             8)
@@ -141,7 +141,7 @@ ui_search_desktop() {
     done
 
     ui_desktop_join_rule "$width"
-    ui_box_line "$width" "Escribe  $UI_SEP  ↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  F favorito  $UI_SEP  Esc volver" muted
+    ui_box_line "$width" "Escribe  $UI_SEP  ↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  X favorito  $UI_SEP  Esc volver" muted
     if [[ -n "$UI_MESSAGE" ]]; then
         ui_box_line "$width" "$UI_MESSAGE"
     else
@@ -162,7 +162,7 @@ ui_search_single_column() {
 
     ui_box_rule "$width" "$UI_TL" "$UI_TR"
     ui_box_center_line "$width" "$title" title
-    ui_box_rule "$width" "$UI_ML" "$UI_MR" 'BUSQUEDA EMISORAS' accent
+    ui_box_rule "$width" "$UI_ML" "$UI_MR" '[B] BUSQUEDA EMISORAS' accent
     ui_box_split_line "$width" 'Buscar:' "${SEARCH_QUERY}_" 0 accent selected
     ui_box_split_line "$width" "EMISORAS (${#SEARCH_MATCHES[@]})" "$(ui_labels_header "$((width - 4))")" 0 accent accent
 
@@ -208,7 +208,7 @@ ui_search_single_column() {
     if ((${LABEL_EDITOR_ACTIVE:-0})); then
         ui_box_line "$width" 'Enter guardar · Esc cancelar · Ctrl-U borrar' muted
     else
-        ui_box_line "$width" '↑↓ Enter  F favorito  C comentario  Esc volver' muted
+        ui_box_line "$width" '↑↓ Enter  X favorito  C comentario  Esc volver' muted
     fi
     if [[ -n "$UI_MESSAGE" ]]; then
         ui_box_line "$width" "$UI_MESSAGE"
@@ -243,7 +243,7 @@ ui_draw_search() {
         if ((${LABEL_EDITOR_ACTIVE:-0})); then
             ui_print_padded "$tiny_width" 'Enter guardar · Esc cancelar'
         else
-            ui_print_padded "$tiny_width" 'F favorito · C comentario · Esc volver'
+            ui_print_padded "$tiny_width" 'X favorito · C comentario · Esc volver'
         fi
         printf '\n'
         tput ed 2>/dev/null || true

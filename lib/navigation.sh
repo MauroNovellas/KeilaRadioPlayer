@@ -114,6 +114,10 @@ ui_navigation_row() {
     elif [[ "$url" == "${STATE_LAST_URL:-}" ]]; then
         UI_NAV_BADGE='[ÚLTIMA]' UI_NAV_BADGE_STYLE=muted
     fi
+    if ((index >= ${#FAVORITE_NAMES[@]})) && favorites_find_url "$url" >/dev/null 2>&1; then
+        UI_NAV_BADGE="[$UI_FAVORITE] ${UI_NAV_BADGE}"
+        [[ -n "$UI_NAV_BADGE_STYLE" ]] || UI_NAV_BADGE_STYLE=favorite
+    fi
     if declare -p FAVORITE_LABELS >/dev/null 2>&1; then label="${FAVORITE_LABELS[$url]:-}"; fi
     if [[ -n "$label" ]]; then
         UI_NAV_BADGE="$label ${UI_NAV_BADGE}"
@@ -124,5 +128,6 @@ ui_navigation_row() {
 
 # Umbral común para que ambas secciones abrevien a la vez en desktop.
 ui_labels_header() {
-    if (($1 >= 68)); then printf 'COMENTARIOS PERSONALES'; else printf 'COMENTARIOS'; fi
+    # El nombre es único en todas las anchuras; así no cambia al redimensionar.
+    printf 'COMENTARIOS'
 }

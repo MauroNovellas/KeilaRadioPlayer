@@ -34,8 +34,10 @@ ui_desktop_sync_selection() {
         ui_navigation_sync "$((UI_DESKTOP_FAVORITES_HEIGHT - 1))"
     fi
 
-    # El campo de consulta solo ocupa una fila cuando se usa.
+    # La búsqueda reserva una fila para títulos de columnas y otra para el
+    # campo de consulta cuando está activo.
     local search_results_height=$UI_DESKTOP_SEARCH_HEIGHT
+    ((search_results_height -= 1))
     if ((SEARCH_ACTIVE)) || [[ -n "$SEARCH_QUERY" ]]; then ((search_results_height -= 1)); fi
     ((search_results_height < 1)) && search_results_height=1
     if declare -F search_sync_scroll >/dev/null 2>&1; then
@@ -99,15 +101,20 @@ ui_desktop_row() {
         right_badge_style=''
         selected=0
         UI_DESKTOP_NAV_COLUMNS=1
+        UI_DESKTOP_SEARCH_COLUMNS=0
         UI_DESKTOP_LEFT_COMMENT=''
         UI_DESKTOP_RIGHT_COMMENT=''
+        UI_DESKTOP_LEFT_COMMENT_STYLE='comment'
+        UI_DESKTOP_RIGHT_COMMENT_STYLE='comment'
         if ((row == 0)); then
-            right_text="FAVORITAS (${#FAVORITE_NAMES[@]})"
-            right_badge="RECIENTES (${#RECENT_NAMES[@]})"
+            right_text="[F] FAVORITAS (${#FAVORITE_NAMES[@]})"
+            right_badge="[R] RECIENTES (${#RECENT_NAMES[@]})"
             UI_DESKTOP_LEFT_COMMENT='COMENTARIOS'
             UI_DESKTOP_RIGHT_COMMENT='COMENTARIOS'
-            right_style='accent'
-            right_badge_style='accent'
+            right_style='favorite'
+            right_badge_style='favorite'
+            UI_DESKTOP_LEFT_COMMENT_STYLE='favorite'
+            UI_DESKTOP_RIGHT_COMMENT_STYLE='favorite'
         else
             if ((column_index < ${#FAVORITE_NAMES[@]})); then
                 local favorite_preset='   '
@@ -142,6 +149,13 @@ ui_desktop_row() {
                     right_badge="$UI_SELECT ${recent_preset}${RECENT_NAMES[recent_index]}"
                     right_badge_style='selected'
                 fi
+                if favorites_find_url "${RECENT_URLS[recent_index]}" >/dev/null 2>&1; then
+                    right_badge="${right_badge:0:2}[$UI_FAVORITE] ${right_badge:2}"
+                else
+                    # Reservar el mismo ancho que la marca de favorito alinea
+                    # los números y nombres de ambas columnas.
+                    right_badge="${right_badge:0:2}    ${right_badge:2}"
+                fi
             fi
         fi
         ui_desktop_row_without_search_split \
@@ -150,12 +164,17 @@ ui_desktop_row() {
         UI_DESKTOP_NAV_COLUMNS=0
         UI_DESKTOP_LEFT_COMMENT=''
         UI_DESKTOP_RIGHT_COMMENT=''
+        UI_DESKTOP_LEFT_COMMENT_STYLE='comment'
+        UI_DESKTOP_RIGHT_COMMENT_STYLE='comment'
         return 0
     fi
 
     UI_DESKTOP_NAV_COLUMNS=0
+    UI_DESKTOP_SEARCH_COLUMNS=0
     UI_DESKTOP_LEFT_COMMENT=''
     UI_DESKTOP_RIGHT_COMMENT=''
+    UI_DESKTOP_LEFT_COMMENT_STYLE='comment'
+    UI_DESKTOP_RIGHT_COMMENT_STYLE='comment'
 
     # La mitad superior conserva Favoritos. Mientras la búsqueda tiene el foco,
     # quitamos únicamente el resaltado de selección para que el foco sea inequívoco.
@@ -171,16 +190,20 @@ ui_desktop_row() {
         right_style="$UI_NAV_STYLE" right_badge_style="$UI_NAV_BADGE_STYLE"
         selected=$UI_NAV_SELECTED
     elif ((row == UI_DESKTOP_FAVORITES_HEIGHT)); then
-        # Fila divisoria entre Favoritos y búsqueda.
-        right_text=''
+        # La cabecera de búsqueda comparte altura con la regla divisoria.
+        right_text='[B] BUSQUEDA EMISORAS'
         right_badge=''
-        right_style='separator'
+        ((SEARCH_ACTIVE)) && right_text="$UI_SELECT $right_text"
+        right_style='separator_label'
         right_badge_style=''
         selected=0
     elif ((row == UI_DESKTOP_FAVORITES_HEIGHT + 1)); then
-        right_text='BUSQUEDA EMISORAS'
-        ((SEARCH_ACTIVE)) && right_text="$UI_SELECT $right_text"
-        right_badge=$(ui_labels_header "$UI_DESKTOP_RIGHT_WIDTH")
+        right_text='EMISORA'
+        UI_DESKTOP_SEARCH_AMBIT='ÁMBITO'
+        UI_DESKTOP_SEARCH_COUNTRY='PAÍS'
+        UI_DESKTOP_SEARCH_FORMAT='FORMATO'
+        UI_DESKTOP_SEARCH_COMMENT='COMENTARIOS'
+        UI_DESKTOP_SEARCH_COLUMNS=1
         right_style='accent'
         right_badge_style='accent'
         selected=0
@@ -193,8 +216,18 @@ ui_desktop_row() {
         selected=0
 
         local query_rows=0
+        if ((search_row == -1)); then
+            UI_DESKTOP_SEARCH_COLUMNS=1
+            right_text='EMISORA'
+            UI_DESKTOP_SEARCH_AMBIT='ÁMBITO'
+            UI_DESKTOP_SEARCH_COUNTRY='PAÍS'
+            UI_DESKTOP_SEARCH_FORMAT='FORMATO'
+            right_style='accent'
+        fi
         if ((SEARCH_ACTIVE)) || [[ -n "$SEARCH_QUERY" ]]; then query_rows=1; fi
-        if ((query_rows && search_row == 0)); then
+        if ((search_row == -1)); then
+            :
+        elif ((search_row == 0 && query_rows)); then
             if ((SEARCH_ACTIVE)); then
                 right_text="Buscar: ${SEARCH_QUERY}_"
                 right_style='accent'
@@ -234,6 +267,12 @@ ui_desktop_row() {
                 local playing=0
                 ui_search_result_parts "$source_index"
                 right_text="  $UI_SEARCH_NAME"
+                ((UI_SEARCH_IS_FAVORITE)) && right_text="  [$UI_FAVORITE] $UI_SEARCH_NAME"
+                UI_DESKTOP_SEARCH_AMBIT="${SEARCH_AMBITS[$source_index]:-}"
+            UI_DESKTOP_SEARCH_COUNTRY="${SEARCH_COUNTRIES[$source_index]:-}"
+            UI_DESKTOP_SEARCH_FORMAT="${SEARCH_FORMATS[$source_index]:-}"
+                UI_DESKTOP_SEARCH_COMMENT="${UI_SEARCH_LABEL:-}"
+                UI_DESKTOP_SEARCH_COLUMNS=1
 
                 if player_is_running && [[ "${SEARCH_URLS[$source_index]}" == "$PLAYER_URL" ]]; then
                     playing=1
@@ -242,7 +281,10 @@ ui_desktop_row() {
                 ((UI_SEARCH_IS_FAVORITE)) && right_badge_style='favorite'
 
                 if ((SEARCH_ACTIVE && match_position == SEARCH_SELECTED_INDEX)); then
-                    right_text="$UI_SELECT $UI_SEARCH_NAME"
+                    right_text="$UI_SELECT "
+                    ((UI_SEARCH_IS_FAVORITE)) && right_text+="[$UI_FAVORITE] "
+                    right_text+="$UI_SEARCH_NAME"
+                    right_style='selected'
                     selected=1
                 elif ((playing)); then
                     right_text="$UI_PLAY $UI_SEARCH_NAME"
@@ -281,7 +323,7 @@ ui_draw_responsive_controls() {
         return 0
     fi
     if ((SEARCH_ACTIVE)); then
-        ui_box_line "$width" "Escribe  $UI_SEP  ↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  F favorito  $UI_SEP  C comentario  $UI_SEP  Esc favoritos" muted
+        ui_box_line "$width" "Escribe  $UI_SEP  ↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  X favorito  $UI_SEP  C comentario  $UI_SEP  Esc favoritos" muted
         return 0
     fi
 

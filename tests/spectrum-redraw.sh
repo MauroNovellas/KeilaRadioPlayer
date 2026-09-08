@@ -16,8 +16,8 @@ for UI_UNICODE in 0 1; do
     for test_lines in 40 24 20; do
         ui_draw >/dev/null
         expected=''
-        for ((row=0; row<8 && row<test_lines-20; row++)); do
-            expected+="<$((row+16)),2>$(ui_spectrum_editor_row_wide "$row" "$UI_DESKTOP_LEFT_WIDTH")"
+        for ((row=0; row<8 && row<test_lines-22; row++)); do
+            expected+="<$((row+18)),2>$(ui_spectrum_editor_row_wide "$row" "$UI_DESKTOP_LEFT_WIDTH")"
         done
         actual=$(ui_draw_spectrum_only)
         [[ "$actual" == "$expected" ]] || fail "rectángulo incorrecto en $test_lines filas"

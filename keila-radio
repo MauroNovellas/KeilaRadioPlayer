@@ -56,6 +56,8 @@ source "$BASE_DIR/lib/catalog-startup.sh"
 source "$BASE_DIR/lib/label-editor.sh"
 # shellcheck source=lib/equalizer-editor.sh
 source "$BASE_DIR/lib/equalizer-editor.sh"
+# shellcheck source=lib/alarm.sh
+source "$BASE_DIR/lib/alarm.sh"
 
 cleanup() {
     spectrum_stop >/dev/null 2>&1 || true
@@ -306,6 +308,28 @@ app_toggle_favorite() {
     esac
 }
 
+# X sobre Recientes gestiona exactamente esa emisora, incluso si no está sonando.
+app_toggle_selected_recent_favorite() {
+    local recent=$((UI_SELECTED_INDEX - ${#FAVORITE_NAMES[@]}))
+    local name="${RECENT_NAMES[recent]:-}" url="${RECENT_URLS[recent]:-}"
+    [[ -n "$url" ]] || return 1
+    local index confirm_status=0
+    if index=$(favorites_find_url "$url"); then
+        favorites_confirm_removal 'recent' "$url" || confirm_status=$?
+        if ((confirm_status == 2)); then app_message "Pulsa X otra vez para eliminar de favoritas: $name" 4; return 0; fi
+        ((confirm_status == 0)) || return 1
+        favorites_remove_index "$index" || return 1
+        app_message "Eliminada de favoritas: $name" 5
+    else
+        favorites_confirm_clear
+        favorites_add "$name" "$url" || return 1
+        app_message "Añadida a favoritas: $name" 5
+    fi
+    history_recent_refresh
+    UI_SELECTED_INDEX=$((${#FAVORITE_NAMES[@]} + recent))
+    ui_sync_selection
+}
+
 app_move_selected_favorite() {
     local delta="$1"
     favorites_load
@@ -400,6 +424,7 @@ app_update_catalog() {
 }
 
 app_poll_player() {
+    alarm_tick && return 0
     if [[ -n "${PLAYER_PID:-}" ]] && ! player_is_running; then
         local was_recording=$RECORDING_ACTIVE was_paused=${PLAYER_PAUSED:-0} exit_status='?'
         if player_collect_exit_status; then exit_status="${PLAYER_LAST_EXIT_STATUS:-?}"; fi
@@ -462,7 +487,7 @@ app_handle_key() {
     # Cualquier acción distinta de las dos rutas de borrado invalida una
     # confirmación pendiente. Añadir con F también la limpia dentro de la acción.
     case "$key" in
-        f|F|x|X) ;;
+        x|X) ;;
         *) favorites_confirm_clear ;;
     esac
 
@@ -473,11 +498,13 @@ app_handle_key() {
         a|A) app_change_volume "$((-KEILA_VOLUME_STEP))" ;;
         d|D) app_change_volume "$KEILA_VOLUME_STEP" ;;
         p|P) app_toggle_pause || true ;;
+        m|M) app_toggle_mute || true ;;
+        l|L) app_edit_alarm || true ;;
         f|F) ui_select_emisoras || true ;;
         r|R) ui_select_recientes || true ;;
         c|C) app_edit_label || true ;;
         g|G) app_toggle_recording || true ;;
-        x|X) app_toggle_favorite || true ;;
+        x|X) if ((UI_SELECTED_INDEX >= ${#FAVORITE_NAMES[@]})); then app_toggle_selected_recent_favorite || true; else app_toggle_favorite || true; fi ;;
         j|J) app_move_selected_favorite 1 || true ;;
         k|K) app_move_selected_favorite -1 || true ;;
         b|B) app_search_catalog || true ;;

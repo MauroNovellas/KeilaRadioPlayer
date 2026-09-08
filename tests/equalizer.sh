@@ -65,7 +65,7 @@ EQUALIZER_SELECTED=4
 equalizer_center_selected || fail 'centrar banda seleccionada'
 assert_eq '0' "${EQUALIZER_GAINS[4]}" 'banda centrada en 0 dB'
 EQUALIZER_GAINS=(12 6 0 -6 -12)
-assert_eq 'EQ 60:█ 250:▆ 1k:▄ 4k:▂ 12k:▁' "$(ui_equalizer_mini_graph labels)" 'gráfico permanente'
+assert_eq '[Z] ECUALIZADOR █ ▆ ▄ ▂ ▁' "$(ui_equalizer_mini_graph labels)" 'gráfico permanente'
 ui_equalizer_editor_row 1
 [[ "$UI_EQ_TEXT" == *'█'* ]] || fail 'barra positiva invisible'
 ui_equalizer_editor_row 4
@@ -73,7 +73,7 @@ ui_equalizer_editor_row 4
 ui_equalizer_editor_row 7
 [[ "$UI_EQ_TEXT" == *'█'* ]] || fail 'barra negativa invisible'
 ui_equalizer_editor_row 8
-[[ "$UI_EQ_TEXT" == *'60'* && "$UI_EQ_TEXT" == *'12k'* ]] || fail 'etiquetas de bandas invisibles'
+[[ "$UI_EQ_TEXT" != *'60'* && "$UI_EQ_TEXT" != *'12k'* ]] || fail 'etiquetas de bandas invisibles'
 
 # Z activa un modo de edición sobre la misma vista: horizontal selecciona la
 # frecuencia, vertical cambia su valor y Z vuelve a desactivarlo.

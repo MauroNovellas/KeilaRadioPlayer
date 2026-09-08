@@ -98,6 +98,30 @@ input_read() { return 1; }
 # shellcheck disable=SC2317
 search_close() { SEARCH_ACTIVE=0; return 0; }
 
+# Atajos reales del bucle: X gestiona el resultado, F/R salen sin reproducir.
+SEARCH_X_CALLS=0
+search_toggle_selected_favorite() { ((SEARCH_X_CALLS+=1)); }
+ui_select_emisoras() { TEST_SECTION=favorites; }
+ui_select_recientes() { TEST_SECTION=recents; }
+for TEST_EXIT_KEY in F R; do
+    TEST_EVENT=0 TEST_SECTION=''
+    input_read() {
+        ((TEST_EVENT+=1))
+        INPUT_EVENT=KEY
+        if ((TEST_EVENT == 1)); then INPUT_KEY=X; else INPUT_KEY=$TEST_EXIT_KEY; fi
+    }
+    stations_select_fzf && fail 'cambio de sección solicita reproducción'
+    ((SEARCH_ACTIVE == 0)) || fail 'búsqueda conserva foco'
+    if [[ "$TEST_EXIT_KEY" == F ]]; then
+        [[ "$TEST_SECTION" == favorites ]] || fail 'F no llega a favoritas'
+    else
+        [[ "$TEST_SECTION" == recents ]] || fail 'R no llega a recientes'
+    fi
+done
+((SEARCH_X_CALLS == 2)) || fail 'X no gestiona el resultado'
+input_read() { return 1; }
+DRAW_CALLS=0
+
 selector_status=0
 stations_select_fzf || selector_status=$?
 assert_eq 1 "$selector_status" 'EOF simulado cierra el buscador integrado'

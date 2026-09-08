@@ -4,6 +4,11 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - rama v2.1
 
+- Alarma de sesión con `L` y hora local HH:MM: reproduce la última emisora escuchada, una sola vez, con Keila abierto. Cancelación desde el editor y hora visible en la cabecera.
+- `M` silencia/restaura el sonido mediante mpv sin cambiar volumen ni interrumpir grabaciones; indicador MUTE y control de fallos IPC.
+- Cierre funcional: `X` gestiona el resultado de búsqueda; `F` y `R` salen del buscador hacia sus listas. Ayudas actualizadas a los atajos actuales.
+- Recientes incluye favoritas y conserva su selección al actualizar el historial o modificar Favoritas; prueba de recorrido completo con confirmación, décimo preset y navegación posterior.
+- Optimización de cachés gráficas, metadatos y filtrado documentada en `PERFORMANCE.md`.
 - En pantalla completa, `Emisoras favoritas` y `Recientes` se muestran lado a lado incluso si existen comentarios; ambas listas conservan scroll propio y los presets `0–9` reproducen desde la sección activa.
 - Añadidos atajos de sección: `E` salta a Emisoras, `R` a Recientes, `C` abre el comentario de la emisora seleccionada y `G` inicia o detiene la grabación. Los rótulos y la documentación pasan de «Etiquetas» a «Comentarios».
 - En terminales desktop anchas, Emisoras y Recientes se muestran en columnas paralelas dentro del panel de navegación; en terminales estrechas se conserva la disposición apilada.
