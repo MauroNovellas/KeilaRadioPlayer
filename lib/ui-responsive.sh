@@ -174,14 +174,14 @@ ui_draw_responsive_controls() {
                 ui_box_line "$width" 'W/S o ↑/↓ mover   Home/End extremos   PgUp/PgDn saltar' muted
                 ui_box_line "$width" 'Enter reproducir   1-9/0 directo   A/D o ←/→ volumen   P pausa' muted
                 ui_box_line "$width" 'F favorito actual   J/K reordenar   X quitar seleccionado' muted
-                ui_box_line "$width" 'B buscar  E etiqueta  Z EQ  V analizador  R grabar  H cerrar  Q salir' muted
+                ui_box_line "$width" 'E emisoras C comentario R recientes G grabar Z EQ V analizador H cerrar Q salir' muted
                 ;;
             compact)
                 ui_box_line "$width" '↑↓ mover  Enter play  ←→ volumen  P pausa  F favorito' muted
-                ui_box_line "$width" 'B buscar E etiqueta Z EQ V spec R rec H cerrar Q salir' muted
+                ui_box_line "$width" 'E emisoras C comentario R recientes G grabar Z EQ V spec H cerrar Q salir' muted
                 ;;
             minimal)
-                ui_box_line "$width" '↑↓ Enter B buscar E Z V R H cerrar Q' muted
+                ui_box_line "$width" '↑↓ Enter B E C R G Z V H Q' muted
                 ;;
         esac
         return 0
@@ -189,13 +189,13 @@ ui_draw_responsive_controls() {
 
     case "$UI_LAYOUT_MODE" in
         wide)
-            ui_box_line "$width" "↑↓ mover $UI_SEP Enter reproducir $UI_SEP B buscar E etiqueta Z EQ V spec $UI_SEP R grabar H ayuda Q salir" muted
+            ui_box_line "$width" "↑↓ Enter $UI_SEP E emis. C com. R rec. G grab. $UI_SEP H ayuda Q salir" muted
             ;;
         standard)
-            ui_box_line "$width" "↑↓ Enter $UI_SEP B buscar $UI_SEP E etiqueta Z EQ V spec $UI_SEP R grabar $UI_SEP H ayuda Q salir" muted
+            ui_box_line "$width" "↑↓ Enter $UI_SEP E emis. C com. R rec. G grab. $UI_SEP H ayuda Q salir" muted
             ;;
         compact)
-            ui_box_line "$width" "B buscar $UI_SEP E etiq $UI_SEP Z EQ V spec $UI_SEP R rec $UI_SEP H Q salir" muted
+            ui_box_line "$width" "E emis C coment R rec G grab $UI_SEP B Z V H Q" muted
             ;;
         minimal)
             ui_box_line "$width" '↑↓ Enter B E Z V R H Q' muted

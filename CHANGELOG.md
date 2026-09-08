@@ -4,6 +4,7 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - rama v2.1
 
+- Añadidos atajos de sección: `E` salta a Emisoras, `R` a Recientes, `C` abre el comentario de la emisora seleccionada y `G` inicia o detiene la grabación. Los rótulos y la documentación pasan de «Etiquetas» a «Comentarios».
 - En terminales desktop anchas, Emisoras y Recientes se muestran en columnas paralelas dentro del panel de navegación; en terminales estrechas se conserva la disposición apilada.
 - Recuperados región y estilo en la información secundaria de los resultados de búsqueda; el truncado los oculta en columnas estrechas y mantiene las etiquetas personales al final.
 - Reducida la sobrecarga del refresco del espectro evitando crear un subproceso para consultar la hora en cada cuadro.

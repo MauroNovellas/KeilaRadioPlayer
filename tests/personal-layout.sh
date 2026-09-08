@@ -33,9 +33,9 @@ for size in '132 40' '112 20' '80 24' '55 15' '45 12' '45 11'; do
         fi
         if ((TEST_COLS >= 112)); then
             if ((TEST_COLS >= 132)); then
-                [[ "$render" == *'ETIQUETAS PERSONALES'* ]] || fail 'cabecera larga invisible'
+                [[ "$render" == *'COMENTARIOS PERSONALES'* ]] || fail 'cabecera larga invisible'
             else
-                [[ "$render" == *'ETIQUETAS'* && "$render" != *'ETIQUETAS PERSONALES'* ]] || fail 'cabecera no se abrevia'
+                [[ "$render" == *'COMENTARIOS'* && "$render" != *'COMENTARIOS PERSONALES'* ]] || fail 'cabecera no se abrevia'
             fi
             [[ "$render" == *'BUSQUEDA EMISORAS'* ]] || fail 'título de búsqueda invisible'
             [[ "$render" == *'Emisora inicial'* ]] || fail 'catálogo inicial invisible'

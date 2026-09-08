@@ -248,7 +248,7 @@ stations_select_fzf() {
                 if [[ "$INPUT_KEY" == 'F' ]]; then
                     search_toggle_selected_favorite || true
                     redraw=1
-                elif [[ "$INPUT_KEY" == 'E' ]]; then
+                elif [[ "$INPUT_KEY" == 'C' ]]; then
                     favorites_confirm_clear
                     app_edit_label || true
                     redraw=1

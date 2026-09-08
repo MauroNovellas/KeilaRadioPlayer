@@ -243,7 +243,7 @@ ui_draw_responsive_controls() {
         return 0
     fi
     if ((SEARCH_ACTIVE)); then
-        ui_box_line "$width" "Escribe  $UI_SEP  ↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  F favorito  $UI_SEP  E etiqueta  $UI_SEP  Esc favoritos" muted
+        ui_box_line "$width" "Escribe  $UI_SEP  ↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  F favorito  $UI_SEP  C comentario  $UI_SEP  Esc favoritos" muted
         return 0
     fi
 

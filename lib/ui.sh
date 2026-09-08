@@ -924,6 +924,26 @@ ui_move_selection() {
 ui_select_first() { ui_navigation_refresh; ((UI_NAV_COUNT > 0)) || return 1; UI_SELECTED_INDEX=0; ui_sync_selection; }
 ui_select_last() { ui_navigation_refresh; local count=$UI_NAV_COUNT; ((count > 0)) || return 1; UI_SELECTED_INDEX=$((count - 1)); ui_sync_selection; }
 
+ui_select_emisoras() {
+    ui_navigation_refresh
+    ((${#FAVORITE_NAMES[@]} > 0)) || {
+        ui_set_message 'No tienes emisoras guardadas. Pulsa B para buscar una.' 5
+        return 1
+    }
+    UI_SELECTED_INDEX=0
+    ui_sync_selection
+}
+
+ui_select_recientes() {
+    ui_navigation_refresh
+    ((${#RECENT_NAMES[@]} > 0)) || {
+        ui_set_message 'No hay emisoras recientes todavía.' 4
+        return 1
+    }
+    UI_SELECTED_INDEX=${#FAVORITE_NAMES[@]}
+    ui_sync_selection
+}
+
 ui_player_status() {
     if player_is_running; then
         if ((PLAYER_PAUSED)); then printf 'Pausado'; elif ((PLAYER_BUFFERING)); then printf 'Buffering'; elif ((PLAYER_INFO_READY)); then printf 'Reproduciendo'; else printf 'Conectando'; fi

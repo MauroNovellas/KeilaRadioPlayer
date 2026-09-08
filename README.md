@@ -135,8 +135,10 @@ Enter              reproducir el favorito seleccionado
 Home / End         ir al primer/último favorito
 PageUp / PageDown  saltar por la lista
 P                  pausa/reanudar
-R                  iniciar/detener grabación del stream actual
-E                  editar etiqueta de la emisora seleccionada
+E                  ir a Emisoras
+C                  editar comentario de la emisora seleccionada
+R                  ir a Recientes
+G                  iniciar/detener grabación del stream actual
 Z                  abrir ecualizador
 V                  mostrar/ocultar analizador de espectro
 F                  añadir/eliminar la emisora en reproducción de favoritos
@@ -162,19 +164,19 @@ Home / End            primer/último resultado
 PageUp / PageDown     saltar por los resultados
 Enter                 reproducir el resultado seleccionado
 F                     añadir/quitar el resultado de Favoritos
-E                     editar la etiqueta del resultado seleccionado
+C                     editar el comentario del resultado seleccionado
 Backspace             borrar un carácter
 Ctrl+U                limpiar la consulta
 Esc                   volver a Favoritos conservando la consulta
 ```
 
-Todas las emisoras admiten una etiqueta personal: selecciona una en Favoritos, Recientes o la búsqueda y pulsa `E` (por ejemplo, `Rock FM` → `Heavy Metal`). `Enter` guarda, `Esc` cancela y `Ctrl-U` vacía el campo; guarda vacío para quitar la etiqueta. Las etiquetas también se incluyen en el filtro de búsqueda y aparecen en las tres listas. Sus encabezados cambian de `ETIQUETAS PERSONALES` a `ETIQUETAS` cuando disminuye el ancho disponible.
+Todas las emisoras admiten un comentario personal: selecciona una en Favoritos, Recientes o la búsqueda y pulsa `C` (por ejemplo, `Rock FM` → `Heavy Metal`). `Enter` guarda, `Esc` cancela y `Ctrl-U` vacía el campo; guarda vacío para quitar el comentario. Los comentarios también se incluyen en el filtro de búsqueda y aparecen en las tres listas. Sus encabezados cambian de `COMENTARIOS PERSONALES` a `COMENTARIOS` cuando disminuye el ancho disponible.
 
 Debajo de Favoritos, `Recientes` muestra emisoras escuchadas que no están en Favoritos. Usa la misma navegación y `Enter` para reproducirlas. El historial local conserva hasta 20 emisoras distintas, en orden de última escucha; una conexión que no llega a audio no se registra. Si añades una emisora a Favoritos se oculta de Recientes. Los presets `1–9/0` siguen reservados exclusivamente a favoritos.
 
-Las etiquetas se guardan en `$XDG_CONFIG_HOME/keila-radio/labels` (por defecto `~/.config/keila-radio/labels`) y el historial en `$XDG_STATE_HOME/keila-radio/history` (por defecto `~/.local/state/keila-radio/history`). El historial contiene nombres y URLs de emisoras, sin títulos de canciones ni marcas de tiempo. Puedes borrar el archivo con Keila cerrada para vaciarlo.
+Los comentarios se guardan en `$XDG_CONFIG_HOME/keila-radio/labels` (por defecto `~/.config/keila-radio/labels`) y el historial en `$XDG_STATE_HOME/keila-radio/history` (por defecto `~/.local/state/keila-radio/history`). El historial contiene nombres y URLs de emisoras, sin títulos de canciones ni marcas de tiempo. Puedes borrar el archivo con Keila cerrada para vaciarlo.
 
-Las letras `e` y `f` minúsculas son texto normal dentro del buscador; `F` mayúscula alterna Favorito y `E` mayúscula abre la etiqueta. Los resultados favoritos muestran `[★]`, y la emisora que además está sonando puede mostrar `[PLAY] [★]`.
+Las letras `c` y `f` minúsculas son texto normal dentro del buscador; `F` mayúscula alterna Favorito y `C` mayúscula abre el comentario. Los resultados favoritos muestran `[★]`, y la emisora que además está sonando puede mostrar `[PLAY] [★]`.
 
 Al salir de la búsqueda con `Esc`, la consulta permanece visible. Pulsar de nuevo `B` la reabre para seguir editándola. Para usar el selector externo clásico con `fzf`:
 
@@ -310,7 +312,7 @@ El bitrate mostrado procede de `audio-bitrate` de `mpv`. Para el título en emis
 
 ## Grabaciones
 
-`R` activa o desactiva la grabación del stream que ya está recibiendo el mismo proceso de `mpv`; no se abre una segunda conexión a la emisora.
+`G` activa o desactiva la grabación del stream que ya está recibiendo el mismo proceso de `mpv`; no se abre una segunda conexión a la emisora.
 
 Mientras está activa aparece un contador:
 

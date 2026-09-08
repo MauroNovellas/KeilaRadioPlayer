@@ -208,7 +208,7 @@ ui_search_single_column() {
     if ((${LABEL_EDITOR_ACTIVE:-0})); then
         ui_box_line "$width" 'Enter guardar · Esc cancelar · Ctrl-U borrar' muted
     else
-        ui_box_line "$width" '↑↓ Enter  F favorito  E etiqueta  Esc volver' muted
+        ui_box_line "$width" '↑↓ Enter  F favorito  C comentario  Esc volver' muted
     fi
     if [[ -n "$UI_MESSAGE" ]]; then
         ui_box_line "$width" "$UI_MESSAGE"
@@ -243,7 +243,7 @@ ui_draw_search() {
         if ((${LABEL_EDITOR_ACTIVE:-0})); then
             ui_print_padded "$tiny_width" 'Enter guardar · Esc cancelar'
         else
-            ui_print_padded "$tiny_width" 'F favorito · E etiqueta · Esc volver'
+            ui_print_padded "$tiny_width" 'F favorito · C comentario · Esc volver'
         fi
         printf '\n'
         tput ed 2>/dev/null || true

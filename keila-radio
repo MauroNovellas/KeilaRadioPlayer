@@ -460,14 +460,16 @@ app_handle_key() {
         a|A) app_change_volume "$((-KEILA_VOLUME_STEP))" ;;
         d|D) app_change_volume "$KEILA_VOLUME_STEP" ;;
         p|P) app_toggle_pause || true ;;
-        r|R) app_toggle_recording || true ;;
+        e|E) ui_select_emisoras || true ;;
+        r|R) ui_select_recientes || true ;;
+        c|C) app_edit_label || true ;;
+        g|G) app_toggle_recording || true ;;
         f|F) app_toggle_favorite || true ;;
         j|J) app_move_selected_favorite 1 || true ;;
         k|K) app_move_selected_favorite -1 || true ;;
         x|X) app_remove_selected_favorite || true ;;
         b|B) app_search_catalog || true ;;
         u|U) app_update_catalog || true ;;
-        e|E) app_edit_label || true ;;
         z|Z) app_edit_equalizer || true ;;
         v|V) app_toggle_spectrum || true ;;
         h|H) ui_toggle_help ;;

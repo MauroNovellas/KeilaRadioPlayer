@@ -6,7 +6,7 @@ app_edit_label() {
     if ((${SEARCH_ACTIVE:-0})); then
         search_prepare_results
         if ! search_selected_load; then
-            app_message 'No hay ninguna emisora seleccionada para etiquetar.' 5
+            app_message 'No hay ninguna emisora seleccionada para comentar.' 5
             return 1
         fi
         url="$SELECTED_URL" name="$SELECTED_NAME"
@@ -14,7 +14,7 @@ app_edit_label() {
         favorites_load || return 1
         ui_sync_selection
         if ((UI_NAV_COUNT == 0)); then
-            app_message 'Selecciona una emisora para editar su etiqueta.' 5
+            app_message 'Selecciona una emisora para editar su comentario.' 5
             return 1
         fi
         if ((UI_SELECTED_INDEX < ${#FAVORITE_URLS[@]})); then
@@ -33,7 +33,7 @@ app_edit_label() {
         ((visible < 1)) && visible=1
         local preview="$text"
         ((${#preview} > visible)) && preview="${preview: -visible}"
-        app_message "Etiqueta: ${preview}_" 0
+        app_message "Comentario: ${preview}_" 0
         if ((redraw)); then
             if ((${SEARCH_ACTIVE:-0})); then search_draw_view; else ui_draw; fi
         fi
@@ -44,12 +44,12 @@ app_edit_label() {
                 LABEL_EDITOR_ACTIVE=0
                 UI_HELP_VISIBLE=$previous_help
                 if labels_set "$url" "$text"; then
-                    # Aplicar el filtro de nuevo: la etiqueta puede ser la consulta.
+                    # Aplicar el filtro de nuevo: el comentario puede ser la consulta.
                     search_filter
-                    app_message "Etiqueta guardada: $name" 4
+                    app_message "Comentario guardado: $name" 4
                     return 0
                 fi
-                app_message 'No se pudo guardar la etiqueta.' 6
+                app_message 'No se pudo guardar el comentario.' 6
                 return 1
                 ;;
             ESC) LABEL_EDITOR_ACTIVE=0; UI_HELP_VISIBLE=$previous_help; ui_clear_message; return 0 ;;

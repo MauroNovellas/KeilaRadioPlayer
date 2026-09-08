@@ -13,7 +13,7 @@ ui_navigation_refresh() {
 }
 
 # La distribución en columnas comparte el extremo derecho de cada fila con
-# Recientes. Si alguna emisora tiene una etiqueta propia, mantenemos la vista
+# Recientes. Si alguna emisora tiene un comentario propio, mantenemos la vista
 # apilada para conservar esa información en su columna dedicada.
 ui_navigation_has_labels() {
     local url
@@ -105,5 +105,5 @@ ui_navigation_row() {
 
 # Umbral común para que ambas secciones abrevien a la vez en desktop.
 ui_labels_header() {
-    if (($1 >= 68)); then printf 'ETIQUETAS PERSONALES'; else printf 'ETIQUETAS'; fi
+    if (($1 >= 68)); then printf 'COMENTARIOS PERSONALES'; else printf 'COMENTARIOS'; fi
 }
