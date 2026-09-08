@@ -85,7 +85,7 @@ Keila adapta automáticamente la composición al tamaño de la terminal y recalc
 < 42x11                       aviso de terminal demasiado pequeña
 ```
 
-En desktop, `Ahora suena` queda como panel contenido a la izquierda. La columna derecha se divide verticalmente en `Favoritos` y `Recientes` arriba y `BUSQUEDA EMISORAS` abajo, con selección y scroll independientes. El panel de reproducción muestra emisora, canción/programa, datos técnicos, volumen, estado, grabación y favorito cuando existe espacio suficiente.
+En pantalla completa, `Ahora suena` queda como panel contenido a la izquierda. La mitad superior de la columna derecha muestra `Emisoras favoritas` y `Recientes` lado a lado, con selección y scroll independientes; debajo queda `BUSQUEDA EMISORAS`. En terminales estrechas las listas se apilan. El panel de reproducción muestra emisora, canción/programa, datos técnicos, volumen, estado, grabación y favorito cuando existe espacio suficiente.
 
 El modo ancho de PC utiliza prácticamente toda la anchura disponible, reservando una columna física de seguridad para evitar autowrap. El borde inferior tampoco imprime un salto de línea adicional, evitando que la terminal haga scroll durante los redibujados.
 
@@ -131,9 +131,10 @@ Los valores inválidos se ignoran y se conserva el valor por defecto.
 ```text
 W / S o ↑ / ↓     mover la selección por favoritos y recientes
 A / D o ← / →     bajar/subir volumen
-Enter              reproducir el favorito seleccionado
+Enter              reproducir la emisora seleccionada
 Home / End         ir al primer/último favorito
 PageUp / PageDown  saltar por la lista
+0–9                reproducir un preset de Emisoras favoritas o Recientes según la sección activa
 P                  pausa/reanudar
 E                  ir a Emisoras
 C                  editar comentario de la emisora seleccionada
@@ -153,7 +154,7 @@ Q                  salir
 
 `U` actualiza exclusivamente el catálogo de TDTChannels; no se reutiliza para actualizar el programa.
 
-La navegación de favoritos y recientes es circular y tiene scroll automático. El catálogo local de TDTChannels se carga al iniciar Keila y se actualiza en segundo plano cuando caduca. Sin conexión se conserva la copia guardada. Al pulsar `B`, Keila activa el filtro de la búsqueda integrada. La reproducción, los metadatos y los avisos continúan activos mientras se busca.
+La navegación de Emisoras favoritas y Recientes es circular y tiene scroll automático. En cualquiera de las dos secciones, `1–9` reproduce las posiciones 1–9 y `0` la posición 10 de esa misma lista. El catálogo local de TDTChannels se carga al iniciar Keila y se actualiza en segundo plano cuando caduca. Sin conexión se conserva la copia guardada. Al pulsar `B`, Keila activa el filtro de la búsqueda integrada. La reproducción, los metadatos y los avisos continúan activos mientras se busca.
 
 Dentro de la búsqueda:
 

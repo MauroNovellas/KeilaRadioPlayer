@@ -103,7 +103,7 @@ ui_responsive_section_title() {
         compact:favorites) printf 'FAV (%s)' "${#FAVORITE_NAMES[@]}" ;;
         minimal:favorites) printf 'FAV %s' "${#FAVORITE_NAMES[@]}" ;;
         *:now) printf 'AHORA SUENA' ;;
-        *:favorites) printf 'FAVORITOS (%s)' "${#FAVORITE_NAMES[@]}" ;;
+        *:favorites) printf 'EMISORAS FAVORITAS (%s)' "${#FAVORITE_NAMES[@]}" ;;
     esac
 }
 

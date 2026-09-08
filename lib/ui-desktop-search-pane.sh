@@ -25,8 +25,14 @@ ui_desktop_sync_selection() {
     local body_height="$1"
     ui_desktop_search_split_heights "$body_height"
     ui_navigation_refresh
-    # Reservar la primera fila para los nombres de las dos columnas.
-    ui_navigation_sync "$((UI_DESKTOP_FAVORITES_HEIGHT - 1))"
+    # Reservar la primera fila para los nombres de las dos columnas. En
+    # pantalla completa ambas listas ocupan la misma altura y hacen scroll de
+    # forma independiente.
+    if ((UI_DESKTOP_RIGHT_WIDTH >= 60)); then
+        ui_navigation_sync_columns "$((UI_DESKTOP_FAVORITES_HEIGHT - 1))"
+    else
+        ui_navigation_sync "$((UI_DESKTOP_FAVORITES_HEIGHT - 1))"
+    fi
 
     # El campo de consulta solo ocupa una fila cuando se usa.
     local search_results_height=$UI_DESKTOP_SEARCH_HEIGHT
@@ -80,35 +86,51 @@ ui_desktop_row() {
     local selected="${9:-0}"
     local row="${UI_UPDATE_DESKTOP_ROW:-0}"
 
-    # En terminales anchas, Favoritos y Recientes comparten la mitad superior
-    # del panel. El índice de selección sigue siendo único para no alterar la
-    # navegación; cada lista solo ocupa su propia columna visual.
-    if ((UI_DESKTOP_RIGHT_WIDTH >= 60 && row < UI_DESKTOP_FAVORITES_HEIGHT)) \
-        && ! ui_navigation_has_labels; then
-        local column_index="$((UI_SCROLL_OFFSET + row))"
-        local recent_index="$((UI_RECENT_SCROLL + row))"
+    # En pantalla completa, Favoritos y Recientes comparten la mitad superior
+    # del panel. El índice de selección sigue siendo único; cada lista ocupa
+    # su columna visual y conserva su propio scroll.
+    if ((UI_DESKTOP_RIGHT_WIDTH >= 60 && row < UI_DESKTOP_FAVORITES_HEIGHT)); then
+        # La fila cero contiene encabezados; las listas empiezan en la uno.
+        local column_index="$((UI_SCROLL_OFFSET + row - 1))"
+        local recent_index="$((UI_RECENT_SCROLL + row - 1))"
         right_text=''
         right_badge=''
         right_style=''
         right_badge_style=''
         selected=0
         if ((row == 0)); then
-            right_text="  EMISORAS (${#FAVORITE_NAMES[@]})"
+            right_text="  EMISORAS FAVORITAS (${#FAVORITE_NAMES[@]}) · $(ui_labels_header "$UI_DESKTOP_RIGHT_WIDTH")"
             right_badge="RECIENTES (${#RECENT_NAMES[@]})"
             right_style='accent'
             right_badge_style='accent'
         else
             if ((column_index < ${#FAVORITE_NAMES[@]})); then
-                right_text="  ${FAVORITE_NAMES[column_index]}"
+                local favorite_preset='   '
+                case "$column_index" in
+                    [0-8]) favorite_preset="$((column_index + 1)). " ;;
+                    9) favorite_preset='0. ' ;;
+                esac
+                local favorite_comment=''
+                if declare -p FAVORITE_LABELS >/dev/null 2>&1; then
+                    favorite_comment="${FAVORITE_LABELS[${FAVORITE_URLS[column_index]}]:-}"
+                fi
+                right_text="  ${favorite_preset}${FAVORITE_NAMES[column_index]}"
+                [[ -n "$favorite_comment" ]] && right_text+=" $UI_SEP $favorite_comment"
                 if ((column_index == UI_SELECTED_INDEX && !${SEARCH_ACTIVE:-0})); then
-                    right_text="$UI_SELECT ${FAVORITE_NAMES[column_index]}"
+                    right_text="$UI_SELECT ${favorite_preset}${FAVORITE_NAMES[column_index]}"
+                    [[ -n "$favorite_comment" ]] && right_text+=" $UI_SEP $favorite_comment"
                     selected=1
                 fi
             fi
             if ((recent_index < ${#RECENT_NAMES[@]})); then
-                right_badge="${RECENT_NAMES[recent_index]}"
+                local recent_preset='   '
+                case "$recent_index" in
+                    [0-8]) recent_preset="$((recent_index + 1)). " ;;
+                    9) recent_preset='0. ' ;;
+                esac
+                right_badge="${recent_preset}${RECENT_NAMES[recent_index]}"
                 if ((recent_index + ${#FAVORITE_NAMES[@]} == UI_SELECTED_INDEX && !${SEARCH_ACTIVE:-0})); then
-                    right_badge="$UI_SELECT ${RECENT_NAMES[recent_index]}"
+                    right_badge="$UI_SELECT ${recent_preset}${RECENT_NAMES[recent_index]}"
                     selected=1
                 fi
             fi

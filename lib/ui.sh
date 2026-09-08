@@ -1032,7 +1032,7 @@ ui_draw() {
     volume_left="VOL $(printf '%3s' "$PLAYER_VOLUME")%  $(ui_volume_bar "$volume_bar_width")"
     volume_hint='A/D  ←/→'
     ui_box_split_line "$width" "$volume_left" "$volume_hint" 0 accent muted
-    ui_box_rule "$width" "$UI_ML" "$UI_MR" "FAVORITOS (${#FAVORITE_NAMES[@]})" accent
+    ui_box_rule "$width" "$UI_ML" "$UI_MR" "EMISORAS FAVORITAS (${#FAVORITE_NAMES[@]})" accent
 
     local height
     height=$(ui_list_height)

@@ -12,18 +12,6 @@ ui_navigation_refresh() {
     UI_NAV_COUNT=$((${#FAVORITE_NAMES[@]} + ${#RECENT_NAMES[@]}))
 }
 
-# La distribución en columnas comparte el extremo derecho de cada fila con
-# Recientes. Si alguna emisora tiene un comentario propio, mantenemos la vista
-# apilada para conservar esa información en su columna dedicada.
-ui_navigation_has_labels() {
-    local url
-    declare -p FAVORITE_LABELS >/dev/null 2>&1 || return 1
-    for url in "${FAVORITE_URLS[@]}"; do
-        [[ -n "${FAVORITE_LABELS[$url]:-}" ]] && return 0
-    done
-    return 1
-}
-
 ui_navigation_sync() {
     local height="$1" count favorite_count=${#FAVORITE_NAMES[@]} recent_count=${#RECENT_NAMES[@]}
     count=$((favorite_count + recent_count))
@@ -62,6 +50,37 @@ ui_navigation_sync() {
     ((UI_RECENT_SCROLL > max_scroll)) && UI_RECENT_SCROLL=$max_scroll
     ((UI_RECENT_SCROLL < 0)) && UI_RECENT_SCROLL=0
     return 0
+}
+
+# En desktop ancho las dos listas comparten las mismas filas y cada una debe
+# conservar su propio desplazamiento.
+ui_navigation_sync_columns() {
+    local height="$1" count favorite_count=${#FAVORITE_NAMES[@]} recent_count=${#RECENT_NAMES[@]}
+    count=$((favorite_count + recent_count))
+    ((height < 1)) && height=1
+    ((UI_SELECTED_INDEX < 0)) && UI_SELECTED_INDEX=0
+    ((UI_SELECTED_INDEX >= count)) && UI_SELECTED_INDEX=$((count > 0 ? count - 1 : 0))
+    UI_NAV_FAVORITES_HEIGHT=$height
+    UI_NAV_RECENTS_HEIGHT=$height
+    UI_NAV_RECENT_HEADER=0
+
+    if ((UI_SELECTED_INDEX < favorite_count)); then
+        ((UI_SELECTED_INDEX < UI_SCROLL_OFFSET)) && UI_SCROLL_OFFSET=$UI_SELECTED_INDEX
+        ((UI_SELECTED_INDEX >= UI_SCROLL_OFFSET + height)) && UI_SCROLL_OFFSET=$((UI_SELECTED_INDEX - height + 1))
+    else
+        local recent_selected=$((UI_SELECTED_INDEX - favorite_count))
+        ((recent_selected < UI_RECENT_SCROLL)) && UI_RECENT_SCROLL=$recent_selected
+        ((recent_selected >= UI_RECENT_SCROLL + height)) && UI_RECENT_SCROLL=$((recent_selected - height + 1))
+    fi
+
+    local max_scroll=$((favorite_count - height))
+    ((max_scroll < 0)) && max_scroll=0
+    ((UI_SCROLL_OFFSET > max_scroll)) && UI_SCROLL_OFFSET=$max_scroll
+    ((UI_SCROLL_OFFSET < 0)) && UI_SCROLL_OFFSET=0
+    max_scroll=$((recent_count - height))
+    ((max_scroll < 0)) && max_scroll=0
+    ((UI_RECENT_SCROLL > max_scroll)) && UI_RECENT_SCROLL=$max_scroll
+    ((UI_RECENT_SCROLL < 0)) && UI_RECENT_SCROLL=0
 }
 
 ui_navigation_row() {

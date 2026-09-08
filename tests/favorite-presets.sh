@@ -33,6 +33,8 @@ LAST_MESSAGE=''
 # shellcheck disable=SC2317
 favorites_load() { return 0; }
 # shellcheck disable=SC2317
+history_recent_refresh() { return 0; }
+# shellcheck disable=SC2317
 ui_sync_selection() { return 0; }
 # shellcheck disable=SC2317
 app_play() {
@@ -71,6 +73,27 @@ LAST_MESSAGE=''
 app_handle_key 0 || fail '0 con menos de diez favoritos dejó de ser una tecla válida'
 assert_eq 0 "$PLAY_CALLS" '0 sin décimo favorito no reproduce otra emisora'
 [[ "$LAST_MESSAGE" == *'No hay favorito asignado al preset 0.'* ]] || fail 'falta mensaje de preset sin asignar'
+
+# La misma hilera de presets se aplica a Recientes cuando esa sección tiene el
+# foco. El índice global permanece después de los favoritos.
+FAVORITE_NAMES=(F1 F2)
+FAVORITE_URLS=(u1 u2)
+RECENT_NAMES=(R1 R2 R3)
+RECENT_URLS=(r1 r2 r3)
+UI_SELECTED_INDEX=2
+PLAY_CALLS=0
+PLAY_NAME=''
+PLAY_URL=''
+app_handle_key 2 || fail 'preset 2 no fue reconocido en Recientes'
+assert_eq 3 "$UI_SELECTED_INDEX" '2 selecciona el segundo reciente'
+assert_eq R2 "$PLAY_NAME" '2 reproduce el segundo reciente'
+assert_eq r2 "$PLAY_URL" '2 usa la URL del reciente'
+
+PLAY_CALLS=0
+LAST_MESSAGE=''
+app_handle_key 9 || fail '9 sin reciente dejó de ser una tecla válida'
+assert_eq 0 "$PLAY_CALLS" '9 sin noveno reciente no reproduce otra emisora'
+[[ "$LAST_MESSAGE" == *'No hay reciente asignado al preset 9.'* ]] || fail 'falta mensaje de reciente sin preset'
 
 # Dentro de Buscar, los dígitos siguen siendo texto de consulta y no pasan por
 # app_handle_key, por lo que buscar "101" continúa siendo posible.

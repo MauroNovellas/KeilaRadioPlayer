@@ -19,6 +19,7 @@ assert_eq() {
 }
 
 player_is_running() { return 1; }
+history_recent_refresh() { :; }
 
 UI_UNICODE=1
 UI_COLOR=0
@@ -90,6 +91,22 @@ UI_UPDATE_DESKTOP_ROW=0
 favorite_line=$(ui_desktop_row '' '' '' '' "$UI_SELECT F1" '' '' '' 1)
 [[ "$favorite_line" != *"$UI_SELECT F1"* ]] || fail 'favorito conserva foco mientras se escribe en búsqueda'
 
+SEARCH_ACTIVE=0
+SEARCH_QUERY=''
+RECENT_NAMES=(R1 R2 R3)
+RECENT_URLS=(r1 r2 r3)
+UI_SELECTED_INDEX=8
+UI_SCROLL_OFFSET=0
+UI_RECENT_SCROLL=0
+ui_desktop_sync_selection 13
+UI_UPDATE_DESKTOP_ROW=0
+columns_header=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
+[[ "$columns_header" == *'EMISORAS FAVORITAS'* && "$columns_header" == *'RECIENTES'* ]] || fail 'desktop ancho no muestra ambas secciones en paralelo'
+UI_UPDATE_DESKTOP_ROW=1
+columns_row=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
+[[ "$columns_row" == *'1. F1'* && "$columns_row" == *'1. R1'* ]] || fail 'las columnas no muestran presets y scroll independientes'
+
+SEARCH_ACTIVE=1
 search_controls=$(ui_draw_responsive_controls 119)
 [[ "$search_controls" == *'Esc favoritos'* ]] || fail 'el pie no anuncia cómo volver a Favoritos'
 [[ "$search_controls" != *'Q salir'* ]] || fail 'el pie muestra atajos inactivos durante la búsqueda'

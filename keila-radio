@@ -163,8 +163,8 @@ app_play_selected() {
     fi
 }
 
-# Los diez primeros favoritos funcionan como presets de una radio física:
-# 1..9 seleccionan las posiciones 1..9 y 0 selecciona la posición 10.
+# Los diez primeros elementos de la sección activa funcionan como presets de
+# una radio física: 1..9 seleccionan las posiciones 1..9 y 0 la posición 10.
 # No hay buffer ni combinaciones de varias cifras; el resto sigue accesible con
 # cursores/W/S y búsqueda.
 app_play_favorite_preset() {
@@ -179,7 +179,20 @@ app_play_favorite_preset() {
         app_message "No se pudieron cargar favoritos." 6
         return 1
     fi
-    if ((index >= ${#FAVORITE_NAMES[@]})); then
+    ui_navigation_refresh
+    local favorite_count=${#FAVORITE_NAMES[@]}
+    if ((UI_SELECTED_INDEX >= favorite_count && UI_SELECTED_INDEX < favorite_count + ${#RECENT_NAMES[@]})); then
+        if ((index >= ${#RECENT_NAMES[@]})); then
+            app_message "No hay reciente asignado al preset $key." 4
+            return 0
+        fi
+        UI_SELECTED_INDEX=$((favorite_count + index))
+        ui_sync_selection
+        app_play "${RECENT_NAMES[$index]}" "${RECENT_URLS[$index]}"
+        return 0
+    fi
+
+    if ((index >= favorite_count)); then
         app_message "No hay favorito asignado al preset $key." 4
         return 0
     fi
