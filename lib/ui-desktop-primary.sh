@@ -112,7 +112,11 @@ ui_desktop_row() {
     printf '%s' "$UI_V"
     ui_style_end
     printf ' '
-    ui_print_split_styled "$UI_DESKTOP_RIGHT_WIDTH" "$right_text" "$right_badge" "$right_style" "$right_badge_style"
+    if (( ${UI_DESKTOP_NAV_COLUMNS:-0} )); then
+        ui_print_columns_styled "$UI_DESKTOP_RIGHT_WIDTH" "$right_text" "$right_badge" "$right_style" "$right_badge_style"
+    else
+        ui_print_split_styled "$UI_DESKTOP_RIGHT_WIDTH" "$right_text" "$right_badge" "$right_style" "$right_badge_style"
+    fi
     printf ' '
     ui_style_begin muted
     printf '%s' "$UI_V"

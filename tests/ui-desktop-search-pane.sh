@@ -95,6 +95,8 @@ SEARCH_ACTIVE=0
 SEARCH_QUERY=''
 RECENT_NAMES=(R1 R2 R3)
 RECENT_URLS=(r1 r2 r3)
+declare -A FAVORITE_LABELS=()
+FAVORITE_LABELS['r1']='comentario reciente'
 UI_SELECTED_INDEX=8
 UI_SCROLL_OFFSET=0
 UI_RECENT_SCROLL=0
@@ -104,7 +106,7 @@ columns_header=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
 [[ "$columns_header" == *'EMISORAS FAVORITAS'* && "$columns_header" == *'RECIENTES'* ]] || fail 'desktop ancho no muestra ambas secciones en paralelo'
 UI_UPDATE_DESKTOP_ROW=1
 columns_row=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
-[[ "$columns_row" == *'1. F1'* && "$columns_row" == *'1. R1'* ]] || fail 'las columnas no muestran presets y scroll independientes'
+[[ "$columns_row" == *'1. F1'* && "$columns_row" == *'1. R1'* && "$columns_row" == *'comentario reciente'* ]] || fail 'las columnas no muestran presets, scroll y comentarios independientes'
 
 SEARCH_ACTIVE=1
 search_controls=$(ui_draw_responsive_controls 119)

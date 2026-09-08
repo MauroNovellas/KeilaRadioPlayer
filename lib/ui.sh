@@ -308,6 +308,24 @@ ui_print_split_styled() {
     ui_style_end
 }
 
+# Dos listas paralelas dentro de un mismo panel. Cada mitad conserva su propio
+# estilo para que el foco no pinte la fila de la otra sección.
+ui_print_columns_styled() {
+    local width="$1"
+    local left="${2:-}"
+    local right="${3:-}"
+    local left_style="${4:-}"
+    local right_style="${5:-}"
+    local left_width=$((width / 2))
+    local right_width=$((width - left_width - 1))
+
+    ui_print_styled_padded "$left_width" "$left" "$left_style"
+    ui_style_begin muted
+    printf '%s' "$UI_V"
+    ui_style_end
+    ui_print_styled_padded "$right_width" "$right" "$right_style"
+}
+
 ui_box_rule() {
     local width="$1"
     local left="$2"
