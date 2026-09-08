@@ -119,7 +119,7 @@ app_edit_label || fail 'editar resultado no favorito'
 [[ ${#FAVORITE_URLS[@]} == 2 ]] || fail 'etiquetar añadió favorito'
 [[ " ${HISTORY_URLS[*]} " != *' https://radio.invalid/new '* ]] || fail 'etiquetar añadió historial'
 ui_search_result_parts 0
-[[ "$(ui_search_result_badge 0)" == Q ]] || fail 'etiqueta no visible en búsqueda'
+[[ "$(ui_search_result_badge 0)" == 'Nacional · España Q' ]] || fail 'etiqueta y metadatos no visibles en búsqueda'
 SEARCH_QUERY=q
 search_filter
 [[ ${#SEARCH_MATCHES[@]} == 1 ]] || fail 'no busca etiquetas de no favoritos'

@@ -83,7 +83,8 @@ ui_desktop_row() {
     # En terminales anchas, Favoritos y Recientes comparten la mitad superior
     # del panel. El índice de selección sigue siendo único para no alterar la
     # navegación; cada lista solo ocupa su propia columna visual.
-    if ((UI_DESKTOP_RIGHT_WIDTH >= 60 && row < UI_DESKTOP_FAVORITES_HEIGHT)); then
+    if ((UI_DESKTOP_RIGHT_WIDTH >= 60 && row < UI_DESKTOP_FAVORITES_HEIGHT)) \
+        && ! ui_navigation_has_labels; then
         local column_index="$((UI_SCROLL_OFFSET + row))"
         local recent_index="$((UI_RECENT_SCROLL + row))"
         right_text=''

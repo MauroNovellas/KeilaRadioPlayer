@@ -95,8 +95,8 @@ UI_SEP='·'
 UI_FAVORITE='★'
 ui_search_result_parts 0
 assert_eq 1 "$UI_SEARCH_IS_FAVORITE" 'renderer reconoce resultado favorito'
-assert_eq '[★]' "$(ui_search_result_badge 0)" 'badge de favorito'
-assert_eq '[PLAY] [★]' "$(ui_search_result_badge 1)" 'badge combinado play y favorito'
+assert_eq '[★] Madrid · España' "$(ui_search_result_badge 0)" 'badge de favorito con metadatos'
+assert_eq '[PLAY] [★] Madrid · España' "$(ui_search_result_badge 1)" 'badge combinado play, favorito y metadatos'
 
 # La primera F destructiva solo arma la confirmación.
 search_toggle_selected_favorite || fail 'segunda F no armó confirmación'

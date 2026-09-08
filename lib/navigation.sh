@@ -12,6 +12,18 @@ ui_navigation_refresh() {
     UI_NAV_COUNT=$((${#FAVORITE_NAMES[@]} + ${#RECENT_NAMES[@]}))
 }
 
+# La distribución en columnas comparte el extremo derecho de cada fila con
+# Recientes. Si alguna emisora tiene una etiqueta propia, mantenemos la vista
+# apilada para conservar esa información en su columna dedicada.
+ui_navigation_has_labels() {
+    local url
+    declare -p FAVORITE_LABELS >/dev/null 2>&1 || return 1
+    for url in "${FAVORITE_URLS[@]}"; do
+        [[ -n "${FAVORITE_LABELS[$url]:-}" ]] && return 0
+    done
+    return 1
+}
+
 ui_navigation_sync() {
     local height="$1" count favorite_count=${#FAVORITE_NAMES[@]} recent_count=${#RECENT_NAMES[@]}
     count=$((favorite_count + recent_count))
