@@ -128,18 +128,30 @@ app_play() {
     fi
 
     if ! player_start "$name" "$url"; then
+        local failure_reason="${PLAYER_FAILURE_REASON:-}"
+        local failure_text='no se pudo abrir la conexión'
+        if declare -F player_failure_description >/dev/null 2>&1 && [[ -n "$failure_reason" ]]; then
+            failure_text=$(player_failure_description "$failure_reason")
+        fi
         if [[ -n "${PLAYER_LAST_EXIT_STATUS:-}" ]]; then
             if [[ -n "$recording_notice" ]]; then
                 app_message "$recording_notice · No se pudo iniciar $name (mpv: código $PLAYER_LAST_EXIT_STATUS)." 9
             else
-                app_message "No se pudo iniciar $name (mpv: código $PLAYER_LAST_EXIT_STATUS)." 8
+                app_message "No hay conexión con $name: $failure_text (mpv: código $PLAYER_LAST_EXIT_STATUS)." 8
             fi
         else
             if [[ -n "$recording_notice" ]]; then
                 app_message "$recording_notice · No se pudo iniciar la emisora: $name" 9
             else
-                app_message "No se pudo iniciar la emisora: $name" 8
+                app_message "No hay conexión con $name: $failure_text." 8
             fi
+        fi
+        if [[ "$failure_reason" != invalid_url && -n "$url" && -n "${APP_RECONNECT_BASE_DELAY:-}" ]]; then
+            APP_RECONNECT_ELIGIBLE=1
+            APP_RECONNECT_ATTEMPTS=0
+            APP_RECONNECT_WAITING=0
+            APP_RECONNECT_NEXT_AT=$((${EPOCHSECONDS:-$(date +%s)} + APP_RECONNECT_BASE_DELAY))
+            app_message "No hay conexión con $name: reintentando en ${APP_RECONNECT_BASE_DELAY}s." 8
         fi
         return 1
     fi

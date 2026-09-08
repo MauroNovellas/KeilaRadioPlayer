@@ -35,8 +35,10 @@ STOP_CALLS=0
 MESSAGE_CALLS=0
 LAST_MESSAGE=''
 TEST_NOW=100
+IPC_OK=1
 
 player_is_running() { ((RUNNING)); }
+player_ipc() { ((IPC_OK)); }
 player_start() {
     ((START_CALLS += 1))
     PLAYER_NAME="$1"
@@ -91,6 +93,7 @@ reset_case() {
     STOP_CALLS=0
     MESSAGE_CALLS=0
     LAST_MESSAGE=''
+    IPC_OK=1
     PLAYER_PID='1234'
     PLAYER_NAME='Radio Test'
     PLAYER_URL='https://example.invalid/radio'
@@ -101,7 +104,32 @@ reset_case() {
     APP_RECONNECT_RECORDING_GUARD=0
     APP_RECONNECT_RECORDING_EXIT_EVENT=0
     APP_RECONNECT_AUTOMATIC_START=0
+    APP_RECONNECT_LAST_TICK_AT=0
     app_reconnect_reset
+}
+
+test_resume_validates_without_duplicate() {
+    reset_case
+    PLAYER_STREAM_READY=1
+    PLAYER_STREAM_LAST_PROGRESS_AT=99
+    ui_message_tick || true
+    TEST_NOW=140
+    PLAYER_STREAM_LAST_PROGRESS_AT=140
+    if ! ui_message_tick; then fail 'reanudar no fuerza redibujado'; fi
+    assert_eq '0' "$START_CALLS" 'reanudar sano no duplica mpv'
+    assert_eq '1' "$APP_RECONNECT_ELIGIBLE" 'reanudar conserva elegibilidad'
+}
+
+test_resume_ipc_failure_reconnects() {
+    reset_case
+    PLAYER_STREAM_READY=1
+    PLAYER_STREAM_LAST_PROGRESS_AT=99
+    ui_message_tick || true
+    TEST_NOW=140
+    IPC_OK=0
+    ui_message_tick || fail 'fallo IPC tras reanudar no inicia recuperación'
+    assert_eq '1' "$START_CALLS" 'fallo IPC tras reanudar realiza un único intento'
+    assert_contains "$LAST_MESSAGE" 'Reconectando' 'mensaje de recuperación tras reanudar'
 }
 
 test_never_ready_does_not_reconnect() {
@@ -266,6 +294,10 @@ test_pause_cancels_and_resume_grants_grace() {
 }
 
 printf 'Keila Radio Player - reconexión automática\n\n'
+test_resume_validates_without_duplicate
+printf 'ok   reanudación sana no duplica mpv\n'
+test_resume_ipc_failure_reconnects
+printf 'ok   fallo IPC tras reanudar activa reconexión\n'
 test_never_ready_does_not_reconnect
 printf 'ok   no reconecta antes de readiness real\n'
 test_stall_starts_immediate_attempt

@@ -4,6 +4,7 @@
 # Este archivo está pensado para ser cargado con `source`.
 
 PLAYER_PID=""
+PLAYER_PGID=""
 PLAYER_NAME=""
 PLAYER_URL=""
 PLAYER_VOLUME="${KEILA_VOLUME:-50}"
@@ -48,7 +49,7 @@ player_require_dependencies() {
     local missing=0
     local dep
 
-    for dep in mpv socat jq; do
+    for dep in mpv socat jq setsid; do
         if ! command -v "$dep" >/dev/null 2>&1; then
             printf 'Falta la dependencia: %s\n' "$dep" >&2
             missing=1
@@ -56,7 +57,7 @@ player_require_dependencies() {
     done
 
     if ((missing)); then
-        printf 'En Debian puedes instalarlas con: sudo apt install mpv socat jq\n' >&2
+        printf 'En Debian puedes instalarlas con: sudo apt install mpv socat jq coreutils\n' >&2
         return 1
     fi
 }
@@ -81,6 +82,29 @@ player_terminate_pid_bounded() {
     done
 
     kill -KILL "$pid" 2>/dev/null || true
+}
+
+# Termina el grupo privado de mpv solo cuando su líder coincide con el PID que
+# acabamos de lanzar. La comprobación evita convertir un PID antiguo o un dato
+# corrupto en una señal a un grupo ajeno.
+player_terminate_group_bounded() {
+    local pid="$1" pgid="$2" attempt
+    [[ "$pid" =~ ^[0-9]+$ && "$pgid" =~ ^[0-9]+$ && "$pid" == "$pgid" ]] || {
+        player_terminate_pid_bounded "$pid"
+        return
+    }
+    # Un grupo ausente (por ejemplo, un stub o un mpv que ya lo abandonó)
+    # vuelve al cierre por PID para no dejar un wait bloqueado.
+    kill -0 -- "-$pgid" 2>/dev/null || {
+        player_terminate_pid_bounded "$pid"
+        return
+    }
+    kill -TERM -- "-$pgid" 2>/dev/null || true
+    for ((attempt = 0; attempt < 10; attempt++)); do
+        kill -0 -- "-$pgid" 2>/dev/null || return 0
+        sleep 0.05
+    done
+    kill -KILL -- "-$pgid" 2>/dev/null || true
 }
 
 # Intercambio de bajo nivel con el socket. Se mantiene separado de player_ipc
@@ -153,6 +177,7 @@ player_collect_exit_status() {
 
     PLAYER_LAST_EXIT_STATUS="$status"
     PLAYER_PID=""
+    PLAYER_PGID=""
     PLAYER_PAUSED=0
     player_reset_info
     rm -f "$PLAYER_SOCKET"
@@ -367,19 +392,22 @@ player_start() {
         equalizer_filter=$(equalizer_filter) || equalizer_filter=''
     fi
 
-    mpv \
-        --really-quiet \
-        --no-video \
-        --no-terminal \
-        --audio-display=no \
-        --input-ipc-server="$PLAYER_SOCKET" \
-        --volume="$PLAYER_VOLUME" \
-        --mute=no \
-        ${equalizer_filter:+"--af=$equalizer_filter"} \
-        "$PLAYER_URL" \
-        >/dev/null 2>&1 &
+    # En producción setsid crea una sesión independiente; los stubs de las
+    # pruebas se ejecutan directamente para conservar su comportamiento.
+    local -a player_args=(
+        --really-quiet --no-video --no-terminal --audio-display=no
+        --input-ipc-server="$PLAYER_SOCKET" --volume="$PLAYER_VOLUME" --mute=no
+    )
+    [[ -n "$equalizer_filter" ]] && player_args+=("--af=$equalizer_filter")
+    player_args+=("$PLAYER_URL")
+    if declare -F mpv >/dev/null 2>&1; then
+        mpv "${player_args[@]}" >/dev/null 2>&1 &
+    else
+        setsid -- mpv "${player_args[@]}" >/dev/null 2>&1 &
+    fi
 
     PLAYER_PID=$!
+    PLAYER_PGID="$PLAYER_PID"
 
     if ! player_wait_for_socket; then
         local failed_pid="$PLAYER_PID"
@@ -389,6 +417,7 @@ player_start() {
         wait "$failed_pid" 2>/dev/null || failed_status=$?
         PLAYER_LAST_EXIT_STATUS="$failed_status"
         PLAYER_PID=""
+        PLAYER_PGID=""
         PLAYER_PAUSED=0
         player_reset_info
         rm -f "$PLAYER_SOCKET"
@@ -439,6 +468,7 @@ player_change_volume() {
 player_stop() {
     if [[ -n "$PLAYER_PID" ]]; then
         local pid="$PLAYER_PID"
+        local pgid="${PLAYER_PGID:-}"
 
         if player_is_running; then
             player_ipc '{"command":["quit"]}' >/dev/null 2>&1 || true
@@ -450,7 +480,7 @@ player_stop() {
             done
 
             if kill -0 "$pid" 2>/dev/null; then
-                player_terminate_pid_bounded "$pid" || true
+                player_terminate_group_bounded "$pid" "$pgid" || true
             fi
         fi
 
@@ -458,6 +488,7 @@ player_stop() {
     fi
 
     PLAYER_PID=""
+    PLAYER_PGID=""
     PLAYER_PAUSED=0
     player_reset_info
     rm -f "$PLAYER_SOCKET"

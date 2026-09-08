@@ -21,6 +21,9 @@ APP_RECONNECT_EXHAUSTED=0
 APP_RECONNECT_AUTOMATIC_START=0
 APP_RECONNECT_RECORDING_GUARD=0
 APP_RECONNECT_RECORDING_EXIT_EVENT=0
+APP_RECONNECT_RESUME_GAP="${KEILA_RECONNECT_RESUME_GAP:-30}"
+APP_RECONNECT_LAST_TICK_AT=0
+APP_RECONNECT_INITIAL_START=0
 
 app_reconnect_now() {
     printf '%s\n' "${EPOCHSECONDS:-$(date +%s)}"
@@ -31,6 +34,7 @@ app_reconnect_configure() {
     [[ "$APP_RECONNECT_START_TIMEOUT" =~ ^[0-9]+$ ]] || APP_RECONNECT_START_TIMEOUT=12
     [[ "$APP_RECONNECT_MAX_ATTEMPTS" =~ ^[0-9]+$ ]] || APP_RECONNECT_MAX_ATTEMPTS=3
     [[ "$APP_RECONNECT_BASE_DELAY" =~ ^[0-9]+$ ]] || APP_RECONNECT_BASE_DELAY=2
+    [[ "$APP_RECONNECT_RESUME_GAP" =~ ^[0-9]+$ ]] || APP_RECONNECT_RESUME_GAP=30
 
     ((APP_RECONNECT_STALL_TIMEOUT < 5)) && APP_RECONNECT_STALL_TIMEOUT=5
     ((APP_RECONNECT_STALL_TIMEOUT > 120)) && APP_RECONNECT_STALL_TIMEOUT=120
@@ -40,6 +44,8 @@ app_reconnect_configure() {
     ((APP_RECONNECT_MAX_ATTEMPTS > 5)) && APP_RECONNECT_MAX_ATTEMPTS=5
     ((APP_RECONNECT_BASE_DELAY < 1)) && APP_RECONNECT_BASE_DELAY=1
     ((APP_RECONNECT_BASE_DELAY > 30)) && APP_RECONNECT_BASE_DELAY=30
+    ((APP_RECONNECT_RESUME_GAP < 5)) && APP_RECONNECT_RESUME_GAP=5
+    ((APP_RECONNECT_RESUME_GAP > 600)) && APP_RECONNECT_RESUME_GAP=600
 }
 
 app_reconnect_reset() {
@@ -50,6 +56,8 @@ app_reconnect_reset() {
     APP_RECONNECT_NEXT_AT=0
     APP_RECONNECT_RECORDING_WARNED=0
     APP_RECONNECT_EXHAUSTED=0
+    APP_RECONNECT_LAST_TICK_AT=0
+    APP_RECONNECT_INITIAL_START=0
 }
 
 # Cancela únicamente una secuencia automática pendiente. La emisora sigue
@@ -85,7 +93,10 @@ app_reconnect_stream_stalled() {
     ((APP_RECONNECT_NEXT_AT == 0)) || return 1
     ((APP_RECONNECT_EXHAUSTED == 0)) || return 1
     ((PLAYER_STREAM_READY)) || return 1
-    ((PLAYER_PAUSED == 0)) || return 1
+    if ((PLAYER_PAUSED)); then
+        ((resumed)) && return 0
+        return 1
+    fi
     ((PLAYER_STREAM_LAST_PROGRESS_AT > 0)) || return 1
 
     ((now - PLAYER_STREAM_LAST_PROGRESS_AT >= APP_RECONNECT_STALL_TIMEOUT))
@@ -168,8 +179,23 @@ app_reconnect_start_attempt() {
 # readiness/progreso o el launcher ya ha recogido una caída del proceso.
 # Devuelve 0 solo cuando cambia algo visible y conviene redibujar.
 app_reconnect_tick() {
-    local now name attempt delay
+    local now name attempt delay resumed=0
     now=$(app_reconnect_now)
+
+    # Termux puede suspender la app sin entregar una señal de reanudación.
+    # Un hueco grande entre ticks es una señal conservadora: validamos IPC,
+    # dejamos que el sondeo normal confirme el progreso y forzamos un redraw.
+    if ((APP_RECONNECT_LAST_TICK_AT > 0 && now - APP_RECONNECT_LAST_TICK_AT >= APP_RECONNECT_RESUME_GAP)); then
+        resumed=1
+        if player_is_running && ((PLAYER_STREAM_READY && PLAYER_PAUSED == 0)); then
+            if ! player_ipc '{"command":["get_property","core-idle"]}' >/dev/null 2>&1; then
+                APP_RECONNECT_ELIGIBLE=1
+                PLAYER_STREAM_LAST_PROGRESS_AT=$((now - APP_RECONNECT_STALL_TIMEOUT))
+                app_message 'Reanudación detectada · comprobando la conexión de la emisora...' 7
+            fi
+        fi
+    fi
+    APP_RECONNECT_LAST_TICK_AT=$now
 
     # Si mpv murió mientras se grababa, app_poll_player ya ha validado/recuperado
     # el archivo. No arrancamos otro mpv a espaldas del usuario.
@@ -177,6 +203,7 @@ app_reconnect_tick() {
         APP_RECONNECT_RECORDING_EXIT_EVENT=0
         APP_RECONNECT_RECORDING_GUARD=0
         app_reconnect_reset
+        ((resumed)) && return 0
         return 1
     fi
 
@@ -209,6 +236,7 @@ app_reconnect_tick() {
         else
             APP_RECONNECT_RECORDING_WARNED=0
         fi
+        ((resumed)) && return 0
         return 1
     fi
 
@@ -221,13 +249,19 @@ app_reconnect_tick() {
 
     if ! player_is_running; then
         if ((APP_RECONNECT_WAITING)); then
+            if ((APP_RECONNECT_ATTEMPTS == 0)); then
+                APP_RECONNECT_ELIGIBLE=1
+                APP_RECONNECT_INITIAL_START=0
+                app_reconnect_start_attempt retry "$now" || true
+                return 0
+            fi
             name="$PLAYER_NAME"
             app_reconnect_message_retry_or_exhausted "$name" "$now"
             return 0
         fi
 
         if ((APP_RECONNECT_NEXT_AT > 0)); then
-            if ((now >= APP_RECONNECT_NEXT_AT)); then
+        if ((now >= APP_RECONNECT_NEXT_AT)); then
                 app_reconnect_start_attempt retry "$now" || true
                 return 0
             fi
@@ -238,6 +272,7 @@ app_reconnect_tick() {
             app_reconnect_start_attempt exit "$now" || true
             return 0
         fi
+        ((resumed)) && return 0
         return 1
     fi
 
@@ -246,7 +281,11 @@ app_reconnect_tick() {
             name="$PLAYER_NAME"
             app_reconnect_cancel_pending
             APP_RECONNECT_ELIGIBLE=1
-            app_message "Conexión recuperada: $name" 5
+            if ((APP_RECONNECT_INITIAL_START)); then
+                APP_RECONNECT_INITIAL_START=0
+            else
+                app_message "Conexión recuperada: $name" 5
+            fi
             return 0
         fi
 
@@ -254,6 +293,12 @@ app_reconnect_tick() {
             name="$PLAYER_NAME"
             attempt=$APP_RECONNECT_ATTEMPTS
             player_stop >/dev/null 2>&1 || true
+            if ((attempt == 0)); then
+                APP_RECONNECT_ELIGIBLE=1
+                APP_RECONNECT_INITIAL_START=0
+                app_reconnect_start_attempt retry "$now" || true
+                return 0
+            fi
             if app_reconnect_schedule_retry "$(app_reconnect_now)"; then
                 now=$(app_reconnect_now)
                 delay=$((APP_RECONNECT_NEXT_AT - now))
@@ -264,6 +309,7 @@ app_reconnect_tick() {
             fi
             return 0
         fi
+        ((resumed)) && return 0
         return 1
     fi
 
@@ -272,6 +318,7 @@ app_reconnect_tick() {
         return 0
     fi
 
+    ((resumed)) && return 0
     return 1
 }
 
@@ -294,6 +341,13 @@ if declare -F player_start >/dev/null 2>&1 && ! declare -F player_start_without_
 
         app_reconnect_reset
         player_start_without_reconnect "$name" "$url"
+        local status=$?
+        if ((status == 0)); then
+            APP_RECONNECT_WAITING=1
+            APP_RECONNECT_INITIAL_START=1
+            APP_RECONNECT_ATTEMPT_STARTED_AT=$(app_reconnect_now)
+        fi
+        return "$status"
     }
 fi
 

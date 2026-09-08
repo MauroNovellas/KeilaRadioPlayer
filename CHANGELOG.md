@@ -9,6 +9,9 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 - Cierre funcional: `X` gestiona el resultado de búsqueda; `F` y `R` salen del buscador hacia sus listas. Ayudas actualizadas a los atajos actuales.
 - Recientes incluye favoritas y conserva su selección al actualizar el historial o modificar Favoritas; prueba de recorrido completo con confirmación, décimo preset y navegación posterior.
 - Optimización de cachés gráficas, metadatos y filtrado documentada en `PERFORMANCE.md`.
+- `mpv` se inicia en un grupo de procesos privado y se cierra de forma acotada junto con su grupo; se valida el PID líder para evitar afectar a otras sesiones y se cubre la limpieza en pruebas.
+- Recuperación tras suspensión de Termux: detecta huecos largos del ciclo, valida IPC y progreso de audio, fuerza el redibujado y reutiliza la reconexión sin duplicar `mpv`; las grabaciones quedan protegidas.
+- Reconexión automática también para fallos iniciales: distingue emisora sin conexión, fallo de `mpv`, ausencia de audio y caída posterior, con mensajes claros, reintentos limitados y backoff.
 - En pantalla completa, `Emisoras favoritas` y `Recientes` se muestran lado a lado incluso si existen comentarios; ambas listas conservan scroll propio y los presets `0–9` reproducen desde la sección activa.
 - Añadidos atajos de sección: `E` salta a Emisoras, `R` a Recientes, `C` abre el comentario de la emisora seleccionada y `G` inicia o detiene la grabación. Los rótulos y la documentación pasan de «Etiquetas» a «Comentarios».
 - En terminales desktop anchas, Emisoras y Recientes se muestran en columnas paralelas dentro del panel de navegación; en terminales estrechas se conserva la disposición apilada.

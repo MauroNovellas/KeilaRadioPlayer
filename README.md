@@ -331,6 +331,27 @@ grabación se aplica el mismo cierre seguro que al cambiar de emisora.
 En la búsqueda se usa `M` mayúscula; la minúscula sigue siendo texto. Una nueva
 reproducción comienza con sonido. El indicador `MUTE` aparece en la cabecera.
 
+Cada reproducción de `mpv` se inicia en una sesión y grupo de procesos privado.
+Al cerrar o cambiar de emisora, Keila solicita una salida limpia, espera un
+tiempo limitado y termina ese grupo si fuese necesario. Solo utiliza el grupo
+cuando su líder coincide con el PID registrado de la instancia, evitando
+afectar a otros reproductores. El cierre forzado de Keila (`SIGKILL`) no permite
+ejecutar ninguna limpieza de Bash; ese caso sigue siendo una limitación del
+sistema y puede dejar el grupo reproduciendo. El aislamiento evita confundirlo
+con otro `mpv` y deja preparada la siguiente mejora: registrar sesiones activas
+para limpiar grupos abandonados al iniciar una nueva instancia.
+
+Al volver de una suspensión larga, el ciclo de la interfaz detecta el salto de
+tiempo, valida el IPC y comprueba que el reloj de audio continúa avanzando. Si
+la conexión quedó bloqueada, reutiliza la reconexión automática sin crear una
+segunda instancia; durante una grabación solo avisa y protege el archivo.
+
+Si una emisora falla al iniciar o no llega a producir audio, Keila muestra el
+motivo disponible y realiza hasta tres reintentos con espera progresiva. Los
+fallos posteriores del proceso o del stream siguen la misma política. Una URL
+inválida no se reintenta automáticamente y las grabaciones nunca se cambian de
+emisora por una reconexión.
+
 ## Grabación del stream
 
 `G` activa o desactiva la grabación del stream que ya está recibiendo el mismo proceso de `mpv`; no se abre una segunda conexión a la emisora.
