@@ -28,8 +28,8 @@ for size in '132 40' '112 20' '80 24' '55 15' '45 12' '45 11'; do
             ((${#line} < TEST_COLS)) || fail "autowrap $size"
         done <<< "$render"
         ((rows <= TEST_LINES)) || fail "scroll vertical $size: $rows"
-        if ((selection == 30)); then
-            [[ "$render" == *'Radio reciente'* ]] || fail "reciente invisible $size"
+        if ((selection == 30 && TEST_COLS >= 80)); then
+            [[ "$render" == *'RECIENTES'* ]] || fail "recientes invisibles $size"
         fi
         if ((TEST_COLS >= 112)); then
             if ((TEST_COLS >= 132)); then

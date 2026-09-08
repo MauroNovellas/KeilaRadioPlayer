@@ -99,8 +99,10 @@ ui_desktop_row() {
         right_badge_style=''
         selected=0
         UI_DESKTOP_NAV_COLUMNS=1
+        UI_DESKTOP_LEFT_COMMENT=''
+        UI_DESKTOP_RIGHT_COMMENT=''
         if ((row == 0)); then
-            right_text="EMISORAS FAVORITAS (${#FAVORITE_NAMES[@]})"
+            right_text="FAVORITAS (${#FAVORITE_NAMES[@]})"
             right_badge="RECIENTES (${#RECENT_NAMES[@]})"
             right_style='accent'
             right_badge_style='accent'
@@ -116,10 +118,9 @@ ui_desktop_row() {
                     favorite_comment="${FAVORITE_LABELS[${FAVORITE_URLS[column_index]}]:-}"
                 fi
                 right_text="  ${favorite_preset}${FAVORITE_NAMES[column_index]}"
-                [[ -n "$favorite_comment" ]] && right_text+=" $UI_SEP $favorite_comment"
+                UI_DESKTOP_LEFT_COMMENT="$favorite_comment"
                 if ((column_index == UI_SELECTED_INDEX && !${SEARCH_ACTIVE:-0})); then
                     right_text="$UI_SELECT ${favorite_preset}${FAVORITE_NAMES[column_index]}"
-                    [[ -n "$favorite_comment" ]] && right_text+=" $UI_SEP $favorite_comment"
                     right_style='selected'
                 fi
             fi
@@ -134,10 +135,9 @@ ui_desktop_row() {
                 if declare -p FAVORITE_LABELS >/dev/null 2>&1; then
                     recent_comment="${FAVORITE_LABELS[${RECENT_URLS[recent_index]}]:-}"
                 fi
-                [[ -n "$recent_comment" ]] && right_badge+=" $UI_SEP $recent_comment"
+                UI_DESKTOP_RIGHT_COMMENT="$recent_comment"
                 if ((recent_index + ${#FAVORITE_NAMES[@]} == UI_SELECTED_INDEX && !${SEARCH_ACTIVE:-0})); then
                     right_badge="$UI_SELECT ${recent_preset}${RECENT_NAMES[recent_index]}"
-                    [[ -n "$recent_comment" ]] && right_badge+=" $UI_SEP $recent_comment"
                     right_badge_style='selected'
                 fi
             fi
@@ -146,10 +146,14 @@ ui_desktop_row() {
             "$left_text" "$left_badge" "$left_style" "$left_badge_style" \
             "$right_text" "$right_badge" "$right_style" "$right_badge_style" "$selected"
         UI_DESKTOP_NAV_COLUMNS=0
+        UI_DESKTOP_LEFT_COMMENT=''
+        UI_DESKTOP_RIGHT_COMMENT=''
         return 0
     fi
 
     UI_DESKTOP_NAV_COLUMNS=0
+    UI_DESKTOP_LEFT_COMMENT=''
+    UI_DESKTOP_RIGHT_COMMENT=''
 
     # La mitad superior conserva Favoritos. Mientras la búsqueda tiene el foco,
     # quitamos únicamente el resaltado de selección para que el foco sea inequívoco.

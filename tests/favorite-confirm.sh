@@ -83,7 +83,7 @@ favorites_load || fail 'no pudo recargar tras confirmación'
 assert_eq '1' "${#FAVORITE_NAMES[@]}" 'primera F destructiva conserva favorito'
 assert_eq '' "${FAVORITES_TOGGLE_ACTION:-}" 'confirmación no se marca como baja'
 assert_eq 'playing' "${FAVORITES_CONFIRM_ACTION:-}" 'confirmación ligada a emisora en reproducción'
-[[ "$LAST_MESSAGE" == *'Pulsa F otra vez para eliminar de favoritos: Radio A'* ]] || fail 'falta mensaje de confirmación F'
+[[ "$LAST_MESSAGE" == *'Pulsa X otra vez para eliminar de favoritas: Radio A'* ]] || fail 'falta mensaje de confirmación X'
 
 # Segunda F confirma la baja.
 app_toggle_favorite || fail 'segunda F destructiva no eliminó'

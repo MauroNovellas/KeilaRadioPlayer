@@ -91,6 +91,7 @@ ui_style_begin() {
         playing) printf '%s%s' "$UI_BOLD" "$UI_GREEN" ;;
         record) printf '%s%s' "$UI_BOLD" "$UI_RED" ;;
         favorite|warning) printf '%s' "$UI_YELLOW" ;;
+        comment) printf '%s%s' "$UI_DIM" "$UI_GREEN" ;;
         accent) printf '%s' "$UI_CYAN" ;;
         muted) printf '%s' "$UI_DIM" ;;
     esac
@@ -324,6 +325,21 @@ ui_print_columns_styled() {
     printf '%s' "$UI_V"
     ui_style_end
     ui_print_styled_padded "$right_width" "$right" "$right_style"
+}
+
+ui_print_navigation_columns() {
+    local width="$1" left_name="$2" left_comment="$3" left_style="$4"
+    local right_name="$5" right_comment="$6" right_style="$7"
+    local left_width right_width left_name_width right_name_width
+    left_width=$((width / 2))
+    right_width=$((width - left_width - 1))
+    left_name_width=$((left_width / 2))
+    right_name_width=$((right_width / 2))
+    ui_print_styled_padded "$left_name_width" "$left_name" "$left_style"
+    ui_print_styled_padded "$((left_width - left_name_width))" "$left_comment" comment
+    ui_style_begin muted; printf '%s' "$UI_V"; ui_style_end
+    ui_print_styled_padded "$right_name_width" "$right_name" "$right_style"
+    ui_print_styled_padded "$((right_width - right_name_width))" "$right_comment" comment
 }
 
 ui_box_rule() {
@@ -1090,7 +1106,7 @@ ui_draw() {
     if ((UI_HELP_VISIBLE)); then
         ui_box_line "$width" 'W/S o ↑/↓ mover   Home/End extremos   PgUp/PgDn saltar' muted
         ui_box_line "$width" 'Enter reproducir   A/D o ←/→ volumen   P pausa' muted
-        ui_box_line "$width" 'F favorito actual   J/K reordenar   X quitar seleccionado' muted
+        ui_box_line "$width" 'F ir a Favoritas   X añadir/quitar actual   J/K reordenar' muted
         ui_box_line "$width" 'B buscar   R grabar   U actualizar   Q salir   H cerrar ayuda' muted
     else
         ui_box_line "$width" "↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  B buscar  $UI_SEP  R grabar  $UI_SEP  H ayuda  $UI_SEP  Q salir" muted

@@ -173,11 +173,11 @@ ui_draw_responsive_controls() {
             wide|standard)
                 ui_box_line "$width" 'W/S o ↑/↓ mover   Home/End extremos   PgUp/PgDn saltar' muted
                 ui_box_line "$width" 'Enter reproducir   1-9/0 directo   A/D o ←/→ volumen   P pausa' muted
-                ui_box_line "$width" 'F favorito actual   J/K reordenar   X quitar seleccionado' muted
+                ui_box_line "$width" 'F ir a Favoritas   X añadir/quitar actual   J/K reordenar' muted
                 ui_box_line "$width" 'E emisoras C comentario R recientes G grabar Z EQ V analizador H cerrar Q salir' muted
                 ;;
             compact)
-                ui_box_line "$width" '↑↓ mover  Enter play  ←→ volumen  P pausa  F favorito' muted
+                ui_box_line "$width" '↑↓ mover  Enter play  ←→ volumen  P pausa  F Favoritas X favorito' muted
                 ui_box_line "$width" 'E emisoras C comentario R recientes G grabar Z EQ V spec H cerrar Q salir' muted
                 ;;
             minimal)
@@ -189,10 +189,10 @@ ui_draw_responsive_controls() {
 
     case "$UI_LAYOUT_MODE" in
         wide)
-            ui_box_line "$width" "↑↓ Enter $UI_SEP E emis. C com. R rec. G grab. $UI_SEP H ayuda Q salir" muted
+            ui_box_line "$width" "↑↓ Enter $UI_SEP F fav. C com. R rec. G grab. $UI_SEP H ayuda Q salir" muted
             ;;
         standard)
-            ui_box_line "$width" "↑↓ Enter $UI_SEP E emis. C com. R rec. G grab. $UI_SEP H ayuda Q salir" muted
+            ui_box_line "$width" "↑↓ Enter $UI_SEP F fav. C com. R rec. G grab. $UI_SEP H ayuda Q salir" muted
             ;;
         compact)
             ui_box_line "$width" "E emis C coment R rec G grab $UI_SEP B Z V H Q" muted

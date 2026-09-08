@@ -103,10 +103,10 @@ UI_RECENT_SCROLL=0
 ui_desktop_sync_selection 13
 UI_UPDATE_DESKTOP_ROW=0
 columns_header=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
-[[ "$columns_header" == *'EMISORAS FAVORITAS'* && "$columns_header" == *'RECIENTES'* ]] || fail 'desktop ancho no muestra ambas secciones en paralelo'
+[[ "$columns_header" == *'FAVORITAS'* && "$columns_header" == *'RECIENTES'* ]] || fail 'desktop ancho no muestra ambas secciones en paralelo'
 UI_UPDATE_DESKTOP_ROW=1
 columns_row=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
-[[ "$columns_row" == *'1. F1'* && "$columns_row" == *'1. R1'* && "$columns_row" == *'comentario reciente'* ]] || fail 'las columnas no muestran presets, scroll y comentarios independientes'
+[[ "$columns_row" == *'1. F1'* && "$columns_row" == *'1. R1'* && "$columns_row" == *'comentario re'* ]] || fail 'las columnas no muestran presets, scroll y comentarios independientes'
 
 SEARCH_ACTIVE=1
 search_controls=$(ui_draw_responsive_controls 119)

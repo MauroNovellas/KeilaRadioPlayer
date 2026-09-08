@@ -21,8 +21,8 @@ RECORDING_CALLS=0
 app_edit_label() { ((EDIT_CALLS += 1)); }
 app_toggle_recording() { ((RECORDING_CALLS += 1)); }
 
-app_handle_key E || fail 'E no se procesó'
-((UI_SELECTED_INDEX == 0)) || fail 'E no selecciona la primera emisora'
+app_handle_key F || fail 'F no se procesó'
+((UI_SELECTED_INDEX == 0)) || fail 'F no selecciona la primera favorita'
 
 app_handle_key R || fail 'R no se procesó'
 ((UI_SELECTED_INDEX == 2)) || fail 'R no selecciona el primer reciente'

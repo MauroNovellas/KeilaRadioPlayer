@@ -136,15 +136,14 @@ Home / End         ir al primer/último favorito
 PageUp / PageDown  saltar por la lista
 0–9                reproducir un preset de Emisoras favoritas o Recientes según la sección activa
 P                  pausa/reanudar
-E                  ir a Emisoras
+F                  ir a Favoritas
 C                  editar comentario de la emisora seleccionada
 R                  ir a Recientes
 G                  iniciar/detener grabación del stream actual
 Z                  abrir ecualizador
 V                  mostrar/ocultar analizador de espectro
-F                  añadir/eliminar la emisora en reproducción de favoritos
+X                  añadir/quitar la emisora en reproducción de Favoritas
 J / K              mover el favorito seleccionado abajo/arriba
-X                  eliminar el favorito seleccionado
 B                  abrir/editar la búsqueda integrada de emisoras
 U                  actualizar el catálogo de TDTChannels
 H                  abrir/cerrar la ayuda completa

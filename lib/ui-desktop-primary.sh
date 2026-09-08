@@ -113,7 +113,7 @@ ui_desktop_row() {
     ui_style_end
     printf ' '
     if (( ${UI_DESKTOP_NAV_COLUMNS:-0} )); then
-        ui_print_columns_styled "$UI_DESKTOP_RIGHT_WIDTH" "$right_text" "$right_badge" "$right_style" "$right_badge_style"
+        ui_print_navigation_columns "$UI_DESKTOP_RIGHT_WIDTH" "$right_text" "${UI_DESKTOP_LEFT_COMMENT:-}" "$right_style" "$right_badge" "${UI_DESKTOP_RIGHT_COMMENT:-}" "$right_badge_style"
     else
         ui_print_split_styled "$UI_DESKTOP_RIGHT_WIDTH" "$right_text" "$right_badge" "$right_style" "$right_badge_style"
     fi
@@ -141,7 +141,7 @@ ui_draw_desktop() {
 
     ui_box_rule "$width" "$UI_TL" "$UI_TR"
     ui_box_center_line "$width" "$title" title
-    ui_desktop_header_rule "$width" 'AHORA SUENA' "EMISORAS FAVORITAS (${#FAVORITE_NAMES[@]})"
+    ui_desktop_header_rule "$width" 'AHORA SUENA' 'EMISORAS'
 
     local station station_style marker favorite_badge recording_badge state_badge
     marker=$(ui_player_marker)
