@@ -14,6 +14,48 @@ El copyright corresponde a Mauro Novellas.
 
 ## Versión
 
+### Preferencias y ayuda
+
+Pulsa `,` en la pantalla principal para abrir **Configuración**. Usa las flechas
+para elegir y `Enter` para cambiar; cada cambio se guarda inmediatamente.
+`Esc` regresa al reproductor. Puedes activar o desactivar la reproducción al
+inicio, los colores, Unicode y el espectrograma. Cada opción muestra
+«Activado» o «Desactivado» y una explicación breve. La última opción permite
+restaurar los valores predeterminados con confirmación: no borra emisoras,
+comentarios ni volumen, y no modifica la alarma temporal.
+Las preferencias se guardan como datos en
+`$XDG_CONFIG_HOME/keila-radio/preferences` (por defecto,
+`~/.config/keila-radio/preferences`), con permisos privados y sustitución atómica.
+Las variables `NO_COLOR`, `KEILA_NO_COLOR` y `KEILA_ASCII_UI` siguen teniendo
+prioridad sobre las preferencias visuales.
+
+El volumen se recupera automáticamente y, por defecto, también se reproduce la
+última emisora que llegó a entregar audio. Una conexión fallida no reemplaza
+esa última escucha. Puedes desactivar el inicio automático en Configuración;
+una URL proporcionada al ejecutar Keila tiene prioridad. La alarma sigue siendo
+temporal: nunca se guarda ni se arma al volver a abrir el programa.
+
+En el mismo selector puedes reasignar las acciones de la pantalla principal.
+Selecciona una acción, pulsa `Enter` y después su nueva letra. Si ya pertenece
+a otra acción, se intercambian ambas. Las flechas, números y A/D/W/S/J/K quedan
+reservados para navegación, volumen y ordenación. Los editores y la búsqueda
+mantienen sus teclas locales, para poder escribir sin activar acciones.
+Los encabezados de la pantalla principal reflejan las letras asignadas.
+
+`?` abre siempre la ayuda completa, también accesible con `H` de forma
+predeterminada. La ayuda se desplaza con las flechas y muestra los atajos
+actuales, presets, búsqueda, comentarios, grabaciones, ecualizador y alarma.
+El audio y la reconexión siguen atendidos mientras estos paneles están abiertos.
+
+Las reconexiones automáticas conservan volumen y silencio desde el arranque de
+`mpv`, sin un instante de sonido previo. Elegir manualmente otra emisora vuelve
+a activar el sonido. Un fallo al iniciar el reproductor no se presenta como
+prueba de que no haya Internet.
+
+Validación manual pendiente en Termux: suspender y reanudar Android, cortar y
+recuperar la red con el sonido silenciado y comprobar una grabación real. Las
+pruebas automatizadas simulan estos estados, pero no sustituyen al dispositivo.
+
 La versión vive en una única fuente, `lib/version.sh`, y puede consultarse sin inicializar dependencias ni abrir la TUI:
 
 ```bash
@@ -27,6 +69,9 @@ Keila Radio Player 2.1.1
 ```
 
 ## Dependencias
+
+Las garantías de guardado y los marcadores de grabación `.pending` se explican
+en [Protección de datos](DATA-SAFETY.md), con pruebas y límites conocidos.
 
 Keila comprueba sus dependencias al arrancar. En esta fase de desarrollo personal, si falta alguna intenta instalarla automáticamente sin pedir confirmación.
 
@@ -81,6 +126,11 @@ La semilla inicial de favoritos vive en `defaults/favorites`. Solo se copia al d
 ## TUI responsive
 
 Keila adapta automáticamente la composición al tamaño de la terminal y recalcula el layout durante el redimensionado:
+
+En los modos pequeños (menos de 62 columnas o de 16 filas), la pantalla
+principal no muestra el ecualizador ni los comentarios de Favoritas y
+Recientes. La ecualización sigue aplicada y los comentarios se conservan;
+los editores siguen disponibles. Al ampliar la terminal reaparecen los detalles.
 
 ```text
 ≥ 112 columnas y ≥ 20 filas   desktop de dos paneles

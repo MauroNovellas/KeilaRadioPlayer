@@ -70,11 +70,13 @@ favorites_init() {
 
     local status=0
     if [[ ! -f "$KEILA_FAVORITES_FILE" ]]; then
+        local tmp
+        tmp=$(mktemp "${KEILA_FAVORITES_FILE}.tmp.XXXXXX") || { lock_release "$lock_dir"; return 1; }
         if [[ -n "$seed_file" && -f "$seed_file" ]]; then
-            cp "$seed_file" "$KEILA_FAVORITES_FILE" || status=1
-        else
-            : > "$KEILA_FAVORITES_FILE" || status=1
+            cp "$seed_file" "$tmp" || status=1
         fi
+        if ((status == 0)); then data_publish "$tmp" "$KEILA_FAVORITES_FILE" favorites || status=1; fi
+        if ((status)); then rm -f -- "$tmp"; fi
         if ((status == 0)); then
             chmod 600 "$KEILA_FAVORITES_FILE" 2>/dev/null || true
         fi
@@ -90,7 +92,7 @@ favorites_load() {
     [[ -f "$KEILA_FAVORITES_FILE" ]] || return 0
 
     local name url
-    while IFS='|' read -r name url; do
+    while IFS='|' read -r name url || [[ -n "$name" ]]; do
         [[ -n "${name:-}" && -n "${url:-}" ]] || continue
         FAVORITE_NAMES+=("$name")
         FAVORITE_URLS+=("$url")
@@ -99,7 +101,8 @@ favorites_load() {
 
 favorites_save_unlocked() {
     keila_init_paths || return 1
-    local tmp="${KEILA_FAVORITES_FILE}.tmp.${BASHPID:-$$}"
+    local tmp
+    tmp=$(mktemp "${KEILA_FAVORITES_FILE}.tmp.XXXXXX") || return 1
     local i status=0
     umask 077
 
@@ -109,7 +112,7 @@ favorites_save_unlocked() {
     done
 
     if ((status == 0)); then
-        mv -f "$tmp" "$KEILA_FAVORITES_FILE" || status=1
+        data_publish "$tmp" "$KEILA_FAVORITES_FILE" favorites || status=1
     fi
     if ((status == 0)); then
         chmod 600 "$KEILA_FAVORITES_FILE" 2>/dev/null || true

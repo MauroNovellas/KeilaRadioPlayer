@@ -383,7 +383,8 @@ player_start() {
 
     PLAYER_NAME="$name"
     PLAYER_URL="$url"
-    PLAYER_MUTED=0
+    # Una reconexión conserva silencio; una selección manual comienza con sonido.
+    if ((!${APP_RECONNECT_AUTOMATIC_START:-0})); then PLAYER_MUTED=0; fi
     PLAYER_PAUSED=0
     PLAYER_LAST_EXIT_STATUS=""
     player_reset_info
@@ -396,8 +397,9 @@ player_start() {
     # pruebas se ejecutan directamente para conservar su comportamiento.
     local -a player_args=(
         --really-quiet --no-video --no-terminal --audio-display=no
-        --input-ipc-server="$PLAYER_SOCKET" --volume="$PLAYER_VOLUME" --mute=no
+        --input-ipc-server="$PLAYER_SOCKET" --volume="$PLAYER_VOLUME"
     )
+    if ((${PLAYER_MUTED:-0})); then player_args+=(--mute=yes); else player_args+=(--mute=no); fi
     [[ -n "$equalizer_filter" ]] && player_args+=("--af=$equalizer_filter")
     player_args+=("$PLAYER_URL")
     if declare -F mpv >/dev/null 2>&1; then

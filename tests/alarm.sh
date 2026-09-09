@@ -36,10 +36,21 @@ ui_draw() { :; }
 ui_clear_message() { MESSAGE=''; }
 alarm_set 23:59 || fail configurar
 saved=$ALARM_AT
+# Stub llamado indirectamente por el editor.
+# shellcheck disable=SC2317
 input_read() { INPUT_EVENT=ESC; }
 app_edit_alarm || fail editor
 [[ "$ALARM_AT" == "$saved" ]] || fail 'Esc cancela alarma existente'
+# shellcheck disable=SC2317
 input_read() { INPUT_EVENT=ENTER; }
 app_edit_alarm || fail 'cancelar en editor'
 ((ALARM_AT == 0)) || fail 'Enter vacío no cancela'
+# Dos puntos automáticos y borrado: 12: -> borrar -> 1 -> 13:45.
+keys=(1 2 $'\x7f' 3 4 5)
+idx=0
+input_read() {
+    if ((idx < ${#keys[@]})); then INPUT_EVENT=KEY; INPUT_KEY=${keys[idx]}; ((idx+=1)); else INPUT_EVENT=ENTER; fi
+}
+app_edit_alarm || fail 'edición HHMM con borrado'
+[[ "$ALARM_LABEL" == *13:45 ]] || fail 'hora incorrecta después de borrar separador'
 printf 'ok   alarma: horarios, cancelación, disparo único y mute con fallo IPC\n'

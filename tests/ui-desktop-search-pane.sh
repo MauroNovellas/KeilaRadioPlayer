@@ -121,6 +121,6 @@ idle_line=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
 [[ "$idle_line" == *'Sin catálogo disponible'* ]] || fail 'falta estado sin catálogo'
 
 normal_controls=$(ui_draw_responsive_controls 119)
-[[ "$normal_controls" == *'Q salir'* ]] || fail 'el pie normal no vuelve al salir de búsqueda'
+[[ "$normal_controls" == *'Configuración'* && "$normal_controls" == *'Ayuda'* ]] || fail 'el pie no anuncia configuración y ayuda'
 
 printf 'ok   TUI desktop: favoritos arriba, búsqueda abajo y foco visible\n'

@@ -6,6 +6,9 @@
 KEILA_LOCK_ATTEMPTS="${KEILA_LOCK_ATTEMPTS:-40}"
 KEILA_LOCK_SLEEP="${KEILA_LOCK_SLEEP:-0.05}"
 
+# shellcheck source=lib/data-safety.sh
+source "$(dirname "${BASH_SOURCE[0]}")/data-safety.sh"
+
 # Aparta un lock antiguo mediante rename atómico antes de borrarlo. Al borrar
 # una ruta distinta nunca podemos llevarnos por delante un lock nuevo (ABA).
 lock_retire() {

@@ -5,6 +5,13 @@
 
 UI_LAYOUT_MODE='standard'
 
+ui_small_screen() {
+    case "${UI_LAYOUT_MODE:-standard}" in
+        compact|minimal|tiny) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 ui_layout_mode() {
     local cols="${1:-$UI_COLS}"
     local lines="${2:-$UI_LINES}"
@@ -288,7 +295,9 @@ ui_draw() {
     fi
 
     ui_responsive_volume_line "$width"
-    UI_RESP_VOLUME_HINT="$(ui_equalizer_mini_graph compact)"
+    if ! ui_small_screen; then
+        UI_RESP_VOLUME_HINT="$(ui_equalizer_mini_graph compact)"
+    fi
     ui_box_split_line "$width" "$UI_RESP_VOLUME_LEFT" "$UI_RESP_VOLUME_HINT" 0 accent muted
     ui_box_rule "$width" "$UI_ML" "$UI_MR" "$favorites_label" accent
 
@@ -296,7 +305,9 @@ ui_draw() {
     height=$(ui_list_height)
     ui_navigation_refresh
     if ((height >= 3)); then
-        ui_box_split_line "$width" '  EMISORAS' "$(ui_labels_header "$((width - 4))")" 0 accent accent
+        local comments_header=''
+        if ! ui_small_screen; then comments_header=$(ui_labels_header "$((width - 4))"); fi
+        ui_box_split_line "$width" '  EMISORAS' "$comments_header" 0 accent accent
         ((height -= 1))
     fi
     ui_navigation_sync "$height"

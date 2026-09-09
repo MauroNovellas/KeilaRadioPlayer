@@ -14,6 +14,7 @@ FAVORITE_NAMES=() FAVORITE_URLS=()
 for ((i=0; i<30; i++)); do FAVORITE_NAMES+=("Favorito $i"); FAVORITE_URLS+=("https://fav.invalid/$i"); done
 FAVORITE_LABELS[https://fav.invalid/0]='Heavy Metal'
 HISTORY_NAMES=('Radio reciente') HISTORY_URLS=('https://recent.invalid/radio')
+FAVORITE_LABELS[https://recent.invalid/radio]='Comentario reciente'
 SEARCH_NAMES=('Emisora inicial') SEARCH_URLS=('https://search.invalid/radio')
 SEARCH_AMBITS=(Nacional) SEARCH_COUNTRIES=(España) SEARCH_FORMATS=(AAC) SEARCH_MATCHES=(0)
 SEARCH_ACTIVE=0 SEARCH_QUERY='' SEARCH_SCROLL_OFFSET=0
@@ -39,9 +40,34 @@ for size in '132 40' '112 20' '80 24' '55 15' '45 12' '45 11'; do
             if ((selection == 0)); then
                 [[ "$render" == *'Heavy Metal'* ]] || fail 'etiqueta invisible'
             fi
-        else
+        elif ((TEST_COLS >= 62 && TEST_LINES >= 16)); then
             [[ "$render" == *'[Z] ECUALIZADOR'* ]] || fail "ecualizador permanente invisible $size"
+        else
+            [[ "$render" != *'ECUALIZADOR'* && "$render" != *'COMENTARIOS'* && "$render" != *'Heavy Metal'* && "$render" != *'Comentario reciente'* ]] || fail "detalles visibles en pantalla pequeña $size"
         fi
+    done
+done
+
+# Redimensionar en el mismo proceso conserva foco, datos y ajustes.
+FAVORITE_NAMES[29]='Emisora con un nombre muy largo para comprobar que no desplaza las columnas ni pierde la selección al redimensionar'
+EQUALIZER_GAINS=(12 6 0 -6 -12)
+for selection in 29 30; do
+    UI_SELECTED_INDEX=$selection
+    for size in '132 40' '61 24' '62 16' '80 15' '45 11' '132 40'; do
+        read -r TEST_COLS TEST_LINES <<< "$size"
+        ui_draw >/dev/null
+        ((UI_SELECTED_INDEX == selection)) || fail "selección perdida al redimensionar $size"
+        [[ "${EQUALIZER_GAINS[*]}" == '12 6 0 -6 -12' ]] || fail 'ecualización modificada'
+        [[ "${FAVORITE_LABELS[https://recent.invalid/radio]}" == 'Comentario reciente' ]] || fail 'comentario borrado'
+        render=$(ui_draw)
+        if ((TEST_COLS < 62 || TEST_LINES < 16)); then
+            [[ "$render" != *'ECUALIZADOR'* && "$render" != *'COMENTARIOS'* && "$render" != *'Comentario reciente'* ]] || fail "detalles tras reducir $size"
+        else
+            [[ "$render" == *'ECUALIZADOR'* ]] || fail "ecualizador no reaparece $size"
+        fi
+        while IFS= read -r line || [[ -n "$line" ]]; do
+            ((${#line} < TEST_COLS)) || fail "nombre largo provoca autowrap $size"
+        done <<< "$render"
     done
 done
 

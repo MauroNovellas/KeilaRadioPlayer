@@ -4,6 +4,33 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - rama v2.1
 
+- Copia privada `.bak` de favoritos, comentarios, estado y preferencias;
+  recuperación al arrancar con preservación del original dañado y aviso.
+  Sin respaldo válido se detiene el arranque sin reemplazar datos. Validación
+  previa al guardado y pruebas de restauración fallida/corrupción doble.
+- Protección de datos: temporales exclusivos, detección de escrituras fallidas,
+  preferencias bajo bloqueo y creación inicial segura. Grabaciones con reserva
+  exclusiva del nombre y marcador `.pending` hasta cierre y verificación.
+  Pruebas de interrupción y concurrencia; garantías y límites en DATA-SAFETY.md.
+- Pantallas pequeñas: se ocultan el ecualizador de la pantalla principal y
+  los comentarios de Favoritas/Recientes, incluido su encabezado. Los datos
+  y ajustes se conservan y vuelven a mostrarse al ampliar la terminal.
+- Configuración con estados legibles, explicación por opción y restauración
+  confirmada sin borrar datos personales. Ayuda adaptada a terminales estrechas.
+- Reconexión automática conserva silencio y volumen desde el inicio de `mpv`;
+  corregido el tratamiento de pausa y de fallos iniciales sin emisora válida.
+- Corregido el borrado al introducir HH:MM en la alarma; el editor sigue
+  atendiendo los reintentos de conexión.
+- El separador de búsqueda conserva el contenido del panel izquierdo y encaja
+  con sus bordes. Encabezados de comentarios con el color del resto de títulos.
+- Selector de configuración con `,`: reproducción al inicio, colores, Unicode,
+  espectrograma y atajos de la pantalla principal; guardado privado y atómico.
+- Ayuda completa desplazable con `?`/`H`, mapa de atajos vigente y explicación
+  de los controles específicos de cada editor. Conflictos de teclas resueltos
+  mediante intercambio; encabezados actualizados con las asignaciones.
+- Restauración del volumen y reproducción opcional de la última emisora que
+  alcanzó audio real. La alarma permanece temporal y no se restaura.
+
 - Alarma de sesión con `L` y hora local HH:MM: reproduce la última emisora escuchada, una sola vez, con Keila abierto. Cancelación desde el editor y hora visible en la cabecera.
 - `M` silencia/restaura el sonido mediante mpv sin cambiar volumen ni interrumpir grabaciones; indicador MUTE y control de fallos IPC.
 - Cierre funcional: `X` gestiona el resultado de búsqueda; `F` y `R` salen del buscador hacia sus listas. Ayudas actualizadas a los atajos actuales.

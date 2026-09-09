@@ -67,3 +67,17 @@ assert_eq '0' "$RECORDING_LAST_VERIFIED" 'probe no disponible no marca reproduci
 [[ "$RECORDING_LAST_ERROR" == *'no se pudo completar la verificación'* ]] || fail 'probe no disponible no deja aviso útil'
 
 printf 'ok   grabación: tamaño mínimo + verificación reproducible conservadora\n'
+
+# El marcador solo desaparece con cierre confirmado y audio verificado.
+player_is_running() { return 0; }
+player_ipc() { return 0; }
+recording_probe_file() { return 0; }
+: > "$good.pending"
+RECORDING_ACTIVE=1 RECORDING_FILE="$good"
+recording_stop || fail 'cierre confirmado'
+[[ ! -e "$good.pending" ]] || fail 'marcador tras cierre correcto'
+: > "$good.pending"
+player_ipc() { return 1; }
+RECORDING_ACTIVE=1
+recording_stop || fail 'no conserva archivo con datos'
+[[ -e "$good.pending" && -s "$good" && -n "$RECORDING_LAST_ERROR" ]] || fail 'cierre incierto sin marcador'

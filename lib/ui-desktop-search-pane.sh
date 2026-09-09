@@ -107,8 +107,8 @@ ui_desktop_row() {
         UI_DESKTOP_LEFT_COMMENT_STYLE='comment'
         UI_DESKTOP_RIGHT_COMMENT_STYLE='comment'
         if ((row == 0)); then
-            right_text="[F] FAVORITAS (${#FAVORITE_NAMES[@]})"
-            right_badge="[R] RECIENTES (${#RECENT_NAMES[@]})"
+            right_text="[$(ui_shortcut f)] FAVORITAS (${#FAVORITE_NAMES[@]})"
+            right_badge="[$(ui_shortcut r)] RECIENTES (${#RECENT_NAMES[@]})"
             UI_DESKTOP_LEFT_COMMENT='COMENTARIOS'
             UI_DESKTOP_RIGHT_COMMENT='COMENTARIOS'
             right_style='favorite'
@@ -191,7 +191,7 @@ ui_desktop_row() {
         selected=$UI_NAV_SELECTED
     elif ((row == UI_DESKTOP_FAVORITES_HEIGHT)); then
         # La cabecera de búsqueda comparte altura con la regla divisoria.
-        right_text='[B] BUSQUEDA EMISORAS'
+        right_text="[$(ui_shortcut b)] BUSQUEDA EMISORAS"
         right_badge=''
         ((SEARCH_ACTIVE)) && right_text="$UI_SELECT $right_text"
         right_style='separator_label'
@@ -313,6 +313,10 @@ fi
 
 ui_draw_responsive_controls() {
     local width="$1"
+    if ! ((${SEARCH_ACTIVE:-0} || ${EQUALIZER_EDITOR_ACTIVE:-0})); then
+        ui_box_line "$width" '↑↓ Enter reproducir · , Configuración · ? Ayuda y atajos' muted
+        return 0
+    fi
 
     if ((${EQUALIZER_EDITOR_ACTIVE:-0})); then
         ui_box_line "$width" '←→ frecuencia · ↑↓ ajustar · 1-5 presets · C centrar · R plano · Z cerrar' muted

@@ -118,7 +118,9 @@ ui_navigation_row() {
         UI_NAV_BADGE="[$UI_FAVORITE] ${UI_NAV_BADGE}"
         [[ -n "$UI_NAV_BADGE_STYLE" ]] || UI_NAV_BADGE_STYLE=favorite
     fi
-    if declare -p FAVORITE_LABELS >/dev/null 2>&1; then label="${FAVORITE_LABELS[$url]:-}"; fi
+    if ! { declare -F ui_small_screen >/dev/null && ui_small_screen; } && declare -p FAVORITE_LABELS >/dev/null 2>&1; then
+        label="${FAVORITE_LABELS[$url]:-}"
+    fi
     if [[ -n "$label" ]]; then
         UI_NAV_BADGE="$label ${UI_NAV_BADGE}"
         [[ -n "$UI_NAV_BADGE_STYLE" ]] || UI_NAV_BADGE_STYLE=muted

@@ -44,10 +44,11 @@ config_reset_defaults() {
 config_write_default() {
     [[ -e "$KEILA_CONFIG_FILE" ]] && return 0
 
-    local tmp="${KEILA_CONFIG_FILE}.tmp.$$"
+    local tmp status=0
+    tmp=$(mktemp "${KEILA_CONFIG_FILE}.tmp.XXXXXX") || return 1
     umask 077
 
-    cat > "$tmp" <<'EOF'
+    cat > "$tmp" <<'EOF' || status=1
 # Keila Radio Player v2
 # Este archivo es opcional. Los valores inválidos se ignoran y usan el defecto.
 
@@ -65,8 +66,14 @@ catalog_max_age=86400
 recordings_dir=
 EOF
 
-    mv -f "$tmp" "$KEILA_CONFIG_FILE"
-    chmod 600 "$KEILA_CONFIG_FILE" 2>/dev/null || true
+    if ((status == 0)); then
+        # Publicación exclusiva: otra sesión puede haber creado el fichero.
+        ln -- "$tmp" "$KEILA_CONFIG_FILE" 2>/dev/null || {
+            [[ -f "$KEILA_CONFIG_FILE" ]] || status=1
+        }
+    fi
+    rm -f -- "$tmp"
+    return "$status"
 }
 
 config_expand_path() {

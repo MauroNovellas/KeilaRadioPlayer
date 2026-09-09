@@ -23,6 +23,12 @@ UI_RED=''
 UI_YELLOW=''
 UI_CYAN=''
 
+ui_shortcut() {
+    local key=$1
+    if declare -p PREF_KEYS >/dev/null 2>&1; then key=${PREF_KEYS[$key]:-$key}; fi
+    printf '%s' "${key^^}"
+}
+
 ui_locale_supports_unicode() {
     [[ "${KEILA_ASCII_UI:-0}" != '1' ]] || return 1
     local locale="${LC_ALL:-${LC_CTYPE:-${LANG:-}}}"
@@ -49,6 +55,7 @@ ui_configure_glyphs() {
 }
 
 ui_color_supported() {
+    ((${PREF_COLOR:-1})) || return 1
     [[ "${KEILA_NO_COLOR:-0}" != '1' ]] || return 1
     [[ -z "${NO_COLOR:-}" ]] || return 1
     [[ "${TERM:-}" != 'dumb' ]] || return 1
@@ -337,8 +344,8 @@ ui_print_navigation_columns() {
     left_name_width=$((left_width / 2))
     right_name_width=$((right_width / 2))
     # Conservar el nombre de sección completo antes que el contador opcional.
-    if [[ "$left_name" == '[F] FAVORITAS ('* ]] && ((${#left_name} > left_name_width)); then left_name='[F] FAVORITAS'; fi
-    if [[ "$right_name" == '[R] RECIENTES ('* ]] && ((${#right_name} > right_name_width)); then right_name='[R] RECIENTES'; fi
+    if [[ "$left_name" == *' FAVORITAS ('* ]] && ((${#left_name} > left_name_width)); then left_name=${left_name% (*}; fi
+    if [[ "$right_name" == *' RECIENTES ('* ]] && ((${#right_name} > right_name_width)); then right_name=${right_name% (*}; fi
     ui_print_styled_padded "$left_name_width" "$left_name" "$left_style"
     ui_print_styled_padded "$((left_width - left_name_width))" "$left_comment" "$left_comment_style"
     ui_style_begin muted; printf '%s' "$UI_V"; ui_style_end
@@ -369,7 +376,9 @@ ui_print_search_columns() {
     ui_repeat_char ' ' 2
     ui_print_styled_padded "$format_width" "$format" "$style"
     ui_repeat_char ' ' 2
-    ui_print_styled_padded "$comment_width" "$comment" "$style"
+    local comment_style=comment
+    [[ "$style" == accent ]] && comment_style=accent
+    ui_print_styled_padded "$comment_width" "$comment" "$comment_style"
 }
 
 ui_box_rule() {
@@ -563,7 +572,7 @@ ui_equalizer_mini_graph() {
     local mode="${1:-labels}" i gain height glyph
     local -a bars=('▁' '▁' '▂' '▃' '▄' '▅' '▆' '▇' '█')
 
-    printf '[Z] ECUALIZADOR '
+    printf '[%s] ECUALIZADOR ' "$(ui_shortcut z)"
     for ((i=0; i<5; i++)); do
         gain=${EQUALIZER_GAINS[i]}
         height=$(((gain + 12) * 8 / 24))
@@ -635,7 +644,9 @@ ui_equalizer_wide_row() {
 
     [[ "$row" =~ ^[0-9]+$ && "$width" =~ ^[0-9]+$ ]] || return 1
     ((row >= 0 && row < 8 && width > 0)) || return 1
-    local eq_key="$width|$UI_UNICODE|$UI_BAR_FULL|${EQUALIZER_GAINS[*]}|${EQUALIZER_EDITOR_ACTIVE:-0}|${EQUALIZER_SELECTED:-0}"
+    local eq_key eq_shortcut=Z
+    if declare -p PREF_KEYS >/dev/null 2>&1; then eq_shortcut=${PREF_KEYS[z]^^}; fi
+    eq_key="$width|$UI_UNICODE|$UI_BAR_FULL|${EQUALIZER_GAINS[*]}|${EQUALIZER_EDITOR_ACTIVE:-0}|${EQUALIZER_SELECTED:-0}|$eq_shortcut"
     if [[ "$eq_key" != "${UI_EQ_CACHE_KEY:-}" ]]; then
         UI_EQ_CACHE_KEY=$eq_key
         UI_EQ_CACHE_ROWS=()
@@ -649,7 +660,7 @@ ui_equalizer_wide_row() {
     fi
 
     if ((row == 0)); then
-        UI_EQ_TEXT='[Z] ECUALIZADOR'
+        UI_EQ_TEXT="[$eq_shortcut] ECUALIZADOR"
         UI_EQ_STYLE='accent'
         UI_EQ_CACHE_ROWS[row]=$(printf '%-*s' "$width" "$UI_EQ_TEXT")
         UI_EQ_TEXT=${UI_EQ_CACHE_ROWS[row]:0:width}

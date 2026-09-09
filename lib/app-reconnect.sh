@@ -93,10 +93,7 @@ app_reconnect_stream_stalled() {
     ((APP_RECONNECT_NEXT_AT == 0)) || return 1
     ((APP_RECONNECT_EXHAUSTED == 0)) || return 1
     ((PLAYER_STREAM_READY)) || return 1
-    if ((PLAYER_PAUSED)); then
-        ((resumed)) && return 0
-        return 1
-    fi
+    ((PLAYER_PAUSED == 0)) || return 1
     ((PLAYER_STREAM_LAST_PROGRESS_AT > 0)) || return 1
 
     ((now - PLAYER_STREAM_LAST_PROGRESS_AT >= APP_RECONNECT_STALL_TIMEOUT))
@@ -245,7 +242,10 @@ app_reconnect_tick() {
 
     # Una pausa manual cancela cualquier secuencia automática. Al reanudar, el
     # wrapper de player_toggle_pause concede una ventana completa de progreso.
-    ((PLAYER_PAUSED == 0)) || return 1
+    if ((PLAYER_PAUSED)); then
+        ((resumed)) && return 0
+        return 1
+    fi
 
     if ! player_is_running; then
         if ((APP_RECONNECT_WAITING)); then
@@ -261,7 +261,7 @@ app_reconnect_tick() {
         fi
 
         if ((APP_RECONNECT_NEXT_AT > 0)); then
-        if ((now >= APP_RECONNECT_NEXT_AT)); then
+            if ((now >= APP_RECONNECT_NEXT_AT)); then
                 app_reconnect_start_attempt retry "$now" || true
                 return 0
             fi

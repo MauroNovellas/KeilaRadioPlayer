@@ -19,7 +19,7 @@ labels_load() {
     FAVORITE_LABELS=()
     local url label file="${KEILA_CONFIG_DIR}/labels"
     [[ -f "$file" ]] || return 0
-    while IFS='|' read -r url label; do
+    while IFS='|' read -r url label || [[ -n "$url" ]]; do
         [[ -n "$url" ]] || continue
         FAVORITE_LABELS["$url"]=$(personal_text "$label")
     done < "$file"
@@ -37,7 +37,7 @@ labels_set() {
         [[ -n "${FAVORITE_LABELS[$key]}" ]] || continue
         printf '%s|%s\n' "$key" "${FAVORITE_LABELS[$key]}" >> "$tmp" || status=1
     done
-    if ((status == 0)); then mv -f "$tmp" "$file" || status=1; fi
+    if ((status == 0)); then data_publish "$tmp" "$file" labels || status=1; fi
     rm -f "$tmp"
     lock_release "$file.lock" || status=1
     labels_load
@@ -97,6 +97,7 @@ history_observe() {
         selected_url="${RECENT_URLS[recent_index]:-}"
     fi
     HISTORY_PENDING_URL=''
+    if declare -F save_player_state >/dev/null; then save_player_state >/dev/null 2>&1 || true; fi
     history_record "$PLAYER_NAME" "$PLAYER_URL" || {
         app_message 'No se pudo guardar el historial.' 5
         return 0

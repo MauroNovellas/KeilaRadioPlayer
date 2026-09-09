@@ -158,7 +158,9 @@ recording_next_file() {
 
     # No sobreescribimos una grabación si por casualidad se inicia otra en el
     # mismo segundo con el mismo nombre de emisora.
-    while [[ -e "$file" ]]; do
+    while ! (umask 077; set -o noclobber; : > "$file") 2>/dev/null; do
+        # Distinguir colisión (también enlaces rotos) de permisos/disco lleno.
+        [[ -e "$file" || -L "$file" ]] || return 1
         file="${base}_${counter}.${extension}"
         ((counter += 1))
     done
@@ -341,6 +343,8 @@ recording_start() {
     extension=$(recording_extension_for_stream "$stream_format" "${PLAYER_CODEC:-}" "${PLAYER_URL:-}")
 
     file=$(recording_next_file "$station_name" "$extension") || return 1
+    # Marcador persistente: un cierre abrupto no debe parecer una finalización.
+    (umask 077; set -o noclobber; : > "$file.pending") 2>/dev/null || return 1
     payload=$(jq -cn --arg path "$file" '{command:["set_property","stream-record",$path]}') || return 1
 
     player_ipc "$payload" || return 1
@@ -380,6 +384,11 @@ recording_stop() {
             elif [[ -z "$RECORDING_LAST_ERROR" ]]; then
                 RECORDING_LAST_ERROR="mpv no confirmó el cierre, pero el archivo contiene datos."
             fi
+        fi
+        if ((!ipc_failed && RECORDING_LAST_VERIFIED)); then
+            rm -f -- "$file.pending" || {
+                RECORDING_LAST_ERROR='Audio verificado; no se pudo retirar el marcador pendiente.'
+            }
         fi
         return 0
     fi

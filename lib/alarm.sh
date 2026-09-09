@@ -50,7 +50,7 @@ app_toggle_mute() {
     if ((PLAYER_MUTED)); then value=false next=0; fi
     if player_ipc "{\"command\":[\"set_property\",\"mute\",$value]}"; then
         PLAYER_MUTED=$next
-        if ((next)); then app_message 'Silenciado · M para recuperar sonido.' 5; else app_message 'Sonido activado.' 4; fi
+        if ((next)); then app_message 'Silenciado · repite el atajo de silencio para recuperar sonido.' 5; else app_message 'Sonido activado.' 4; fi
     else
         app_message 'No se pudo cambiar el silencio.' 5
         return 1
@@ -69,13 +69,14 @@ app_edit_alarm() {
         case "$INPUT_EVENT" in
             ESC) ui_clear_message; return 0 ;;
             ENTER) if alarm_set "$text"; then return 0; else ui_draw; redraw=0; fi ;;
-            TICK) redraw=0; app_poll_player && redraw=1; catalog_poll && redraw=1 ;;
+            TICK) redraw=0; app_poll_player && redraw=1; catalog_poll && redraw=1; if declare -F ui_message_tick >/dev/null; then ui_message_tick && redraw=1; fi ;;
             KEY)
                 case "$INPUT_KEY" in
                     $'\x7f'|$'\x08')
                         # Al borrar minutos, quitar primero los dos puntos
                         # automáticos para que el cursor vuelva a HH.
-                        if [[ "${text: -1}" == ':' ]]; then text=${text:0:${#text}-1}; else text=${text%?}; fi
+                        if [[ "$text" == *: ]]; then text=${text%:}; fi
+                        text=${text%?}
                         ;;
                     $'\x15') text='' ;;
                     [0-9])

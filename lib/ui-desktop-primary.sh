@@ -14,6 +14,7 @@ UI_PLAYER_AUDIO_CURSOR=''
 # Metadatos y bitrate ocupan dos filas fijas del panel de reproducción.
 # No afectan a favoritos, búsqueda, volumen ni al rectángulo del espectro.
 ui_draw_player_info_only() {
+    ((${PREFERENCES_ACTIVE:-0})) && return 1
     ((UI_ACTIVE && !UI_SUSPENDED && !${INPUT_RESIZE_PENDING:-0})) || return 1
     ui_desktop_enabled "$UI_COLS" "$UI_LINES" "$UI_LAYOUT_MODE" || return 1
     [[ "$UI_PLAYER_INFO_CURSOR_KEY" == "${TERM:-}|$UI_COLS|$UI_LINES|$UI_DESKTOP_LEFT_WIDTH" ]] || return 1
@@ -87,23 +88,19 @@ ui_desktop_row() {
     local right_badge_style="${8:-}"
     local selected="${9:-0}"
 
-    # La cabecera de búsqueda es una regla continua: el cruce central debe
-    # ser el mismo que en la cabecera superior, no un `│ ├─` separado.
+    # Separador solo a la derecha; no borrar la fila del reproductor izquierdo.
     if [[ "$right_style" == separator_label ]]; then
         ui_style_begin muted
         printf '%s' "$UI_V"
         ui_style_end
         printf ' '
-        ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" '' muted
+        ui_print_split_styled "$UI_DESKTOP_LEFT_WIDTH" "$left_text" "$left_badge" "$left_style" "$left_badge_style"
         printf ' '
         ui_style_begin muted
-        printf '%s' "$UI_V"
-        ui_style_end
-        printf ' '
-        ui_desktop_rule_segment "$UI_DESKTOP_RIGHT_WIDTH" "$right_text" accent
-        printf ' '
+        printf '%s' "$UI_ML"
+        ui_desktop_rule_segment "$((UI_DESKTOP_RIGHT_WIDTH + 2))" "$right_text" accent
         ui_style_begin muted
-        printf '%s' "$UI_V"
+        printf '%s' "$UI_MR"
         ui_style_end
         printf '\n'
         return 0
@@ -281,7 +278,7 @@ ui_draw_desktop() {
                 fi
             fi
         elif ((row == spectrum_header_row)); then
-            main_text='[V] ESPECTROGRAMA'
+            main_text="[$(ui_shortcut v)] ESPECTROGRAMA"
             main_style='playing'
         elif ((SPECTRUM_ENABLED && row > spectrum_header_row && row <= spectrum_header_row + spectrum_graph_rows)); then
             # El analizador se apila bajo el ecualizador y se estira hasta los
@@ -342,6 +339,7 @@ ui_draw_desktop() {
 # Posiciones preparadas tras cada dibujo completo y redimensionado. El tick
 # escribe solo el rectángulo del espectro, sin tput ni subprocesos por fila.
 ui_draw_spectrum_only() {
+    ((${PREFERENCES_ACTIVE:-0})) && return 1
     ((UI_ACTIVE && !UI_SUSPENDED && SPECTRUM_ENABLED)) || return 1
     ui_desktop_enabled "$UI_COLS" "$UI_LINES" "$UI_LAYOUT_MODE" || return 0
     local row output='' style=''
