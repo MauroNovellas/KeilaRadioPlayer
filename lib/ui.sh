@@ -4,11 +4,6 @@
 # Este módulo solo dibuja y gestiona estado visual; la lógica de reproducción,
 # entrada y persistencia vive en sus módulos correspondientes.
 
-if ! declare -F tr_ui >/dev/null 2>&1; then
-    # shellcheck source=lib/i18n.sh
-    source "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/lib/i18n.sh"
-fi
-
 UI_ACTIVE=0
 UI_SUSPENDED=0
 UI_SELECTED_INDEX=0
@@ -570,7 +565,7 @@ ui_volume_bar() {
 
 ui_equalizer_summary() {
     declare -F equalizer_summary >/dev/null 2>&1 || return 1
-    printf '[Z] %s %s' "$(tr_ui ui.equalizer ECUALIZADOR)" "$(equalizer_summary)"
+    printf '[Z] ECUALIZADOR %s' "$(equalizer_summary)"
 }
 
 ui_recording_status_display() {
@@ -587,7 +582,7 @@ ui_equalizer_mini_graph() {
     local mode="${1:-labels}" i gain height glyph
     local -a bars=('▁' '▁' '▂' '▃' '▄' '▅' '▆' '▇' '█')
 
-    printf '[%s] %s ' "$(ui_shortcut z)" "$(tr_ui ui.equalizer ECUALIZADOR)"
+    printf '[%s] ECUALIZADOR ' "$(ui_shortcut z)"
     for ((i=0; i<5; i++)); do
         gain=${EQUALIZER_GAINS[i]}
         height=$(((gain + 12) * 8 / 24))
@@ -614,7 +609,7 @@ ui_equalizer_editor_row() {
     UI_EQ_BADGE=''
     UI_EQ_STYLE='accent'
     case "$row" in
-        0) UI_EQ_TEXT="[Z] $(tr_ui ui.equalizer ECUALIZADOR)" ;;
+        0) UI_EQ_TEXT='[Z] ECUALIZADOR' ;;
         1) UI_EQ_TEXT="$(ui_equalizer_bar_cells positive 9)" ;;
         2) UI_EQ_TEXT="$(ui_equalizer_bar_cells positive 5)" ;;
         3) UI_EQ_TEXT="$(ui_equalizer_bar_cells positive 1)" ;;
@@ -675,7 +670,7 @@ ui_equalizer_wide_row() {
     fi
 
     if ((row == 0)); then
-        UI_EQ_TEXT="[$eq_shortcut] $(tr_ui ui.equalizer ECUALIZADOR)"
+        UI_EQ_TEXT="[$eq_shortcut] ECUALIZADOR"
         UI_EQ_STYLE='accent'
         UI_EQ_CACHE_ROWS[row]=$(printf '%-*s' "$width" "$UI_EQ_TEXT")
         UI_EQ_TEXT=${UI_EQ_CACHE_ROWS[row]:0:width}
@@ -1072,7 +1067,7 @@ ui_select_recientes() {
 
 ui_player_status() {
     if player_is_running; then
-        if ((PLAYER_PAUSED)); then tr_ui ui.paused Pausado; elif ((PLAYER_BUFFERING)); then tr_ui ui.buffering Buffering; elif ((PLAYER_INFO_READY)); then tr_ui ui.playing Reproduciendo; else tr_ui ui.connecting Conectando; fi
+        if ((PLAYER_PAUSED)); then printf 'Pausado'; elif ((PLAYER_BUFFERING)); then printf 'Buffering'; elif ((PLAYER_INFO_READY)); then printf 'Reproduciendo'; else printf 'Conectando'; fi
     else
         printf 'Detenido'
     fi
@@ -1118,7 +1113,7 @@ ui_draw() {
     local title="KEILA RADIO PLAYER  $version"
     ui_box_rule "$width" "$UI_TL" "$UI_TR"
     ui_box_center_line "$width" "$title" title
-    ui_box_rule "$width" "$UI_ML" "$UI_MR" "$(tr_ui ui.now_playing 'AHORA SUENA')" accent
+    ui_box_rule "$width" "$UI_ML" "$UI_MR" 'AHORA SUENA' accent
 
     local station favorite_badge recording_badge state_badge marker station_style
     marker=$(ui_player_marker)
@@ -1131,7 +1126,7 @@ ui_draw() {
         station_style='muted'
         favorite_badge=''
     else
-        station=$(tr_ui ui.no_station_selected 'Ninguna emisora seleccionada')
+        station='Ninguna emisora seleccionada'
         station_style='muted'
         favorite_badge=''
     fi
@@ -1159,12 +1154,12 @@ ui_draw() {
     volume_left="VOL $(printf '%3s' "$PLAYER_VOLUME")%  $(ui_volume_bar "$volume_bar_width")"
     volume_hint='A/D  ←/→'
     ui_box_split_line "$width" "$volume_left" "$volume_hint" 0 accent muted
-    ui_box_rule "$width" "$UI_ML" "$UI_MR" "$(tr_ui ui.favorite_stations 'EMISORAS FAVORITAS') (${#FAVORITE_NAMES[@]})" accent
+    ui_box_rule "$width" "$UI_ML" "$UI_MR" "EMISORAS FAVORITAS (${#FAVORITE_NAMES[@]})" accent
 
     local height
     height=$(ui_list_height)
     if ((${#FAVORITE_NAMES[@]} == 0)); then
-        ui_box_line "$width" "  $(tr_ui ui.no_favorites_hint '(sin favoritos; pulsa B para buscar)')" muted
+        ui_box_line "$width" '  (sin favoritos; pulsa B para buscar)' muted
         local blank
         for ((blank = 1; blank < height; blank++)); do ui_box_line "$width" ''; done
     else

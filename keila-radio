@@ -23,8 +23,6 @@ unset KEILA_ORIGINAL_ARGS
 source "$BASE_DIR/lib/deps.sh"
 # shellcheck source=lib/config.sh
 source "$BASE_DIR/lib/config.sh"
-# shellcheck source=lib/i18n.sh
-source "$BASE_DIR/lib/i18n.sh"
 # shellcheck source=lib/lock.sh
 source "$BASE_DIR/lib/lock.sh"
 # shellcheck source=lib/state.sh
@@ -104,7 +102,6 @@ app_init_data() {
         printf 'No se pudo cargar la configuración: %s\n' "$KEILA_CONFIG_FILE" >&2
         return 1
     fi
-    i18n_load "$KEILA_LANGUAGE"
     favorites_init "$DEFAULT_FAVORITES_FILE" || {
         printf 'No se pudo inicializar favoritos: %s\n' "$KEILA_FAVORITES_FILE" >&2
         return 1
@@ -130,7 +127,6 @@ app_init_catalog_data() {
         printf 'No se pudo cargar la configuración: %s\n' "$KEILA_CONFIG_FILE" >&2
         return 1
     fi
-    i18n_load "$KEILA_LANGUAGE"
 }
 
 app_play() {

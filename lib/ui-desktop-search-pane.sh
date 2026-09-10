@@ -107,10 +107,10 @@ ui_desktop_row() {
         UI_DESKTOP_LEFT_COMMENT_STYLE='comment'
         UI_DESKTOP_RIGHT_COMMENT_STYLE='comment'
         if ((row == 0)); then
-            right_text="[$(ui_shortcut f)] $(tr_ui ui.favorites FAVORITAS) (${#FAVORITE_NAMES[@]})"
-            right_badge="[$(ui_shortcut r)] $(tr_ui ui.recents RECIENTES) (${#RECENT_NAMES[@]})"
-            UI_DESKTOP_LEFT_COMMENT=$(tr_ui ui.comments COMENTARIOS)
-            UI_DESKTOP_RIGHT_COMMENT=$(tr_ui ui.comments COMENTARIOS)
+            right_text="[$(ui_shortcut f)] FAVORITAS (${#FAVORITE_NAMES[@]})"
+            right_badge="[$(ui_shortcut r)] RECIENTES (${#RECENT_NAMES[@]})"
+            UI_DESKTOP_LEFT_COMMENT='COMENTARIOS'
+            UI_DESKTOP_RIGHT_COMMENT='COMENTARIOS'
             right_style='favorite'
             right_badge_style='favorite'
             UI_DESKTOP_LEFT_COMMENT_STYLE='favorite'
@@ -179,7 +179,7 @@ ui_desktop_row() {
     # La mitad superior conserva Favoritos. Mientras la búsqueda tiene el foco,
     # quitamos únicamente el resaltado de selección para que el foco sea inequívoco.
     if ((row == 0)); then
-        right_text="  $(tr_ui ui.stations EMISORAS)"
+        right_text='  EMISORAS'
         right_badge=$(ui_labels_header "$UI_DESKTOP_RIGHT_WIDTH")
         right_style='accent'
         right_badge_style='accent'
@@ -191,7 +191,7 @@ ui_desktop_row() {
         selected=$UI_NAV_SELECTED
     elif ((row == UI_DESKTOP_FAVORITES_HEIGHT)); then
         # La cabecera de búsqueda comparte altura con la regla divisoria.
-        right_text="[$(ui_shortcut b)] $(tr_ui ui.search_stations 'BUSQUEDA EMISORAS')"
+        right_text="[$(ui_shortcut b)] BUSQUEDA EMISORAS"
         right_badge=''
         ((SEARCH_ACTIVE)) && right_text="$UI_SELECT $right_text"
         right_style='separator_label'
@@ -202,7 +202,7 @@ ui_desktop_row() {
         UI_DESKTOP_SEARCH_AMBIT='ÁMBITO'
         UI_DESKTOP_SEARCH_COUNTRY='PAÍS'
         UI_DESKTOP_SEARCH_FORMAT='FORMATO'
-        UI_DESKTOP_SEARCH_COMMENT=$(tr_ui ui.comments COMENTARIOS)
+        UI_DESKTOP_SEARCH_COMMENT='COMENTARIOS'
         UI_DESKTOP_SEARCH_COLUMNS=1
         right_style='accent'
         right_badge_style='accent'
@@ -259,7 +259,7 @@ ui_desktop_row() {
             if ((${#SEARCH_MATCHES[@]} == 0)); then
                 if ((result_slot == 0)); then
                     if ((SEARCH_FILTER_DIRTY == 0)) && { ((SEARCH_ACTIVE)) || [[ -n "$SEARCH_QUERY" ]]; }; then
-                        right_text="  $(tr_ui ui.no_results 'Sin resultados')"
+                        right_text='  Sin resultados'
                         right_style='muted'
                     elif ((!SEARCH_ACTIVE)); then
                         right_text="  ${CATALOG_STATUS:-Sin catálogo disponible; U reintentar}"

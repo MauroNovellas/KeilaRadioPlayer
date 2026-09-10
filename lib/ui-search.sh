@@ -75,7 +75,7 @@ ui_search_desktop() {
 
     ui_box_rule "$width" "$UI_TL" "$UI_TR"
     ui_box_center_line "$width" "$title" title
-    ui_desktop_header_rule "$width" "[B] $(tr_ui ui.search_stations 'BUSQUEDA EMISORAS')" "$(tr_ui ui.results RESULTADOS | tr '[:lower:]' '[:upper:]') (${#SEARCH_MATCHES[@]})"
+    ui_desktop_header_rule "$width" '[B] BUSQUEDA EMISORAS' "RESULTADOS (${#SEARCH_MATCHES[@]})"
 
     local row match_position source_index result_text result_badge result_style result_badge_style selected playing
     local left_text left_badge left_style left_badge_style
@@ -87,7 +87,7 @@ ui_search_desktop() {
 
         case "$row" in
             0)
-                left_text=$(tr_ui ui.search_field 'Buscar:')
+                left_text='Buscar:'
                 left_badge="${SEARCH_QUERY}_"
                 left_style='accent'
                 left_badge_style='selected'
@@ -189,21 +189,20 @@ ui_search_single_column() {
 
     ui_box_rule "$width" "$UI_TL" "$UI_TR"
     ui_box_center_line "$width" "$title" title
-    ui_box_rule "$width" "$UI_ML" "$UI_MR" "[B] $(tr_ui ui.search_stations 'BUSQUEDA EMISORAS')" accent
+    ui_box_rule "$width" "$UI_ML" "$UI_MR" '[B] BUSQUEDA EMISORAS' accent
     local country_filter='Global'
-    country_filter=$(tr_ui ui.country_global Global)
-    ((SEARCH_COUNTRY_FILTER_ENABLED)) && country_filter=$(tr_ui ui.country_filter 'País %s' "$KEILA_CATALOG_COUNTRY_FILTER")
-    ui_box_split_line "$width" "$(tr_ui ui.search_field 'Buscar:')" "${SEARCH_QUERY}_  [$country_filter]" 0 accent selected
+    ((SEARCH_COUNTRY_FILTER_ENABLED)) && country_filter="País $KEILA_CATALOG_COUNTRY_FILTER"
+    ui_box_split_line "$width" 'Buscar:' "${SEARCH_QUERY}_  [$country_filter]" 0 accent selected
     local detail_header=''
     if ui_search_show_details; then detail_header=$(ui_labels_header "$((width - 4))"); fi
-    ui_box_split_line "$width" "$(tr_ui ui.stations EMISORAS) (${#SEARCH_MATCHES[@]})" "$detail_header" 0 accent accent
+    ui_box_split_line "$width" "EMISORAS (${#SEARCH_MATCHES[@]})" "$detail_header" 0 accent accent
 
     local row match_position source_index text badge selected style badge_style playing
     for ((row = 0; row < body_height; row++)); do
         match_position=$((SEARCH_SCROLL_OFFSET + row))
         if ((match_position >= ${#SEARCH_MATCHES[@]})); then
             if ((row == 0 && ${#SEARCH_MATCHES[@]} == 0)); then
-                ui_box_line "$width" "  $(tr_ui ui.no_results 'Sin resultados')" muted
+                ui_box_line "$width" '  Sin resultados' muted
             else
                 ui_box_line "$width" ''
             fi
@@ -279,23 +278,21 @@ ui_draw_search() {
         if ((${LABEL_EDITOR_ACTIVE:-0})); then
             ui_print_padded "$tiny_width" "$UI_MESSAGE"
         else
-            ui_print_padded "$tiny_width" "$(tr_ui ui.search_field 'Buscar:') ${SEARCH_QUERY}_"
+            ui_print_padded "$tiny_width" "Buscar: ${SEARCH_QUERY}_"
         fi
         printf '\n'
-            local tiny_filter
-            tiny_filter=$(tr_ui ui.country_global Global)
-            ((SEARCH_COUNTRY_FILTER_ENABLED)) && tiny_filter=$(tr_ui ui.country_filter 'País %s' "$KEILA_CATALOG_COUNTRY_FILTER")
-            local tiny_detail
-            tiny_detail=$(tr_ui ui.only_names 'solo nombres')
-            ((SEARCH_DETAILS_VISIBLE)) && tiny_detail=$(tr_ui ui.details detalles)
-            ui_print_padded "$tiny_width" "$(tr_ui ui.results Resultados): ${#SEARCH_MATCHES[@]} · $tiny_filter · $tiny_detail"
+            local tiny_filter='Global'
+            ((SEARCH_COUNTRY_FILTER_ENABLED)) && tiny_filter="País $KEILA_CATALOG_COUNTRY_FILTER"
+            local tiny_detail='solo nombres'
+            ((SEARCH_DETAILS_VISIBLE)) && tiny_detail='detalles'
+            ui_print_padded "$tiny_width" "Resultados: ${#SEARCH_MATCHES[@]} · $tiny_filter · $tiny_detail"
         printf '\n'
         local row match_position source_index text badge playing
         for ((row = 0; row < tiny_body_height; row++)); do
             match_position=$((SEARCH_SCROLL_OFFSET + row))
             if ((match_position >= ${#SEARCH_MATCHES[@]})); then
                 if ((row == 0 && ${#SEARCH_MATCHES[@]} == 0)); then
-                    ui_print_padded "$tiny_width" "$(tr_ui ui.no_results 'Sin resultados')"
+                    ui_print_padded "$tiny_width" 'Sin resultados'
                 else
                     ui_print_padded "$tiny_width" ''
                 fi

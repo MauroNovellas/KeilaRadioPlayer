@@ -219,7 +219,7 @@ ui_draw_desktop() {
 
     ui_box_rule "$width" "$UI_TL" "$UI_TR"
     ui_box_center_line "$width" "$title" title
-    ui_desktop_header_rule "$width" "$(tr_ui ui.favorite_stations 'EMISORAS FAVORITAS') (${#FAVORITE_NAMES[@]})" "$(tr_ui ui.now_playing 'AHORA SUENA')"
+    ui_desktop_header_rule "$width" "EMISORAS FAVORITAS (${#FAVORITE_NAMES[@]})" 'AHORA SUENA'
 
     local station station_style marker favorite_badge recording_badge state_badge
     marker=$(ui_player_marker)
@@ -236,7 +236,7 @@ ui_draw_desktop() {
         station_style='muted'
         favorite_badge=''
     else
-        station=$(tr_ui ui.no_station_selected 'Ninguna emisora seleccionada')
+        station='Ninguna emisora seleccionada'
         station_style='muted'
         favorite_badge=''
     fi

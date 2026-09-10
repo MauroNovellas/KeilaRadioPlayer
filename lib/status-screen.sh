@@ -33,7 +33,7 @@ status_catalog_state() {
 
 status_player_state() {
     if player_is_running; then
-        if ((${PLAYER_PAUSED:-0})); then tr_ui ui.paused pausado; else tr_ui ui.playing reproduciendo; fi
+        if ((${PLAYER_PAUSED:-0})); then printf 'pausado'; else printf 'reproduciendo'; fi
         if ((${PLAYER_BUFFERING:-0})); then printf ' · buffer'; fi
         if ((${PLAYER_MUTED:-0})); then printf ' · silencio'; fi
         printf ' · pid %s' "${PLAYER_PID:-?}"
@@ -60,32 +60,32 @@ status_build_rows() {
         fi
     fi
 
-    STATUS_ROWS+=("$(tr_ui ui.status_version Versión)|Keila ${KEILA_VERSION:-desconocida}")
-    STATUS_ROWS+=("$(tr_ui ui.status_git Git)|$(status_git_revision)")
-    STATUS_ROWS+=("$(tr_ui ui.status_environment Entorno)|$(deps_is_termux && printf 'Termux' || printf 'Unix/Linux') · Bash ${BASH_VERSION%%(*}")
-    STATUS_ROWS+=("$(tr_ui ui.status_terminal Terminal)|${TERM:-sin TERM} · ${UI_COLS:-?}x${UI_LINES:-?}")
-    STATUS_ROWS+=("$(tr_ui ui.status_player Reproductor)|$(status_player_state)")
-    STATUS_ROWS+=("$(tr_ui ui.status_station Emisora)|${PLAYER_NAME:-ninguna}")
-    STATUS_ROWS+=("$(tr_ui ui.status_title Título)|$title_state")
-    STATUS_ROWS+=("$(tr_ui ui.status_title_age 'Título edad')|$title_age")
-    STATUS_ROWS+=("$(tr_ui ui.status_volume Volumen)|${PLAYER_VOLUME:-?}%")
-    STATUS_ROWS+=("$(tr_ui ui.status_catalog Catálogo)|$(status_catalog_state)")
-    STATUS_ROWS+=("$(tr_ui ui.status_indexed_stations 'Emisoras indexadas')|$catalog_count")
-    STATUS_ROWS+=("$(tr_ui ui.status_catalog_updated 'Catálogo actualizado')|$(stations_catalog_updated_at) · $(tr_ui ui.ago 'hace %s' "$catalog_age")")
-    STATUS_ROWS+=("$(tr_ui ui.status_next_update 'Próxima actualización')|$catalog_next")
-    STATUS_ROWS+=("$(tr_ui ui.status_preloaded_results 'Resultados precargados')|${#SEARCH_MATCHES[@]}")
-    STATUS_ROWS+=("$(tr_ui ui.status_country_filter 'Filtro país')|${KEILA_CATALOG_COUNTRY_FILTER:-ES} · $((SEARCH_COUNTRY_FILTER_ENABLED))")
+    STATUS_ROWS+=("Versión|Keila ${KEILA_VERSION:-desconocida}")
+    STATUS_ROWS+=("Git|$(status_git_revision)")
+    STATUS_ROWS+=("Entorno|$(deps_is_termux && printf 'Termux' || printf 'Unix/Linux') · Bash ${BASH_VERSION%%(*}")
+    STATUS_ROWS+=("Terminal|${TERM:-sin TERM} · ${UI_COLS:-?}x${UI_LINES:-?}")
+    STATUS_ROWS+=("Reproductor|$(status_player_state)")
+    STATUS_ROWS+=("Emisora|${PLAYER_NAME:-ninguna}")
+    STATUS_ROWS+=("Título|$title_state")
+    STATUS_ROWS+=("Título edad|$title_age")
+    STATUS_ROWS+=("Volumen|${PLAYER_VOLUME:-?}%")
+    STATUS_ROWS+=("Catálogo|$(status_catalog_state)")
+    STATUS_ROWS+=("Emisoras indexadas|$catalog_count")
+    STATUS_ROWS+=("Catálogo actualizado|$(stations_catalog_updated_at) · hace $catalog_age")
+    STATUS_ROWS+=("Próxima actualización|$catalog_next")
+    STATUS_ROWS+=("Resultados precargados|${#SEARCH_MATCHES[@]}")
+    STATUS_ROWS+=("Filtro país|${KEILA_CATALOG_COUNTRY_FILTER:-ES} · $((SEARCH_COUNTRY_FILTER_ENABLED))")
     STATUS_ROWS+=("JSON Radio Browser|$(status_human_size "$KEILA_STATIONS_JSON") · $(status_mtime "$KEILA_STATIONS_JSON")")
     STATUS_ROWS+=("Índice TUI|$(status_human_size "$KEILA_STATIONS_TSV") · $(status_mtime "$KEILA_STATIONS_TSV")")
-    STATUS_ROWS+=("$(tr_ui ui.status_recording Grabación)|$((RECORDING_ACTIVE)) · ${RECORDING_PHASE:-idle} · ${RECORDING_FILE:-sin archivo}")
-    STATUS_ROWS+=("$(tr_ui ui.status_pending Pendientes)|$pending_count${PENDING_SCAN_PID:+ · escaneando}")
-    STATUS_ROWS+=("$(tr_ui ui.status_config Config)|$KEILA_CONFIG_FILE")
-    STATUS_ROWS+=("$(tr_ui ui.status_favorites Favoritos)|${#FAVORITE_NAMES[@]} · $KEILA_FAVORITES_FILE")
-    STATUS_ROWS+=("$(tr_ui ui.status_comments Comentarios)|${#FAVORITE_LABELS[@]} · $KEILA_CONFIG_DIR/labels")
-    STATUS_ROWS+=("$(tr_ui ui.status_state Estado)|$KEILA_STATE_FILE")
-    STATUS_ROWS+=("$(tr_ui ui.status_cache Caché)|$KEILA_CACHE_DIR")
-    STATUS_ROWS+=("$(tr_ui ui.status_recordings Grabaciones)|$KEILA_RECORDINGS_DIR")
-    STATUS_ROWS+=("$(tr_ui ui.status_runtime_ipc 'Runtime IPC')|${PLAYER_RUNTIME_DIR:-—}")
+    STATUS_ROWS+=("Grabación|$((RECORDING_ACTIVE)) · ${RECORDING_PHASE:-idle} · ${RECORDING_FILE:-sin archivo}")
+    STATUS_ROWS+=("Pendientes|$pending_count${PENDING_SCAN_PID:+ · escaneando}")
+    STATUS_ROWS+=("Config|$KEILA_CONFIG_FILE")
+    STATUS_ROWS+=("Favoritos|${#FAVORITE_NAMES[@]} · $KEILA_FAVORITES_FILE")
+    STATUS_ROWS+=("Comentarios|${#FAVORITE_LABELS[@]} · $KEILA_CONFIG_DIR/labels")
+    STATUS_ROWS+=("Estado|$KEILA_STATE_FILE")
+    STATUS_ROWS+=("Caché|$KEILA_CACHE_DIR")
+    STATUS_ROWS+=("Grabaciones|$KEILA_RECORDINGS_DIR")
+    STATUS_ROWS+=("Runtime IPC|${PLAYER_RUNTIME_DIR:-—}")
 }
 
 status_draw() {
@@ -95,7 +95,7 @@ status_draw() {
     ((width < 1)) && width=1
     ((height < 1)) && height=1
     tput cup 0 0 2>/dev/null || true
-    ui_print_styled_padded "$width" "$(tr_ui ui.diagnostics_title 'KEILA · DIAGNÓSTICO EN VIVO')" title; printf '\n'
+    ui_print_styled_padded "$width" 'KEILA · DIAGNÓSTICO EN VIVO' title; printf '\n'
     for ((i=0; i<height && i<${#STATUS_ROWS[@]}; i++)); do
         label=${STATUS_ROWS[i]%%|*}
         value=${STATUS_ROWS[i]#*|}

@@ -229,7 +229,6 @@ catalog_max_age=86400
 catalog_limit=50000
 catalog_country_filter=ES
 search_match_limit=300
-language=es
 recordings_dir=
 ```
 
@@ -239,7 +238,6 @@ recordings_dir=
 - `catalog_limit`: máximo de emisoras a guardar desde Radio Browser, entre 100 y 100000.
 - `catalog_country_filter`: país preferido para el filtro rápido de búsqueda, en código ISO de dos letras (`ES`, `FR`, `US`...).
 - `search_match_limit`: máximo de resultados visibles por búsqueda, entre 100 y 20000. El catálogo completo sigue disponible; escribe más texto para afinar.
-- `language`: idioma de la interfaz (`es` o `en`). También puedes probarlo sin editar config con `KEILA_LANG=en ./keila-radio`.
 - `recordings_dir`: vacío usa `grabaciones/` junto a Keila. También acepta rutas absolutas, `~/...` y rutas relativas a `$HOME`.
 
 Los valores inválidos se ignoran y se conserva el valor por defecto.
