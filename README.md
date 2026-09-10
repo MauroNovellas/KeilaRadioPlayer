@@ -279,6 +279,7 @@ Dentro de la búsqueda:
 ```text
 escribir             filtrar por nombre, ámbito, país y formato
 P                     activar/desactivar filtro rápido por país
+← / →                ocultar/mostrar detalles en pantallas pequeñas
 ↑ / ↓                mover por los resultados
 Home / End            primer/último resultado
 PageUp / PageDown     saltar por los resultados
@@ -306,6 +307,8 @@ y `KEILA_TITLE_MAX_AGE` permiten ajustar ambos límites en segundos.
 Los comentarios se guardan en `$XDG_CONFIG_HOME/keila-radio/labels` (por defecto `~/.config/keila-radio/labels`) y el historial en `$XDG_STATE_HOME/keila-radio/history` (por defecto `~/.local/state/keila-radio/history`). El historial contiene nombres y URLs de emisoras, sin títulos de canciones ni marcas de tiempo. Puedes borrar el archivo con Keila cerrada para vaciarlo.
 
 Las minúsculas son texto normal dentro del buscador. `X` mayúscula añade o solicita confirmación para quitar el resultado de Favoritas; `C` abre su comentario y `F`/`R` cambian de sección. Los números siguen siendo texto de consulta.
+
+En pantallas muy estrechas, la búsqueda muestra de entrada solo los nombres de emisora para mantener la lista legible. Dentro del buscador, `→` despliega los detalles disponibles solo de la emisora seleccionada y `←` vuelve a ocultarlos; en ese contexto las flechas izquierda/derecha no cambian el volumen.
 
 Al salir de la búsqueda con `Esc`, la consulta permanece visible. Pulsar de nuevo `B` la reabre para seguir editándola. Para usar el selector externo clásico con `fzf`:
 

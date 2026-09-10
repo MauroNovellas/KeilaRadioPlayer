@@ -157,6 +157,32 @@ assert_eq 119 "${#first_line}" 'búsqueda desktop respeta ancho seguro'
 [[ "$render" == *'Rock FM'* ]] || fail 'falta primer resultado'
 [[ "$render" == *'Classic Rock'* ]] || fail 'falta segundo resultado'
 
+UI_ACTIVE=1
+UI_SUSPENDED=0
+SEARCH_ACTIVE=1
+SEARCH_DETAILS_VISIBLE=0
+SEARCH_SELECTED_INDEX=0
+SEARCH_SCROLL_OFFSET=0
+UI_COLS=45
+UI_LINES=12
+ui_refresh_size() { :; }
+render=$(ui_draw_search)
+[[ "$render" == *'Rock FM'* ]] || fail 'búsqueda pequeña no muestra nombres'
+[[ "$render" != *'Madrid'* && "$render" != *'España'* && "$render" != *'AAC'* ]] || fail 'búsqueda pequeña muestra detalles por defecto'
+SEARCH_DETAILS_VISIBLE=1
+render=$(ui_draw_search)
+[[ "$render" == *'Madrid'* || "$render" == *'España'* || "$render" == *'AAC'* ]] || fail 'búsqueda pequeña no muestra detalles al activarlos'
+
+SEARCH_DETAILS_VISIBLE=1
+SEARCH_SELECTED_INDEX=0
+SEARCH_SCROLL_OFFSET=0
+UI_COLS=40
+UI_LINES=10
+render=$(ui_draw_search)
+[[ "$render" == *'Rock FM · Madrid'* || "$render" == *'Rock FM · España'* || "$render" == *'Rock FM · AAC'* ]] || fail 'búsqueda tiny no muestra detalles del resultado seleccionado'
+[[ "$render" == *'Classic Rock'* ]] || fail 'búsqueda tiny oculta otros nombres al mostrar detalles'
+[[ "$render" != *'Barcelona'* && "$render" != *'MP3'* ]] || fail 'búsqueda tiny muestra detalles de resultados no seleccionados'
+
 declare -F stations_select_fzf_external >/dev/null || fail 'falta fallback fzf'
 declare -F stations_select_fzf >/dev/null || fail 'falta selector integrado'
 declare -F search_prepare_results >/dev/null || fail 'falta sincronización antes de navegar/reproducir'

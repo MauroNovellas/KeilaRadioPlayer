@@ -53,6 +53,17 @@ ui_search_result_badge() {
     printf '%s' "$badge"
 }
 
+ui_search_show_details() {
+    case "${UI_LAYOUT_MODE:-standard}" in
+        tiny|minimal|compact)
+            (( ${SEARCH_DETAILS_VISIBLE:-0} ))
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+}
+
 ui_search_desktop() {
     local width="$1"
     local title="KEILA RADIO PLAYER  ${KEILA_VERSION:-dev}"
@@ -182,7 +193,9 @@ ui_search_single_column() {
     local country_filter='Global'
     ((SEARCH_COUNTRY_FILTER_ENABLED)) && country_filter="País $KEILA_CATALOG_COUNTRY_FILTER"
     ui_box_split_line "$width" 'Buscar:' "${SEARCH_QUERY}_  [$country_filter]" 0 accent selected
-    ui_box_split_line "$width" "EMISORAS (${#SEARCH_MATCHES[@]})" "$(ui_labels_header "$((width - 4))")" 0 accent accent
+    local detail_header=''
+    if ui_search_show_details; then detail_header=$(ui_labels_header "$((width - 4))"); fi
+    ui_box_split_line "$width" "EMISORAS (${#SEARCH_MATCHES[@]})" "$detail_header" 0 accent accent
 
     local row match_position source_index text badge selected style badge_style playing
     for ((row = 0; row < body_height; row++)); do
@@ -207,11 +220,20 @@ ui_search_single_column() {
         if player_is_running && [[ "${SEARCH_URLS[$source_index]}" == "$PLAYER_URL" ]]; then
             playing=1
         fi
-        badge=$(ui_search_result_badge "$playing")
-        ((UI_SEARCH_IS_FAVORITE)) && badge_style='favorite'
+        badge=''
+        if ui_search_show_details; then
+            badge=$(ui_search_result_badge "$playing")
+            ((UI_SEARCH_IS_FAVORITE)) && badge_style='favorite'
+        elif ((UI_SEARCH_IS_FAVORITE)); then
+            text="  [$UI_FAVORITE] $UI_SEARCH_NAME"
+            badge_style='favorite'
+        fi
 
         if ((match_position == SEARCH_SELECTED_INDEX)); then
             text="$UI_SELECT $UI_SEARCH_NAME"
+            if ((!SEARCH_DETAILS_VISIBLE && UI_SEARCH_IS_FAVORITE)) && [[ "$UI_LAYOUT_MODE" != tiny ]]; then
+                text="$UI_SELECT [$UI_FAVORITE] $UI_SEARCH_NAME"
+            fi
             selected=1
         elif ((playing)); then
             text="$UI_PLAY $UI_SEARCH_NAME"
@@ -226,7 +248,7 @@ ui_search_single_column() {
     if ((${LABEL_EDITOR_ACTIVE:-0})); then
         ui_box_line "$width" 'Enter guardar · Esc cancelar · Ctrl-U borrar' muted
     else
-        ui_box_line "$width" '↑↓ Enter  P país  X favorito  C comentario  Esc volver' muted
+        ui_box_line "$width" '↑↓ Enter  ←/→ detalles  P país  X favorito  C comentario  Esc volver' muted
     fi
     if [[ -n "$UI_MESSAGE" ]]; then
         ui_box_line "$width" "$UI_MESSAGE"
@@ -248,6 +270,9 @@ ui_draw_search() {
     if [[ "$UI_LAYOUT_MODE" == 'tiny' ]]; then
         local tiny_width=$UI_COLS
         ((tiny_width > 60)) && tiny_width=60
+        local tiny_body_height=$((UI_LINES - 7))
+        ((tiny_body_height < 1)) && tiny_body_height=1
+        search_sync_scroll "$tiny_body_height"
         ui_print_padded "$tiny_width" "Keila Radio Player ${KEILA_VERSION:-dev}"
         printf '\n\n'
         if ((${LABEL_EDITOR_ACTIVE:-0})); then
@@ -258,12 +283,48 @@ ui_draw_search() {
         printf '\n'
             local tiny_filter='Global'
             ((SEARCH_COUNTRY_FILTER_ENABLED)) && tiny_filter="País $KEILA_CATALOG_COUNTRY_FILTER"
-            ui_print_padded "$tiny_width" "Resultados: ${#SEARCH_MATCHES[@]} · $tiny_filter"
-        printf '\n\n'
+            local tiny_detail='solo nombres'
+            ((SEARCH_DETAILS_VISIBLE)) && tiny_detail='detalles'
+            ui_print_padded "$tiny_width" "Resultados: ${#SEARCH_MATCHES[@]} · $tiny_filter · $tiny_detail"
+        printf '\n'
+        local row match_position source_index text badge playing selected
+        for ((row = 0; row < tiny_body_height; row++)); do
+            match_position=$((SEARCH_SCROLL_OFFSET + row))
+            if ((match_position >= ${#SEARCH_MATCHES[@]})); then
+                if ((row == 0 && ${#SEARCH_MATCHES[@]} == 0)); then
+                    ui_print_padded "$tiny_width" 'Sin resultados'
+                else
+                    ui_print_padded "$tiny_width" ''
+                fi
+                printf '\n'
+                continue
+            fi
+            source_index=${SEARCH_MATCHES[$match_position]}
+            ui_search_result_parts "$source_index"
+            playing=0
+            if player_is_running && [[ "${SEARCH_URLS[$source_index]}" == "$PLAYER_URL" ]]; then playing=1; fi
+            selected=0
+            if ((match_position == SEARCH_SELECTED_INDEX)); then
+                text="$UI_SELECT $UI_SEARCH_NAME"
+                selected=1
+            elif ((playing)); then
+                text="$UI_PLAY $UI_SEARCH_NAME"
+            else
+                text="  $UI_SEARCH_NAME"
+            fi
+            if ((SEARCH_DETAILS_VISIBLE && selected)); then
+                badge=$(ui_search_result_badge "$playing")
+                [[ -n "$badge" ]] && text+=" · $badge"
+            elif ((UI_SEARCH_IS_FAVORITE)); then
+                text+=" · $UI_FAVORITE"
+            fi
+            ui_print_padded "$tiny_width" "$text"
+            printf '\n'
+        done
         if ((${LABEL_EDITOR_ACTIVE:-0})); then
             ui_print_padded "$tiny_width" 'Enter guardar · Esc cancelar'
         else
-            ui_print_padded "$tiny_width" 'P país · X favorito · C comentario · Esc'
+            ui_print_padded "$tiny_width" '↑↓ Enter · → detalles · ← ocultar · Esc'
         fi
         printf '\n'
         tput ed 2>/dev/null || true

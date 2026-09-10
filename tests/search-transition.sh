@@ -124,6 +124,27 @@ done
 input_read() { return 1; }
 DRAW_CALLS=0
 
+# En pantallas pequeñas, dentro de la búsqueda las flechas izquierda/derecha
+# alternan entre una lista limpia de nombres y la vista con detalles.
+SEARCH_DETAILS_VISIBLE=0
+TEST_EVENT=0
+input_read() {
+    ((TEST_EVENT+=1))
+    case "$TEST_EVENT" in
+        1) INPUT_EVENT=RIGHT ;;
+        2) INPUT_EVENT=LEFT ;;
+        *) return 1 ;;
+    esac
+    return 0
+}
+selector_status=0
+stations_select_fzf || selector_status=$?
+assert_eq 1 "$selector_status" 'EOF simulado cierra el buscador tras alternar detalles'
+assert_eq 0 "$SEARCH_DETAILS_VISIBLE" 'LEFT no oculta los detalles de búsqueda'
+[[ "$LAST_MESSAGE" == 'Detalles de búsqueda ocultos.' ]] || fail 'LEFT no informa de que oculta detalles'
+input_read() { return 1; }
+DRAW_CALLS=0
+
 selector_status=0
 stations_select_fzf || selector_status=$?
 assert_eq 1 "$selector_status" 'EOF simulado cierra el buscador integrado'

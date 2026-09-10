@@ -236,6 +236,18 @@ stations_select_fzf() {
                 search_move 1 || true
                 redraw=1
                 ;;
+            LEFT)
+                favorites_confirm_clear
+                SEARCH_DETAILS_VISIBLE=0
+                app_message 'Detalles de búsqueda ocultos.' 2
+                redraw=1
+                ;;
+            RIGHT)
+                favorites_confirm_clear
+                SEARCH_DETAILS_VISIBLE=1
+                app_message 'Detalles de búsqueda visibles.' 2
+                redraw=1
+                ;;
             HOME)
                 favorites_confirm_clear
                 search_prepare_results
