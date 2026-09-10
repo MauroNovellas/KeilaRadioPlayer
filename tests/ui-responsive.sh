@@ -65,10 +65,13 @@ PLAYER_SAMPLE_RATE=44100
 PLAYER_CHANNELS='stereo'
 
 UI_LAYOUT_MODE=standard
+UI_LINES=20
 assert_eq 2 "$(ui_stream_info_line_count)" 'standard conserva título y audio'
 TRACK_HISTORY_TITLES=('Artista - Canción' 'Tema anterior' 'Tema previo')
 TRACK_HISTORY_TIMES=('12:00:02' '12:00:01' '12:00:00')
-assert_eq 5 "$(ui_stream_info_line_count)" 'standard muestra bloque de canciones anteriores'
+assert_eq 2 "$(ui_stream_info_line_count)" 'standard no muestra bloque fijo si no cabe'
+UI_LINES=30
+assert_eq 12 "$(ui_stream_info_line_count)" 'standard reserva bloque fijo de canciones anteriores'
 UI_LAYOUT_MODE=compact
 assert_eq 1 "$(ui_stream_info_line_count)" 'compact conserva solo el título'
 UI_LAYOUT_MODE=minimal

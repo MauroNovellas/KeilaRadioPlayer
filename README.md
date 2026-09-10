@@ -313,12 +313,14 @@ Si tampoco aparece un título distinto, se aplica una caducidad de cinco minutos
 para no mostrar una canción antigua indefinidamente. `KEILA_TITLE_PROBE_INTERVAL`
 y `KEILA_TITLE_MAX_AGE` permiten ajustar ambos límites en segundos.
 
-Mientras escuchas una emisora, Keila conserva en pantalla un bloque con hasta
-ocho canciones anteriores detectadas en esa misma sintonía, sin repetir la
-canción actual que ya aparece en `Ahora suena`. Es una memoria de la
-reproducción en curso: al cambiar manualmente de emisora se reinicia. En modos
-compactos se oculta para no volver ilegible la pantalla. Durante pruebas puede
-ajustarse con `KEILA_TRACK_HISTORY_DISPLAY_LIMIT` entre 1 y 20.
+Mientras escuchas una emisora, Keila reserva un bloque fijo con ocho líneas para
+canciones anteriores detectadas en esa misma sintonía, sin repetir la canción
+actual que ya aparece en `Ahora suena`. La novena línea muestra la ruta del TXT
+de sesión. Al quedar el espacio reservado desde el principio, la TUI no desplaza
+favoritos, volumen ni paneles cuando van apareciendo canciones nuevas. En modos
+compactos o sin altura suficiente se oculta para no volver ilegible la pantalla.
+Durante pruebas puede ajustarse con `KEILA_TRACK_HISTORY_DISPLAY_LIMIT` entre
+1 y 20; en ese caso la ruta del TXT aparece después de las líneas reservadas.
 
 Cada ejecución interactiva crea además un archivo de sesión en texto plano:
 

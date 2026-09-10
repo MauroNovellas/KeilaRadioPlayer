@@ -52,6 +52,22 @@ session_log_truncate() {
     fi
 }
 
+session_log_truncate_left() {
+    local text="$1" max="$2" keep offset
+
+    if ((max <= 0)); then
+        printf ''
+    elif ((${#text} <= max)); then
+        printf '%s' "$text"
+    elif ((max <= 3)); then
+        printf '%s' "${text:0:max}"
+    else
+        keep=$((max - 3))
+        offset=$((${#text} - keep))
+        printf '...%s' "${text:offset}"
+    fi
+}
+
 track_history_display_limit() {
     local limit="${TRACK_HISTORY_DISPLAY_LIMIT:-8}"
 
@@ -208,22 +224,34 @@ track_history_visible_count() {
 }
 
 track_history_line() {
-    local index="${1:-0}" width="${2:-80}" array_index time title prefix available
+    local index="${1:-0}" width="${2:-80}" array_index time title prefix available limit
 
     [[ "$index" =~ ^[0-9]+$ ]] || return 1
     [[ "$width" =~ ^[0-9]+$ ]] || width=80
+    limit=$(track_history_display_limit)
+    ((index < limit)) || return 1
 
     array_index=$((index + 1))
-    ((array_index < ${#TRACK_HISTORY_TITLES[@]})) || return 1
 
     time="${TRACK_HISTORY_TIMES[array_index]:---:--:--}"
-    title="${TRACK_HISTORY_TITLES[array_index]:-}"
-    [[ -n "$title" ]] || return 1
+    title="${TRACK_HISTORY_TITLES[array_index]:-—}"
 
     prefix=$(printf '  %2d. %s  ' "$array_index" "$time")
     available=$((width - ${#prefix}))
     ((available < 4)) && available=4
     printf '%s%s' "$prefix" "$(session_log_truncate "$title" "$available")"
+}
+
+track_history_session_line() {
+    local width="${1:-80}" number prefix path available
+
+    [[ "$width" =~ ^[0-9]+$ ]] || width=80
+    number=$(($(track_history_display_limit) + 1))
+    prefix=$(printf '  %2d. TXT sesión: ' "$number")
+    path="${SESSION_LOG_FILE:-registro no iniciado}"
+    available=$((width - ${#prefix}))
+    ((available < 4)) && available=4
+    printf '%s%s' "$prefix" "$(session_log_truncate_left "$path" "$available")"
 }
 
 track_history_summary() {

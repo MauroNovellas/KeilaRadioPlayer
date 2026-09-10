@@ -12,21 +12,39 @@ UI_PLAYER_INFO_CURSOR_KEY=''
 UI_PLAYER_TITLE_CURSOR=''
 UI_PLAYER_AUDIO_CURSOR=''
 UI_PLAYER_HISTORY_HEADER_CURSOR=''
+UI_PLAYER_HISTORY_LOG_CURSOR=''
 
 # Metadatos, bitrate e historial breve ocupan filas fijas del panel.
 # No afectan a favoritos, búsqueda, volumen ni al rectángulo del espectro.
+ui_desktop_track_history_slots() {
+    local body_height="${1:-$(ui_desktop_body_height)}" limit
+
+    player_is_running || { printf '0\n'; return 0; }
+    declare -F track_history_display_limit >/dev/null 2>&1 || { printf '0\n'; return 0; }
+    limit=$(track_history_display_limit)
+
+    # Con 8 canciones: título, cabecera, 8 filas, ruta TXT, audio y volumen
+    # ocupan hasta la fila 13 del cuerpo; por debajo ocultamos el bloque para
+    # no pisar el borde ni provocar scroll en escritorios mínimos.
+    if ((body_height >= limit + 6)); then
+        printf '%s\n' "$limit"
+    else
+        printf '0\n'
+    fi
+}
+
 ui_draw_player_info_only() {
     ((${PREFERENCES_ACTIVE:-0})) && return 1
     ((UI_ACTIVE && !UI_SUSPENDED && !${INPUT_RESIZE_PENDING:-0})) || return 1
     ui_desktop_enabled "$UI_COLS" "$UI_LINES" "$UI_LAYOUT_MODE" || return 1
-    local history_count=0 i line
-    if declare -F track_history_visible_count >/dev/null 2>&1; then
-        history_count=$(track_history_visible_count)
-    fi
+    local history_count=0 body_height i line
+    body_height=$(ui_desktop_body_height)
+    history_count=$(ui_desktop_track_history_slots "$body_height")
     [[ "$UI_PLAYER_INFO_CURSOR_KEY" == "${TERM:-}|$UI_COLS|$UI_LINES|$UI_DESKTOP_LEFT_WIDTH|$history_count" ]] || return 1
     [[ -n "$UI_PLAYER_TITLE_CURSOR" && -n "$UI_PLAYER_AUDIO_CURSOR" ]] || return 1
     if ((history_count > 0)); then
         [[ -n "$UI_PLAYER_HISTORY_HEADER_CURSOR" ]] || return 1
+        [[ -n "$UI_PLAYER_HISTORY_LOG_CURSOR" ]] || return 1
         ((${#UI_PLAYER_HISTORY_CURSORS[@]} >= history_count)) || return 1
     fi
     local title='Sin título de emisión disponible' style=muted audio
@@ -46,6 +64,9 @@ ui_draw_player_info_only() {
             printf '%s' "${UI_PLAYER_HISTORY_CURSORS[i]}"
             ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$line" muted
         done
+        line=$(track_history_session_line "$UI_DESKTOP_LEFT_WIDTH" 2>/dev/null || true)
+        printf '%s' "$UI_PLAYER_HISTORY_LOG_CURSOR"
+        ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$line" muted
     fi
     printf '%s' "$UI_PLAYER_AUDIO_CURSOR"
     ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$audio" muted
@@ -174,12 +195,11 @@ ui_draw_desktop() {
 
     ui_desktop_pane_widths "$width"
     ui_desktop_sync_selection "$body_height"
-    local track_history_count=0 history_header_row=2 history_first_row=3 audio_row=2 volume_row=3 equalizer_start_row=5
-    if player_is_running && declare -F track_history_visible_count >/dev/null 2>&1; then
-        track_history_count=$(track_history_visible_count)
-    fi
+    local track_history_count=0 history_header_row=2 history_first_row=3 history_log_row=3 audio_row=2 volume_row=3 equalizer_start_row=5
+    track_history_count=$(ui_desktop_track_history_slots "$body_height")
     if ((track_history_count > 0)); then
-        audio_row=$((history_first_row + track_history_count))
+        history_log_row=$((history_first_row + track_history_count))
+        audio_row=$((history_log_row + 1))
         volume_row=$((audio_row + 1))
         equalizer_start_row=$((volume_row + 2))
     fi
@@ -187,6 +207,7 @@ ui_draw_desktop() {
     if [[ "$info_key" != "$UI_PLAYER_INFO_CURSOR_KEY" ]]; then
         UI_PLAYER_TITLE_CURSOR=$(tput cup 4 2 2>/dev/null || true)
         UI_PLAYER_HISTORY_HEADER_CURSOR=''
+        UI_PLAYER_HISTORY_LOG_CURSOR=''
         UI_PLAYER_HISTORY_CURSORS=()
         if ((track_history_count > 0)); then
             UI_PLAYER_HISTORY_HEADER_CURSOR=$(tput cup "$((history_header_row + 3))" 2 2>/dev/null || true)
@@ -194,6 +215,7 @@ ui_draw_desktop() {
             for ((cursor_index = 0; cursor_index < track_history_count; cursor_index++)); do
                 UI_PLAYER_HISTORY_CURSORS[cursor_index]=$(tput cup "$((history_first_row + cursor_index + 3))" 2 2>/dev/null || true)
             done
+            UI_PLAYER_HISTORY_LOG_CURSOR=$(tput cup "$((history_log_row + 3))" 2 2>/dev/null || true)
         fi
         UI_PLAYER_AUDIO_CURSOR=$(tput cup "$((audio_row + 3))" 2 2>/dev/null || true)
         UI_PLAYER_INFO_CURSOR_KEY=$info_key
@@ -298,6 +320,10 @@ ui_draw_desktop() {
             track_history_line=$(track_history_line "$((row - history_first_row))" "$UI_DESKTOP_LEFT_WIDTH" 2>/dev/null || true)
             main_text="$track_history_line"
             main_style='muted'
+        elif ((track_history_count > 0 && row == history_log_row)); then
+            track_history_line=$(track_history_session_line "$UI_DESKTOP_LEFT_WIDTH" 2>/dev/null || true)
+            main_text="$track_history_line"
+            main_style='muted'
         elif ((row == audio_row)); then
             if [[ -n "$audio_info" ]]; then
                 main_text="$audio_info"
@@ -315,7 +341,7 @@ ui_draw_desktop() {
             ui_equalizer_wide_row "$eq_row" "$UI_DESKTOP_LEFT_WIDTH" >/dev/null
             main_text="$UI_EQ_TEXT"
             main_style="$UI_EQ_STYLE"
-            if ((row == 5)); then
+            if ((row == equalizer_start_row)); then
                 if ((${EQUALIZER_EDITOR_ACTIVE:-0})); then
                     # El encabezado conserva las cinco frecuencias completas;
                     # la banda activa queda marcada en el eje central.

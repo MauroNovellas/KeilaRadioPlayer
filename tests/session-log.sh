@@ -36,6 +36,10 @@ PLAYER_STREAM_READY=1
 track_history_observe || fail 'no registró primer título'
 grep -F '(sintonizada)' "$SESSION_LOG_FILE" >/dev/null || fail 'sintonía no registrada'
 grep -F $'Rock FM' "$SESSION_LOG_FILE" >/dev/null || fail 'emisora no saneada'
+line=$(track_history_line 0 80) || fail 'sin hueco reservado'
+[[ "$line" == *'1.'* && "$line" == *'—'* ]] || fail 'hueco reservado incorrecto'
+session_line=$(track_history_session_line 120) || fail 'sin línea de sesión'
+[[ "$session_line" == *'9. TXT sesión:'* && "$session_line" == *'keila-session-'* ]] || fail 'línea de sesión incorrecta'
 track_history_observe && fail 'duplicó título'
 for title in 'Tema Dos' 'Tema Tres' 'Tema Cuatro' 'Tema Cinco' 'Tema Seis' 'Tema Siete' 'Tema Ocho' 'Tema Nueve' 'Tema Diez'; do
     PLAYER_STREAM_TITLE="$title"

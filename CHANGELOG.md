@@ -26,10 +26,11 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 - Nuevo hub `[O] Opciones`, con entrada jerárquica a Visualización,
   Temporizador, Grabaciones, Configuración, Diagnóstico y Ayuda para usuarios
   que prefieren explorar sin memorizar todos los atajos.
-- La pantalla de reproducción muestra hasta ocho canciones anteriores de la
-  emisora actual bajo los metadatos de `Ahora suena`; cada sesión interactiva
-  crea un registro privado en texto con hora, emisora y título detectado. El
-  límite visual puede ajustarse temporalmente con
+- La pantalla de reproducción reserva ocho líneas para canciones anteriores de
+  la emisora actual y usa la novena para mostrar la ruta del TXT de sesión,
+  evitando que la TUI se desplace conforme aparecen títulos nuevos. Cada sesión
+  interactiva crea un registro privado en texto con hora, emisora y título
+  detectado. El límite visual puede ajustarse temporalmente con
   `KEILA_TRACK_HISTORY_DISPLAY_LIMIT`.
 - Pantalla `D` de diagnóstico en vivo dentro de la TUI: versión, Git, terminal,
   reproductor, título, volumen, catálogo, resultados precargados, grabaciones,

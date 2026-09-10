@@ -990,10 +990,10 @@ ui_has_audio_info() {
 ui_stream_info_line_count() {
     local count=0 track_count=0
     if player_is_running; then
-        [[ -n "${PLAYER_STREAM_TITLE:-}" ]] && ((count += 1))
-        if declare -F track_history_visible_count >/dev/null 2>&1; then
-            track_count=$(track_history_visible_count)
-            ((track_count > 0)) && ((count += 1 + track_count))
+        ((count += 1))
+        if ((${UI_LINES:-0} >= 25)) && declare -F track_history_display_limit >/dev/null 2>&1; then
+            track_count=$(track_history_display_limit)
+            ((count += 2 + track_count))
         fi
         ui_has_audio_info && ((count += 1))
     fi
@@ -1146,10 +1146,14 @@ ui_draw() {
     ui_box_player_line "$width" "$marker $station" "$station_style" "$recording_badge" "$favorite_badge" "$state_badge"
 
     if player_is_running; then
-        [[ -n "${PLAYER_STREAM_TITLE:-}" ]] && ui_box_line "$width" "$UI_NOTE $PLAYER_STREAM_TITLE" accent
+        if [[ -n "${PLAYER_STREAM_TITLE:-}" ]]; then
+            ui_box_line "$width" "$UI_NOTE $PLAYER_STREAM_TITLE" accent
+        else
+            ui_box_line "$width" 'Sin título de emisión disponible' muted
+        fi
         local track_history_count=0 track_history_index track_history_info=''
-        if declare -F track_history_visible_count >/dev/null 2>&1; then
-            track_history_count=$(track_history_visible_count)
+        if ((${UI_LINES:-0} >= 25)) && declare -F track_history_display_limit >/dev/null 2>&1; then
+            track_history_count=$(track_history_display_limit)
         fi
         if ((track_history_count > 0)); then
             ui_box_line "$width" '  Canciones anteriores' accent
@@ -1157,6 +1161,8 @@ ui_draw() {
                 track_history_info=$(track_history_line "$track_history_index" "$((width - 4))" 2>/dev/null || true)
                 ui_box_line "$width" "$track_history_info" muted
             done
+            track_history_info=$(track_history_session_line "$((width - 4))" 2>/dev/null || true)
+            ui_box_line "$width" "$track_history_info" muted
         fi
         local audio_info
         ui_audio_info state
