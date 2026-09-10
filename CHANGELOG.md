@@ -17,6 +17,13 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 - Si el índice local está fresco, la TUI precarga los primeros resultados al
   arrancar sin tomar el foco; `B` queda como entrada inmediata para editar la
   búsqueda.
+- Pantalla `D` de diagnóstico en vivo dentro de la TUI: versión, Git, terminal,
+  reproductor, título, volumen, catálogo, resultados precargados, grabaciones,
+  pendientes y rutas XDG principales, sin detener el audio.
+- `--backup` y `--restore` para mover datos personales entre equipos: exporta
+  configuración, favoritos, comentarios, preferencias, estado, historial y
+  ecualizador; excluye grabaciones y cachés. La restauración valida antes de
+  escribir y crea un respaldo previo automático.
 - Los locks de datos con PID vacío o inválido se recuperan automáticamente para
   evitar bloqueos tras cierres bruscos o suspensiones.
 - Gestor de grabaciones pendientes con `;`: detección inicial y comprobación

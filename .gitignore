@@ -3,3 +3,6 @@
 
 # Artefactos locales del empaquetado Linux
 /dist/
+
+# Copias personales exportadas desde --backup
+/keila-backup-*.tar.gz

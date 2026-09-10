@@ -92,6 +92,7 @@ app_preferences_menu() {
     [[ "$mode" == help ]] && title='AYUDA'
     local -a rows=()
     local -a labels=(Desactivado Activado)
+    local restore_index=$((4 + ${#PREF_ACTIONS[@]}))
     local -a explanations=(
         'Al abrir: reproduce la última escucha.'
         'Usa color si la terminal lo permite.'
@@ -124,6 +125,7 @@ app_preferences_menu() {
                 'Ecualizador: 1–5 presets'
                 'Ecualizador: C centrar; R plano'
                 'Ecualizador: Esc vuelve'
+                'Diagnóstico: D mayúscula estado en vivo'
                 'Alarma: HHMM; Enter guarda; vacío cancela'
                 'Alarma solo de sesión: equipo despierto'
                 'Atajos personalizados: pantalla principal'
@@ -150,7 +152,7 @@ app_preferences_menu() {
         done
         description='Enter: asignar letra; Esc cancela.'
         if ((selected < 4)); then description=${explanations[selected]}; fi
-        if ((selected == 17)); then description='Conserva emisoras y volumen.'; fi
+        if ((selected == restore_index)); then description='Conserva emisoras y volumen.'; fi
         if [[ "$mode" == help ]]; then description='↑↓ / PgUp/PgDn · Home/End · Esc volver'; fi
         ui_print_padded "$width" "$description"; printf '\n'
         if [[ "$mode" == settings ]]; then ui_print_padded "$width" '↑↓ navegar · Enter cambiar · Esc volver'; else ui_print_padded "$width" 'Atajos principales y controles locales'; fi
@@ -209,7 +211,7 @@ app_preferences_menu() {
                         1) PREF_COLOR=$((1-PREF_COLOR)) ;;
                         2) PREF_UNICODE=$((1-PREF_UNICODE)) ;;
                         3) PREF_SPECTRUM=$((1-PREF_SPECTRUM)) ;;
-                        17) confirm=1; notice='Enter confirma restauración; otra tecla cancela.'; continue ;;
+                        "$restore_index") confirm=1; notice='Enter confirma restauración; otra tecla cancela.'; continue ;;
                         *) capture=1; notice='Pulsa la nueva letra (si está ocupada, intercambia).'; continue ;;
                     esac ;;
                 *) continue ;;

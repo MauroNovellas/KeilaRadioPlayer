@@ -40,9 +40,24 @@ Los enlaces simbólicos y rutas no regulares no se restauran automáticamente.
 
 La validación es estructural, no una prueba absoluta de integridad: una lista
 vacía es válida, y un cambio o truncado que siga formando registros válidos puede
-pasar inadvertido. No cubre todavía el historial, el archivo manual `config` ni
-los ajustes persistentes del ecualizador. Tampoco protege contra pérdida de todo
-el directorio: para eso hace falta una copia externa.
+pasar inadvertido. La recuperación automática `.bak` no cubre todavía el
+historial, el archivo manual `config` ni los ajustes persistentes del
+ecualizador. Tampoco protege contra pérdida de todo el directorio: para eso hace
+falta una copia externa.
+
+## Copias exportables
+
+`./keila-radio --backup [archivo.tar.gz]` crea una copia privada de los datos
+personales pequeños: configuración, favoritos, comentarios, preferencias,
+volumen/última emisora, historial y ecualizador. No incluye grabaciones, cachés
+ni el catálogo de Radio Browser.
+
+`./keila-radio --restore archivo.tar.gz` valida la lista de rutas del archivo y
+el formato de cada dato soportado antes de restaurar. Si la copia es válida,
+crea primero un respaldo del estado actual en
+`~/.config/keila-radio/pre-restore-*.tar.gz`. Una copia con rutas inesperadas,
+enlaces simbólicos o datos malformados se rechaza sin modificar los datos
+actuales.
 
 ## Pruebas reproducibles
 
@@ -58,6 +73,10 @@ Los fallos de escritura son inyectados; no se llena el disco del usuario.
 `bash tests/data-recovery.sh` comprueba restauración, conservación exacta del
 archivo dañado, permisos privados, copia también dañada, fallo de restauración,
 archivo ausente y lectura de los datos recuperados.
+
+`bash tests/backup-restore.sh` comprueba exportación, exclusión de grabaciones y
+caché, restauración validada, respaldo previo automático y rechazo de una copia
+malformada.
 
 ## Límites y trabajo pendiente
 

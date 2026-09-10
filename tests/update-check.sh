@@ -65,6 +65,8 @@ make_release() {
         player-events.sh
         recording.sh
         diagnostics.sh
+        status-screen.sh
+        backup.sh
         input.sh
         ui.sh
         ui-responsive.sh

@@ -62,6 +62,10 @@ source "$BASE_DIR/lib/alarm.sh"
 source "$BASE_DIR/lib/preferences.sh"
 # shellcheck source=lib/recording-manager.sh
 source "$BASE_DIR/lib/recording-manager.sh"
+# shellcheck source=lib/status-screen.sh
+source "$BASE_DIR/lib/status-screen.sh"
+# shellcheck source=lib/backup.sh
+source "$BASE_DIR/lib/backup.sh"
 
 cleanup() {
     pending_cleanup >/dev/null 2>&1 || true
@@ -515,11 +519,16 @@ app_poll_player() {
 }
 
 app_handle_key() {
-    local key="$1"
+    local key="$1" status=0
     case "$key" in
         ',') app_preferences_menu settings; return 0 ;;
         '?') app_preferences_menu help; return 0 ;;
         ';') app_pending_menu; return 0 ;;
+        D)
+            app_status_screen || status=$?
+            ((status == 2)) && return 2
+            return 0
+            ;;
     esac
     preferences_translate_key "$key"
     key=$PREF_TRANSLATED
@@ -536,7 +545,7 @@ app_handle_key() {
         w|W) ui_move_selection -1 || true ;;
         s|S) ui_move_selection 1 || true ;;
         a|A) app_change_volume "$((-KEILA_VOLUME_STEP))" ;;
-        d|D) app_change_volume "$KEILA_VOLUME_STEP" ;;
+        d) app_change_volume "$KEILA_VOLUME_STEP" ;;
         p|P) app_toggle_pause || true ;;
         m|M) app_toggle_mute || true ;;
         l|L) app_edit_alarm || true ;;
@@ -635,9 +644,21 @@ main() {
             stations_catalog_status
             return 0
             ;;
+        --backup)
+            backup_create "${2:-}"
+            return $?
+            ;;
+        --restore)
+            if [[ -z "${2:-}" ]]; then
+                printf 'Uso: %s --restore archivo.tar.gz\n' "$0" >&2
+                return 2
+            fi
+            backup_restore "$2"
+            return $?
+            ;;
         --*)
             printf 'Opción desconocida: %s\n' "$1" >&2
-            printf 'Opciones: --version, --check, --check-update, --update, --catalog-status, --catalog-rebuild, --catalog-update\n' >&2
+            printf 'Opciones: --version, --check, --check-update, --update, --catalog-status, --catalog-rebuild, --catalog-update, --backup, --restore\n' >&2
             return 2
             ;;
     esac

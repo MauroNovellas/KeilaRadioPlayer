@@ -42,6 +42,11 @@ reservados para navegación, volumen y ordenación. Los editores y la búsqueda
 mantienen sus teclas locales, para poder escribir sin activar acciones.
 Los encabezados de la pantalla principal reflejan las letras asignadas.
 
+`D` mayúscula abre **Diagnóstico en vivo** sin detener la reproducción. Muestra
+versión, rama/commit si el árbol es Git, estado de `mpv`, emisora y título
+actual, volumen, catálogo, resultados precargados, grabaciones pendientes y
+rutas de configuración, estado, caché, favoritos, comentarios y grabaciones.
+
 `?` abre siempre la ayuda completa, también accesible con `H` de forma
 predeterminada. La ayuda se desplaza con las flechas y muestra los atajos
 actuales, presets, búsqueda, comentarios, grabaciones, ecualizador y alarma.
@@ -148,6 +153,18 @@ Para diagnosticar el catálogo de Radio Browser sin abrir la TUI:
 ./keila-radio --catalog-update   # descarga Radio Browser y regenera el índice
 ```
 
+Para mover tus datos personales entre equipos o teléfonos:
+
+```bash
+./keila-radio --backup [archivo.tar.gz]
+./keila-radio --restore archivo.tar.gz
+```
+
+La copia incluye configuración, favoritos, comentarios, preferencias, estado,
+historial y ecualizador. No incluye grabaciones ni caché de Radio Browser. Al
+restaurar se valida el archivo completo antes de tocar nada y se crea una copia
+previa automática en `~/.config/keila-radio/pre-restore-*.tar.gz`.
+
 Los datos personales se guardan fuera del repositorio:
 
 ```text
@@ -246,6 +263,7 @@ V                  mostrar/ocultar analizador de espectro
 X                  añadir/quitar la emisora en reproducción de Favoritas
 J / K              mover el favorito seleccionado abajo/arriba
 B                  abrir/editar la búsqueda integrada de emisoras
+D                  diagnóstico en vivo
 U                  actualizar el catálogo de Radio Browser
 H                  abrir/cerrar la ayuda completa
 Esc                cerrar la ayuda completa
