@@ -236,7 +236,11 @@ ui_desktop_row() {
                     right_badge='filtrando'
                     right_badge_style='muted'
                 else
-                    right_badge="${#SEARCH_MATCHES[@]} resultados"
+                    if ((SEARCH_COUNTRY_FILTER_ENABLED)); then
+                        right_badge="$KEILA_CATALOG_COUNTRY_FILTER · ${#SEARCH_MATCHES[@]} resultados"
+                    else
+                        right_badge="global · ${#SEARCH_MATCHES[@]} resultados"
+                    fi
                     right_badge_style='muted'
                 fi
             elif [[ -n "${SEARCH_QUERY:-}" ]]; then

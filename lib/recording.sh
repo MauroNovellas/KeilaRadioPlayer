@@ -12,6 +12,19 @@ RECORDING_LAST_VALID=0
 RECORDING_LAST_VERIFIED=0
 RECORDING_LAST_SIZE=0
 RECORDING_LAST_ERROR=""
+RECORDING_PHASE=idle
+RECORDING_CLOSE_ACK=0
+RECORDING_CHECK_AT=0
+
+recording_writer_closed() {
+    player_is_running || return 0
+    local fd
+    [[ -n "${PLAYER_PID:-}" && -d "/proc/$PLAYER_PID/fd" && -r "/proc/$PLAYER_PID/fd" ]] || return 1
+    for fd in /proc/"$PLAYER_PID"/fd/*; do
+        [[ "$fd" -ef "$RECORDING_FILE" ]] && return 1
+    done
+    return 0
+}
 
 recording_init() {
     RECORDINGS_DIR="$1"
@@ -191,9 +204,39 @@ recording_elapsed_display() {
     printf '%02d:%02d:%02d' "$hours" "$minutes" "$seconds"
 }
 
+recording_status_display() {
+    case "${RECORDING_PHASE:-idle}" in
+        preparing) printf 'Preparando grabación' ;;
+        closing) printf 'Cierre pendiente' ;;
+        *) printf 'Grabando %s' "$(recording_elapsed_display)" ;;
+    esac
+}
+
 # Devuelve 0 solo cuando el segundo visible del contador ha cambiado.
 recording_tick_changed() {
     ((RECORDING_ACTIVE)) || return 1
+
+    local now=${EPOCHSECONDS:-$(date +%s)}
+    if ((now != RECORDING_CHECK_AT)); then
+        RECORDING_CHECK_AT=$now
+        if [[ "$RECORDING_PHASE" == preparing && -s "$RECORDING_FILE" ]]; then
+            RECORDING_PHASE=recording
+            if declare -F app_message >/dev/null; then app_message "Grabando: $(recording_filename)" 5; fi
+            return 0
+        fi
+        if [[ "$RECORDING_PHASE" == closing ]]; then
+            local close_status=0
+            recording_stop || close_status=$?
+            if ((close_status != 2)); then
+                if declare -F app_message >/dev/null; then
+                    if ((close_status == 0)); then
+                        app_message "Grabación conservada: $(recording_filename) ($(recording_size_human))." 8
+                    else app_message "Grabación cerrada: $RECORDING_LAST_ERROR" 9; fi
+                fi
+                return 0
+            fi
+        fi
+    fi
 
     local elapsed
     elapsed=$(recording_elapsed_seconds)
@@ -344,12 +387,19 @@ recording_start() {
 
     file=$(recording_next_file "$station_name" "$extension") || return 1
     # Marcador persistente: un cierre abrupto no debe parecer una finalización.
-    (umask 077; set -o noclobber; : > "$file.pending") 2>/dev/null || return 1
-    payload=$(jq -cn --arg path "$file" '{command:["set_property","stream-record",$path]}') || return 1
+    (umask 077; set -o noclobber; printf '%s\n' "${PLAYER_PID:-}" > "$file.pending") 2>/dev/null || return 1
+    payload=$(jq -cn --arg path "$file" '{command:["set_property","stream-record",$path]}') || {
+        rm -f -- "$file" "$file.pending"
+        return 1
+    }
 
-    player_ipc "$payload" || return 1
+    if ! player_ipc "$payload"; then
+        rm -f -- "$file" "$file.pending"
+        return 1
+    fi
 
     RECORDING_ACTIVE=1
+    RECORDING_PHASE=preparing RECORDING_CLOSE_ACK=0 RECORDING_CHECK_AT=0
     RECORDING_FILE="$file"
     RECORDING_STARTED_EPOCH="${EPOCHSECONDS:-$(date +%s)}"
     RECORDING_LAST_DISPLAY_SECOND=0
@@ -366,16 +416,28 @@ recording_stop() {
     local ipc_failed=0
     local payload
 
-    if player_is_running; then
+    RECORDING_PHASE=closing
+    if player_is_running && ((RECORDING_CLOSE_ACK == 0)); then
         payload=$(jq -cn '{command:["set_property","stream-record",""]}') || ipc_failed=1
         if ((ipc_failed == 0)); then
             player_ipc "$payload" || ipc_failed=1
         fi
+        ((ipc_failed)) || RECORDING_CLOSE_ACK=1
+    fi
+
+    if ((ipc_failed)) || ! recording_writer_closed; then
+        RECORDING_LAST_ERROR='Cierre pendiente: esperando a que mpv libere el archivo.'
+        return 2
     fi
 
     RECORDING_ACTIVE=0
+    RECORDING_PHASE=idle
     RECORDING_STARTED_EPOCH=0
     RECORDING_LAST_DISPLAY_SECOND=-1
+
+    if [[ -f "$file.pending" && ! -L "$file.pending" ]]; then
+        printf 'closed\n' > "$file.pending" || true
+    fi
 
     if recording_verify_file "$file"; then
         if ((ipc_failed)); then
@@ -403,6 +465,7 @@ recording_finalize_after_player_exit() {
 
     local file="$RECORDING_FILE"
     RECORDING_ACTIVE=0
+    RECORDING_PHASE=idle
     RECORDING_STARTED_EPOCH=0
     RECORDING_LAST_DISPLAY_SECOND=-1
 
@@ -411,6 +474,7 @@ recording_finalize_after_player_exit() {
 
 recording_reset() {
     RECORDING_ACTIVE=0
+    RECORDING_PHASE=idle RECORDING_CLOSE_ACK=0
     RECORDING_STARTED_EPOCH=0
     RECORDING_LAST_DISPLAY_SECOND=-1
     RECORDING_LAST_VALID=0

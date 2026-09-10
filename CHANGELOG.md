@@ -4,6 +4,31 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - rama v2.1
 
+- Catálogo migrado de TDTChannels a Radio Browser: descubrimiento de servidor,
+  `User-Agent` descriptivo, descarga local diaria con `hidebroken=true`,
+  límite configurable de resultados, normalización de país/código/estado/tags/
+  formato y filtro rápido por país dentro de búsqueda con `P` (por defecto
+  `ES`, configurable).
+- Búsqueda optimizada para catálogos grandes: la actualización genera un TSV
+  local podado y normalizado, `B` carga solo resultados visibles, el filtro usa
+  `awk` sobre ese índice y los comentarios personales siguen siendo buscables.
+  Añadidos `--catalog-status`, `--catalog-rebuild` y `--catalog-update` para
+  diagnosticar o regenerar el catálogo sin abrir la TUI.
+- Si el índice local está fresco, la TUI precarga los primeros resultados al
+  arrancar sin tomar el foco; `B` queda como entrada inmediata para editar la
+  búsqueda.
+- Los locks de datos con PID vacío o inválido se recuperan automáticamente para
+  evitar bloqueos tras cierres bruscos o suspensiones.
+- Gestor de grabaciones pendientes con `;`: detección inicial y comprobación
+  asíncronas, nombre/fecha/tamaño, escucha sin alterar historial, finalización
+  de verificadas y eliminación confirmada a papelera recuperable `.trash`.
+  Excluye grabaciones en curso y rechaza acciones si cambia el archivo.
+- Grabación con estados visibles «Preparando grabación», «Grabando» y «Cierre
+  pendiente»; los fallos de arranque limpian la reserva vacía.
+- Metadatos HLS reforzados: cuando `mpv` conserva fijo el primer título, Keila
+  lanza un sondeo auxiliar con `ffprobe` en segundo plano para leer de nuevo el
+  stream sin reiniciar la emisora. Si tampoco aparece un título nuevo, se aplica
+  caducidad configurable para no mantener una canción antigua indefinidamente.
 - Copia privada `.bak` de favoritos, comentarios, estado y preferencias;
   recuperación al arrancar con preservación del original dañado y aviso.
   Sin respaldo válido se detiene el arranque sin reemplazar datos. Validación

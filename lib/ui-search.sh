@@ -20,6 +20,10 @@ ui_search_result_parts() {
         [[ -n "$UI_SEARCH_DETAIL" ]] && UI_SEARCH_DETAIL+=" $UI_SEP "
         UI_SEARCH_DETAIL+="${SEARCH_COUNTRIES[$source_index]}"
     fi
+    if [[ -n "${SEARCH_COUNTRYCODES[$source_index]:-}" ]]; then
+        [[ -n "$UI_SEARCH_DETAIL" ]] && UI_SEARCH_DETAIL+=" $UI_SEP "
+        UI_SEARCH_DETAIL+="${SEARCH_COUNTRYCODES[$source_index]}"
+    fi
 
     if declare -F favorites_find_url >/dev/null 2>&1 && \
         favorites_find_url "${SEARCH_URLS[$source_index]}" >/dev/null 2>&1; then
@@ -76,6 +80,18 @@ ui_search_desktop() {
                 left_badge="${SEARCH_QUERY}_"
                 left_style='accent'
                 left_badge_style='selected'
+                ;;
+            1)
+                left_text='Filtro país:'
+                if ((SEARCH_COUNTRY_FILTER_ENABLED)); then
+                    left_badge="$KEILA_CATALOG_COUNTRY_FILTER activo"
+                    left_style='accent'
+                    left_badge_style='selected'
+                else
+                    left_badge='global'
+                    left_style='muted'
+                    left_badge_style='muted'
+                fi
                 ;;
             2)
                 left_text='Escribe para filtrar'
@@ -141,7 +157,7 @@ ui_search_desktop() {
     done
 
     ui_desktop_join_rule "$width"
-    ui_box_line "$width" "Escribe  $UI_SEP  ↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  X favorito  $UI_SEP  Esc volver" muted
+    ui_box_line "$width" "Escribe  $UI_SEP  P país $KEILA_CATALOG_COUNTRY_FILTER  $UI_SEP  ↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  X favorito  $UI_SEP  Esc volver" muted
     if [[ -n "$UI_MESSAGE" ]]; then
         ui_box_line "$width" "$UI_MESSAGE"
     else
@@ -163,7 +179,9 @@ ui_search_single_column() {
     ui_box_rule "$width" "$UI_TL" "$UI_TR"
     ui_box_center_line "$width" "$title" title
     ui_box_rule "$width" "$UI_ML" "$UI_MR" '[B] BUSQUEDA EMISORAS' accent
-    ui_box_split_line "$width" 'Buscar:' "${SEARCH_QUERY}_" 0 accent selected
+    local country_filter='Global'
+    ((SEARCH_COUNTRY_FILTER_ENABLED)) && country_filter="País $KEILA_CATALOG_COUNTRY_FILTER"
+    ui_box_split_line "$width" 'Buscar:' "${SEARCH_QUERY}_  [$country_filter]" 0 accent selected
     ui_box_split_line "$width" "EMISORAS (${#SEARCH_MATCHES[@]})" "$(ui_labels_header "$((width - 4))")" 0 accent accent
 
     local row match_position source_index text badge selected style badge_style playing
@@ -208,7 +226,7 @@ ui_search_single_column() {
     if ((${LABEL_EDITOR_ACTIVE:-0})); then
         ui_box_line "$width" 'Enter guardar · Esc cancelar · Ctrl-U borrar' muted
     else
-        ui_box_line "$width" '↑↓ Enter  X favorito  C comentario  Esc volver' muted
+        ui_box_line "$width" '↑↓ Enter  P país  X favorito  C comentario  Esc volver' muted
     fi
     if [[ -n "$UI_MESSAGE" ]]; then
         ui_box_line "$width" "$UI_MESSAGE"
@@ -238,12 +256,14 @@ ui_draw_search() {
             ui_print_padded "$tiny_width" "Buscar: ${SEARCH_QUERY}_"
         fi
         printf '\n'
-        ui_print_padded "$tiny_width" "Resultados: ${#SEARCH_MATCHES[@]}"
+            local tiny_filter='Global'
+            ((SEARCH_COUNTRY_FILTER_ENABLED)) && tiny_filter="País $KEILA_CATALOG_COUNTRY_FILTER"
+            ui_print_padded "$tiny_width" "Resultados: ${#SEARCH_MATCHES[@]} · $tiny_filter"
         printf '\n\n'
         if ((${LABEL_EDITOR_ACTIVE:-0})); then
             ui_print_padded "$tiny_width" 'Enter guardar · Esc cancelar'
         else
-            ui_print_padded "$tiny_width" 'X favorito · C comentario · Esc volver'
+            ui_print_padded "$tiny_width" 'P país · X favorito · C comentario · Esc'
         fi
         printf '\n'
         tput ed 2>/dev/null || true

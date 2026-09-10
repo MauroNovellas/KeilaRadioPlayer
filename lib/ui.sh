@@ -568,6 +568,16 @@ ui_equalizer_summary() {
     printf '[Z] ECUALIZADOR %s' "$(equalizer_summary)"
 }
 
+ui_recording_status_display() {
+    if declare -F recording_status_display >/dev/null 2>&1; then
+        recording_status_display
+    elif declare -F recording_elapsed_display >/dev/null 2>&1; then
+        recording_elapsed_display
+    else
+        printf 'REC'
+    fi
+}
+
 ui_equalizer_mini_graph() {
     local mode="${1:-labels}" i gain height glyph
     local -a bars=('▁' '▁' '▂' '▃' '▄' '▅' '▆' '▇' '█')
@@ -1121,7 +1131,7 @@ ui_draw() {
         favorite_badge=''
     fi
 
-    if ((RECORDING_ACTIVE)); then recording_badge="[$UI_RECORD REC $(recording_elapsed_display)]"; else recording_badge=''; fi
+    if ((RECORDING_ACTIVE)); then recording_badge="[$UI_RECORD $(ui_recording_status_display)]"; else recording_badge=''; fi
     state_badge=''
     if player_is_running && ((PLAYER_PAUSED)); then
         state_badge='[PAUSA]'

@@ -109,6 +109,7 @@ app_preferences_menu() {
         if [[ "$mode" == help ]]; then
             rows+=(
                 ', Configuración · ? Ayuda completa'
+                '; Grabaciones: revisar/escuchar'
                 '↑↓ seleccionar · ←→ volumen'
                 'Enter: reproducir selección'
                 '1–9/0: diez primeras de la sección'

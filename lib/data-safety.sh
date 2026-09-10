@@ -51,7 +51,7 @@ data_validate() {
 # por rename: nunca truncar el respaldo que podría necesitar otra sesión.
 data_copy_atomic() {
     local source=$1 destination=$2 tmp status=0
-    tmp=$(mktemp "$destination.tmp.XXXXXX") || return 1
+    tmp=$(mktemp "$destination.tmp.${BASHPID:-$$}.XXXXXX") || return 1
     cp -- "$source" "$tmp" && chmod 600 "$tmp" && mv -f -- "$tmp" "$destination" || status=1
     if ((status)); then rm -f -- "$tmp"; fi
     return "$status"

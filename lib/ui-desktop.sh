@@ -242,7 +242,7 @@ ui_draw_desktop() {
     fi
 
     if ((RECORDING_ACTIVE)); then
-        recording_badge="[$UI_RECORD REC $(recording_elapsed_display)]"
+        recording_badge="[$UI_RECORD $(ui_recording_status_display)]"
     else
         recording_badge=''
     fi

@@ -125,7 +125,7 @@ ui_responsive_badges() {
 
     case "$UI_LAYOUT_MODE" in
         compact)
-            [[ -n "$UI_RESP_RECORDING" ]] && UI_RESP_RECORDING="[$UI_RECORD $(recording_elapsed_display)]"
+            [[ -n "$UI_RESP_RECORDING" ]] && UI_RESP_RECORDING="[$UI_RECORD $(ui_recording_status_display)]"
             [[ -n "$UI_RESP_FAVORITE" ]] && UI_RESP_FAVORITE="[$UI_FAVORITE]"
             ;;
         minimal)
@@ -265,7 +265,7 @@ ui_draw() {
     fi
 
     if ((RECORDING_ACTIVE)); then
-        recording_badge="[$UI_RECORD REC $(recording_elapsed_display)]"
+        recording_badge="[$UI_RECORD $(ui_recording_status_display)]"
     else
         recording_badge=''
     fi

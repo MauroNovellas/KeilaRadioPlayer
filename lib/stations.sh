@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Catálogo de emisoras de TDTChannels: caché, validación y búsqueda.
+# Catálogo de emisoras de Radio Browser: caché, validación y búsqueda.
 
 stations_require_catalog_dependencies() {
     local missing=0 dep
@@ -29,13 +29,36 @@ stations_require_search_dependencies() {
 }
 
 stations_catalog_valid() {
+    stations_tsv_valid && return 0
+    stations_json_valid
+}
+
+stations_json_valid() {
     [[ -s "$KEILA_STATIONS_JSON" ]] || return 1
-    jq -e '(.countries | type == "array") and (.countries | length > 0)' \
+    jq -e 'type == "array" and any(.[]; (.name? // "") != "" and (.url_resolved? // .url? // "") != "")' \
         "$KEILA_STATIONS_JSON" >/dev/null 2>&1
 }
 
+stations_tsv_valid() {
+    [[ -s "$KEILA_STATIONS_TSV" ]] || return 1
+    awk -F '\t' 'NF >= 5 && $1 != "" && $5 != "" { found=1; exit } END { exit !found }' \
+        "$KEILA_STATIONS_TSV" >/dev/null 2>&1
+}
+
 stations_catalog_is_fresh() {
-    stations_catalog_valid || return 1
+    stations_tsv_valid || return 1
+
+    local modified now age
+    modified=$(stat -c %Y "$KEILA_STATIONS_TSV" 2>/dev/null || printf '0')
+    [[ "$modified" =~ ^[0-9]+$ ]] || return 1
+
+    now=$(date +%s)
+    age=$((now - modified))
+    ((age >= 0 && age < KEILA_CATALOG_MAX_AGE))
+}
+
+stations_json_is_fresh() {
+    stations_json_valid || return 1
 
     local modified now age
     modified=$(stat -c %Y "$KEILA_STATIONS_JSON" 2>/dev/null || printf '0')
@@ -46,41 +69,131 @@ stations_catalog_is_fresh() {
     ((age >= 0 && age < KEILA_CATALOG_MAX_AGE))
 }
 
+stations_build_tsv() {
+    local json_file="$1"
+    local tsv_file="$2"
+
+    jq -r '
+        def clean:
+            tostring | gsub("[\\t\\r\\n]"; " ") | gsub("  +"; " ") | sub("^ +"; "") | sub(" +$"; "");
+        .[]? |
+        (.url_resolved // .url // "") as $url |
+        select(($url | type == "string") and ($url | length > 0)) |
+        ((.name // "Sin nombre") | clean) as $name |
+        (((.state // "") as $state | (.tags // "") as $tags |
+            if ($state | length) > 0 then $state else $tags end) | clean) as $ambit |
+        ((.country // .countrycode // "") | clean) as $country |
+        (((.codec // "") + (if (.bitrate? // 0) > 0 then " " + ((.bitrate | tostring) + "k") else "" end)) | clean) as $format |
+        ($url | clean) as $stream_url |
+        ((.countrycode // "") | ascii_upcase | clean) as $countrycode |
+        (($name + " " + $ambit + " " + $country + " " + $format + " " + $countrycode) | ascii_downcase | clean) as $index |
+        [
+            $name,
+            $ambit,
+            $country,
+            $format,
+            $stream_url,
+            $countrycode,
+            $index
+        ] | @tsv
+    ' "$json_file" > "$tsv_file"
+}
+
+stations_rebuild_tsv() {
+    stations_json_valid || return 1
+    local tmp="${KEILA_STATIONS_TSV}.tmp.${BASHPID:-$$}"
+    rm -f "$tmp"
+    stations_build_tsv "$KEILA_STATIONS_JSON" "$tmp" || {
+        rm -f "$tmp"
+        return 1
+    }
+    stations_tsv_valid_file "$tmp" || {
+        rm -f "$tmp"
+        return 1
+    }
+    mv -f "$tmp" "$KEILA_STATIONS_TSV"
+    chmod 600 "$KEILA_STATIONS_TSV" 2>/dev/null || true
+}
+
+stations_tsv_valid_file() {
+    local file="$1"
+    [[ -s "$file" ]] || return 1
+    awk -F '\t' 'NF >= 5 && $1 != "" && $5 != "" { found=1; exit } END { exit !found }' \
+        "$file" >/dev/null 2>&1
+}
+
 stations_update_catalog() {
     stations_require_catalog_dependencies || return 1
     keila_init_paths
 
     local tmp="${KEILA_STATIONS_JSON}.tmp.${BASHPID:-$$}"
+    local tsv_tmp="${KEILA_STATIONS_TSV}.tmp.${BASHPID:-$$}"
+    local servers_tmp="${KEILA_STATIONS_JSON}.servers.${BASHPID:-$$}"
+    local -a api_roots=()
+    local api_root=''
     rm -f "$tmp"
 
-    printf 'Actualizando catálogo de TDTChannels...\n'
+    printf 'Actualizando catálogo de Radio Browser...\n'
 
-    curl \
+    if curl \
         --fail \
         --location \
         --silent \
         --show-error \
         --connect-timeout 8 \
-        --max-time 30 \
+        --max-time 15 \
         --retry 1 \
-        "$KEILA_TDTCHANNELS_RADIO_URL" \
-        --output "$tmp" &
-    local download_pid=$!
-    if ! wait "$download_pid"; then
+        --user-agent "$KEILA_RADIO_BROWSER_USER_AGENT" \
+        "$KEILA_RADIO_BROWSER_SERVER_DISCOVERY_URL" \
+        --output "$servers_tmp"; then
+        mapfile -t api_roots < <(jq -r '.[].name? // empty' "$servers_tmp" 2>/dev/null | awk 'NF { print "https://" $0 }')
+    fi
+    rm -f "$servers_tmp"
+
+    api_roots+=("$KEILA_RADIO_BROWSER_FALLBACK_URL")
+    local download_ok=1 download_pid
+    for api_root in "${api_roots[@]}"; do
+        [[ -n "$api_root" ]] || continue
+        curl \
+            --fail \
+            --location \
+            --silent \
+            --show-error \
+            --connect-timeout 8 \
+            --max-time 45 \
+            --retry 1 \
+            --user-agent "$KEILA_RADIO_BROWSER_USER_AGENT" \
+            "$api_root/json/stations/search?hidebroken=true&order=clickcount&reverse=true&limit=$KEILA_CATALOG_LIMIT" \
+            --output "$tmp" &
+        download_pid=$!
+        if wait "$download_pid"; then
+            download_ok=0
+            break
+        fi
+    done
+
+    if ((download_ok != 0)); then
         rm -f "$tmp"
         printf 'No se pudo descargar el catálogo.\n' >&2
         return 1
     fi
 
-    if ! jq -e '(.countries | type == "array") and (.countries | length > 0)' \
+    if ! jq -e 'type == "array" and any(.[]; (.name? // "") != "" and (.url_resolved? // .url? // "") != "")' \
         "$tmp" >/dev/null 2>&1; then
         rm -f "$tmp"
         printf 'El catálogo descargado no tiene el formato esperado.\n' >&2
         return 1
     fi
+    if ! stations_build_tsv "$tmp" "$tsv_tmp" || ! stations_tsv_valid_file "$tsv_tmp"; then
+        rm -f "$tmp" "$tsv_tmp"
+        printf 'No se pudo preparar el índice local de emisoras.\n' >&2
+        return 1
+    fi
 
     mv -f "$tmp" "$KEILA_STATIONS_JSON"
+    mv -f "$tsv_tmp" "$KEILA_STATIONS_TSV"
     chmod 600 "$KEILA_STATIONS_JSON" 2>/dev/null || true
+    chmod 600 "$KEILA_STATIONS_TSV" 2>/dev/null || true
 
     printf 'Catálogo actualizado: %s emisoras disponibles.\n' "$(stations_count)"
 }
@@ -104,26 +217,38 @@ stations_ensure_catalog() {
 }
 
 stations_emit_tsv() {
-    jq -r '
-        .countries[]? as $country |
-        $country.ambits[]? as $ambit |
-        $ambit.channels[]? as $channel |
-        (($channel.options // [])
-            | map(select(.url? and (.url | type == "string") and (.url | length > 0)))
-            | .[0]) as $option |
-        select($option != null) |
-        [
-            (($channel.name // "Sin nombre") | gsub("[\\t\\r\\n]"; " ")),
-            (($ambit.name // "") | gsub("[\\t\\r\\n]"; " ")),
-            (($country.name // "") | gsub("[\\t\\r\\n]"; " ")),
-            (($option.format // "") | gsub("[\\t\\r\\n]"; " ")),
-            ($option.url | gsub("[\\t\\r\\n]"; " "))
-        ] | @tsv
-    ' "$KEILA_STATIONS_JSON"
+    if stations_tsv_valid; then
+        cat "$KEILA_STATIONS_TSV"
+        return 0
+    fi
+    stations_build_tsv "$KEILA_STATIONS_JSON" /dev/stdout
 }
 
 stations_count() {
     stations_emit_tsv | awk 'END { print NR + 0 }'
+}
+
+stations_catalog_status() {
+    keila_init_paths
+
+    local json_status='no' tsv_status='no' json_size='0' tsv_size='0' count='0'
+    stations_json_valid && json_status='sí'
+    stations_tsv_valid && tsv_status='sí'
+    [[ -e "$KEILA_STATIONS_JSON" ]] && json_size=$(wc -c < "$KEILA_STATIONS_JSON" 2>/dev/null || printf '0')
+    [[ -e "$KEILA_STATIONS_TSV" ]] && tsv_size=$(wc -c < "$KEILA_STATIONS_TSV" 2>/dev/null || printf '0')
+    if stations_tsv_valid; then count=$(stations_count); fi
+
+    printf 'Catálogo Radio Browser\n'
+    printf 'JSON válido: %s · %s bytes · %s\n' "$json_status" "$json_size" "$KEILA_STATIONS_JSON"
+    printf 'Índice válido: %s · %s bytes · %s\n' "$tsv_status" "$tsv_size" "$KEILA_STATIONS_TSV"
+    printf 'Emisoras indexadas: %s\n' "$count"
+    if stations_catalog_is_fresh; then
+        printf 'Estado: fresco\n'
+    elif stations_catalog_valid; then
+        printf 'Estado: disponible, pendiente de actualizar\n'
+    else
+        printf 'Estado: sin catálogo válido\n'
+    fi
 }
 
 stations_select_fzf() {
@@ -135,21 +260,23 @@ stations_select_fzf() {
         stations_emit_tsv |
             fzf \
                 --delimiter=$'\t' \
-                --with-nth=1,2,3,4 \
+                --with-nth=1,2,3,4,6 \
                 --prompt='Buscar emisora > ' \
-                --header='Nombre | Ámbito | País | Formato' \
+                --header='Nombre | Ámbito/Tags | País | Formato | Código' \
                 --layout=reverse \
                 --border
     ) || return $?
 
     [[ -n "$selection" ]] || return 1
 
-    IFS=$'\t' read -r \
+    local record="${selection//$'\t'/$'\x1f'}"
+    IFS=$'\x1f' read -r \
         SELECTED_NAME \
         SELECTED_AMBIT \
         SELECTED_COUNTRY \
         SELECTED_FORMAT \
-        SELECTED_URL <<< "$selection"
+        SELECTED_URL \
+        SELECTED_COUNTRYCODE <<< "$record"
 
     [[ -n "${SELECTED_NAME:-}" && -n "${SELECTED_URL:-}" ]]
 }

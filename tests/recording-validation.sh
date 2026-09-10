@@ -74,10 +74,25 @@ player_ipc() { return 0; }
 recording_probe_file() { return 0; }
 : > "$good.pending"
 RECORDING_ACTIVE=1 RECORDING_FILE="$good"
+PLAYER_PID=$$ RECORDING_CLOSE_ACK=0
 recording_stop || fail 'cierre confirmado'
 [[ ! -e "$good.pending" ]] || fail 'marcador tras cierre correcto'
 : > "$good.pending"
 player_ipc() { return 1; }
 RECORDING_ACTIVE=1
-recording_stop || fail 'no conserva archivo con datos'
+RECORDING_CLOSE_ACK=0
+status=0
+recording_stop || status=$?
+[[ $status == 2 && $RECORDING_PHASE == closing && $RECORDING_ACTIVE == 1 ]] || fail 'cierre incierto no queda pendiente'
 [[ -e "$good.pending" && -s "$good" && -n "$RECORDING_LAST_ERROR" ]] || fail 'cierre incierto sin marcador'
+player_ipc() { return 0; }
+exec {writer_fd}>> "$good"
+status=0
+recording_stop || status=$?
+[[ $status == 2 && $RECORDING_ACTIVE == 1 ]] || fail 'archivo abierto se declara cerrado'
+exec {writer_fd}>&-
+recording_stop || fail 'no finaliza al liberar descriptor'
+[[ $RECORDING_PHASE == idle && ! -e "$good.pending" ]] || fail 'cierre final incorrecto'
+RECORDING_FILE="$good" RECORDING_ACTIVE=1 RECORDING_PHASE=preparing RECORDING_CHECK_AT=0
+recording_tick_changed || fail 'no detecta datos'
+[[ $RECORDING_PHASE == recording ]] || fail 'no pasa a grabando'

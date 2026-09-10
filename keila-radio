@@ -60,8 +60,11 @@ source "$BASE_DIR/lib/equalizer-editor.sh"
 source "$BASE_DIR/lib/alarm.sh"
 # shellcheck source=lib/preferences.sh
 source "$BASE_DIR/lib/preferences.sh"
+# shellcheck source=lib/recording-manager.sh
+source "$BASE_DIR/lib/recording-manager.sh"
 
 cleanup() {
+    pending_cleanup >/dev/null 2>&1 || true
     spectrum_stop >/dev/null 2>&1 || true
     catalog_stop >/dev/null 2>&1 || true
     recording_stop >/dev/null 2>&1 || true
@@ -267,7 +270,9 @@ app_toggle_recording() {
     if ((RECORDING_ACTIVE)); then
         local saved_file
         saved_file=$(recording_filename)
-        if recording_stop; then
+        local stop_status=0
+        recording_stop || stop_status=$?
+        if ((stop_status == 0)); then
             local saved_size
             saved_size=$(recording_size_human)
             if [[ -n "${RECORDING_LAST_ERROR:-}" ]]; then
@@ -277,11 +282,15 @@ app_toggle_recording() {
             fi
             return 0
         fi
-        app_message "Grabación no válida: ${RECORDING_LAST_ERROR:-error desconocido}" 9
+        if ((stop_status == 2)); then
+            app_message "${RECORDING_LAST_ERROR:-Cierre pendiente: esperando a mpv.}" 8
+        else
+            app_message "${RECORDING_LAST_ERROR:-No se pudo finalizar la grabación.}" 9
+        fi
         return 1
     fi
     if ! player_is_running; then app_message "No hay ninguna emisora en reproducción para grabar." 6; return 1; fi
-    if recording_start "$PLAYER_NAME"; then app_message "Grabando: $(recording_filename)" 4; return 0; fi
+    if recording_start "$PLAYER_NAME"; then app_message "Preparando grabación: $(recording_filename)" 8; return 0; fi
     app_message "No se pudo iniciar la grabación." 7
     return 1
 }
@@ -444,7 +453,7 @@ app_search_catalog() {
 
 app_update_catalog() {
     catalog_start force || { app_message 'No se pudo iniciar la actualización.' 5; return 1; }
-    app_message 'Actualizando emisoras…' 3
+    app_message 'Actualizando catálogo de Radio Browser…' 4
 }
 
 app_poll_player() {
@@ -510,6 +519,7 @@ app_handle_key() {
     case "$key" in
         ',') app_preferences_menu settings; return 0 ;;
         '?') app_preferences_menu help; return 0 ;;
+        ';') app_pending_menu; return 0 ;;
     esac
     preferences_translate_key "$key"
     key=$PREF_TRANSLATED
@@ -552,6 +562,7 @@ app_loop() {
     input_init
     ui_enter
     catalog_start || true
+    pending_scan_start || true
     ui_draw
     while true; do
         if ! input_read; then return 0; fi
@@ -567,7 +578,7 @@ app_loop() {
         esac
 
         case "$INPUT_EVENT" in
-            TICK) catalog_poll && redraw=1; app_poll_player && redraw=1; ui_message_tick && redraw=1 ;;
+            TICK) catalog_poll && redraw=1; app_poll_player && redraw=1; ui_message_tick && redraw=1; pending_scan_poll && redraw=1 ;;
             RESIZE) redraw=1 ;;
             ESC) if ((UI_HELP_VISIBLE)); then ui_toggle_help; redraw=1; fi ;;
             UP) ui_move_selection -1 || true; redraw=1 ;;
@@ -607,9 +618,26 @@ main() {
             update_install "$BASE_DIR"
             return $?
             ;;
+        --catalog-status)
+            app_init_data || return 1
+            stations_catalog_status
+            return $?
+            ;;
+        --catalog-rebuild)
+            app_init_data || return 1
+            stations_rebuild_tsv || return 1
+            stations_catalog_status
+            return 0
+            ;;
+        --catalog-update)
+            app_init_data || return 1
+            stations_update_catalog || return 1
+            stations_catalog_status
+            return 0
+            ;;
         --*)
             printf 'Opción desconocida: %s\n' "$1" >&2
-            printf 'Opciones: --version, --check, --check-update, --update\n' >&2
+            printf 'Opciones: --version, --check, --check-update, --update, --catalog-status, --catalog-rebuild, --catalog-update\n' >&2
             return 2
             ;;
     esac
@@ -629,7 +657,7 @@ main() {
     elif [[ -n "$STATE_LAST_NAME" ]]; then
         app_message "Última emisora: $STATE_LAST_NAME" 7
     else
-        app_message "W/S o flechas para elegir un favorito; B busca en TDTChannels." 8
+        app_message "W/S o flechas para elegir un favorito; B busca en Radio Browser." 8
     fi
     if [[ -n "${DATA_RECOVERY_NOTICE:-}" ]]; then app_message "$DATA_RECOVERY_NOTICE" 20; fi
     app_loop

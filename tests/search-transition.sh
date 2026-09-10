@@ -86,6 +86,8 @@ KEILA_FZF_SEARCH=0
 # shellcheck disable=SC2317
 stations_catalog_valid() { return 0; }
 # shellcheck disable=SC2317
+stations_tsv_valid() { return 0; }
+# shellcheck disable=SC2317
 search_open() { SEARCH_ACTIVE=1; return 0; }
 # shellcheck disable=SC2317
 favorites_confirm_clear() { return 0; }
@@ -127,5 +129,30 @@ stations_select_fzf || selector_status=$?
 assert_eq 1 "$selector_status" 'EOF simulado cierra el buscador integrado'
 assert_eq 1 "$DRAW_CALLS" 'el buscador pinta una vez al entrar'
 assert_eq 0 "$RESUME_CALLS" 'el selector integrado no ejecuta ui_resume'
+
+# Si ya existe la copia JSON pero falta el índice rápido TSV, B debe reconstruir
+# el índice en el momento y entrar al buscador, sin obligar al usuario a pulsar U.
+eval "$INTEGRATED_SELECTOR_DEF"
+KEILA_FZF_SEARCH=0
+TSV_READY=0
+REBUILD_CALLS=0
+OPEN_CALLS=0
+DRAW_CALLS=0
+CATALOG_PID=''
+CATALOG_STATUS=''
+catalog_start() { fail 'B no debe lanzar actualización si puede reconstruir TSV desde JSON'; }
+stations_tsv_valid() { if ((TSV_READY)); then return 0; fi; return 1; }
+stations_json_valid() { return 0; }
+stations_catalog_valid() { return 0; }
+stations_rebuild_tsv() { ((REBUILD_CALLS += 1)); TSV_READY=1; return 0; }
+search_open() { ((OPEN_CALLS += 1)); SEARCH_ACTIVE=1; return 0; }
+search_draw_view() { ((DRAW_CALLS += 1)); return 0; }
+input_read() { return 1; }
+selector_status=0
+stations_select_fzf || selector_status=$?
+assert_eq 1 "$selector_status" 'EOF simulado cierra el buscador tras reconstruir'
+assert_eq 1 "$REBUILD_CALLS" 'B no reconstruyó el TSV desde JSON'
+assert_eq 1 "$OPEN_CALLS" 'B no abrió la búsqueda tras reconstruir TSV'
+assert_eq 1 "$DRAW_CALLS" 'B no pintó la búsqueda tras reconstruir TSV'
 
 printf 'ok   búsqueda integrada: transición sin suspend/resume ni borrado completo\n'

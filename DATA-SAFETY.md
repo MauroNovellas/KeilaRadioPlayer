@@ -65,8 +65,11 @@ archivo ausente y lectura de los datos recuperados.
   explícita de archivos y directorios a almacenamiento físico.
 - La copia anterior y la recuperación cubren únicamente los cuatro archivos
   indicados y sus errores estructurales detectables, no cualquier corrupción.
-- Un marcador pendiente no certifica daño ni recuperabilidad; falta una interfaz
-  de revisión/recuperación de grabaciones interrumpidas al arrancar.
+- Un marcador pendiente no certifica daño ni recuperabilidad. El gestor (`;`)
+  comprueba un fragmento de audio, no la integridad completa de toda la grabación.
+  Su eliminación mueve audio y marcador a `.trash` con confirmación. Los dos
+  movimientos no son una transacción: si falla el segundo, el audio ya movido
+  se conserva y se comunica el error. No hay vaciado automático de la papelera.
 - La reserva evita carreras entre instancias cooperantes de Keila, no ataques
   de otro proceso que pueda borrar o reemplazar archivos del mismo usuario.
 - Suspensión y cierre de Android, almacenamiento compartido y apagado físico

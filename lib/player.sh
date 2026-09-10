@@ -14,6 +14,14 @@ PLAYER_IPC_REQUEST_ID=1000
 
 # Información real del stream obtenida desde mpv por JSON IPC.
 PLAYER_STREAM_TITLE=""
+PLAYER_STREAM_TITLE_LAST_SEEN=""
+PLAYER_STREAM_TITLE_UPDATED_AT=0
+PLAYER_STREAM_TITLE_MAX_AGE="${KEILA_TITLE_MAX_AGE:-300}"
+PLAYER_STREAM_TITLE_PROBE_INTERVAL="${KEILA_TITLE_PROBE_INTERVAL:-20}"
+PLAYER_STREAM_TITLE_PROBE_PID=""
+PLAYER_STREAM_TITLE_PROBE_DIR=""
+PLAYER_STREAM_TITLE_PROBE_LAST_AT=0
+PLAYER_STREAM_TITLE_PROBE_VALUE=""
 PLAYER_CODEC=""
 PLAYER_BITRATE_KBPS=""
 PLAYER_SAMPLE_RATE=""
@@ -44,6 +52,107 @@ fi
 # ya no compiten por /tmp o por el mismo socket dentro de XDG_RUNTIME_DIR.
 PLAYER_INSTANCE_ID="${KEILA_INSTANCE_ID:-${UID:-$(id -u)}-$$}"
 PLAYER_SOCKET="$PLAYER_RUNTIME_DIR/mpv-${PLAYER_INSTANCE_ID}.sock"
+
+player_now() {
+    printf '%s\n' "${KEILA_PLAYER_NOW:-${EPOCHSECONDS:-$(date +%s)}}"
+}
+
+player_title_probe_cleanup() {
+    local pid="${PLAYER_STREAM_TITLE_PROBE_PID:-}"
+
+    if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+        kill "$pid" 2>/dev/null || true
+        wait "$pid" 2>/dev/null || true
+    fi
+    if [[ -n "${PLAYER_STREAM_TITLE_PROBE_DIR:-}" &&
+          "$PLAYER_STREAM_TITLE_PROBE_DIR" == "${TMPDIR:-/tmp}"/keila-title-probe.* ]]; then
+        rm -rf "$PLAYER_STREAM_TITLE_PROBE_DIR"
+    fi
+    PLAYER_STREAM_TITLE_PROBE_PID=""
+    PLAYER_STREAM_TITLE_PROBE_DIR=""
+}
+
+player_title_probe_extract() {
+    jq -r '
+        def clean:
+            (if . == null then "" elif type == "string" then . else tostring end)
+            | gsub("[\r\n\t]+"; " ")
+            | gsub("^ +| +$"; "");
+        [
+            .format.tags["icy-title"]?,
+            .format.tags["StreamTitle"]?,
+            .format.tags["streamtitle"]?,
+            .format.tags["now-playing"]?,
+            .format.tags["now_playing"]?,
+            .format.tags.title?,
+            (.streams[]?.tags["icy-title"]?),
+            (.streams[]?.tags["StreamTitle"]?),
+            (.streams[]?.tags["streamtitle"]?),
+            (.streams[]?.tags["now-playing"]?),
+            (.streams[]?.tags["now_playing"]?),
+            (.streams[]?.tags.title?)
+        ]
+        | map(clean | select(length > 0))
+        | .[0] // ""
+    '
+}
+
+player_title_probe_should_run() {
+    [[ "${PLAYER_URL:-}" == http://* || "${PLAYER_URL:-}" == https://* ]] || return 1
+    [[ "${PLAYER_URL,,}" == *.m3u8* ]] || return 1
+    command -v ffprobe >/dev/null 2>&1 || return 1
+    command -v timeout >/dev/null 2>&1 || return 1
+    command -v jq >/dev/null 2>&1 || return 1
+}
+
+player_title_probe_poll() {
+    local pid="${PLAYER_STREAM_TITLE_PROBE_PID:-}" dir="${PLAYER_STREAM_TITLE_PROBE_DIR:-}" value_file value=''
+
+    [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+    if kill -0 "$pid" 2>/dev/null; then
+        return 1
+    fi
+    wait "$pid" 2>/dev/null || true
+    PLAYER_STREAM_TITLE_PROBE_PID=""
+
+    value_file="$dir/title"
+    if [[ -r "$value_file" ]]; then
+        IFS= read -r value < "$value_file" || value=''
+    fi
+    player_title_probe_cleanup >/dev/null 2>&1 || true
+
+    case "$value" in
+        ""|"${PLAYER_NAME:-}"|"${PLAYER_URL:-}"|http://*|https://*)
+            return 1
+            ;;
+    esac
+
+    PLAYER_STREAM_TITLE_PROBE_VALUE="$value"
+    return 0
+}
+
+player_title_probe_start() {
+    local now="$1" dir url
+
+    player_title_probe_should_run || return 1
+    [[ -z "${PLAYER_STREAM_TITLE_PROBE_PID:-}" ]] || return 1
+    [[ "$PLAYER_STREAM_TITLE_PROBE_INTERVAL" =~ ^[0-9]+$ ]] || PLAYER_STREAM_TITLE_PROBE_INTERVAL=20
+    ((PLAYER_STREAM_TITLE_PROBE_INTERVAL < 10)) && PLAYER_STREAM_TITLE_PROBE_INTERVAL=10
+    if ((PLAYER_STREAM_TITLE_PROBE_LAST_AT > 0 && now - PLAYER_STREAM_TITLE_PROBE_LAST_AT < PLAYER_STREAM_TITLE_PROBE_INTERVAL)); then
+        return 1
+    fi
+
+    dir=$(mktemp -d "${TMPDIR:-/tmp}/keila-title-probe.XXXXXX") || return 1
+    url="$PLAYER_URL"
+    PLAYER_STREAM_TITLE_PROBE_DIR="$dir"
+    PLAYER_STREAM_TITLE_PROBE_LAST_AT=$now
+
+    (
+        timeout 8 ffprobe -v quiet -show_entries format_tags:stream_tags -of json "$url" 2>/dev/null |
+            player_title_probe_extract > "$dir/title" 2>/dev/null || :
+    ) &
+    PLAYER_STREAM_TITLE_PROBE_PID=$!
+}
 
 player_require_dependencies() {
     local missing=0
@@ -148,6 +257,10 @@ player_ipc() {
 
 player_reset_info() {
     PLAYER_STREAM_TITLE=""
+    PLAYER_STREAM_TITLE_LAST_SEEN=""
+    PLAYER_STREAM_TITLE_UPDATED_AT=0
+    PLAYER_STREAM_TITLE_PROBE_VALUE=""
+    player_title_probe_cleanup >/dev/null 2>&1 || true
     PLAYER_CODEC=""
     PLAYER_BITRATE_KBPS=""
     PLAYER_SAMPLE_RATE=""
@@ -226,7 +339,8 @@ player_query_snapshot() {
 player_refresh_info() {
     player_is_running || return 1
 
-    local now="${EPOCHSECONDS:-$(date +%s)}"
+    local now
+    now=$(player_now)
     [[ "$PLAYER_INFO_INTERVAL" =~ ^[0-9]+$ ]] || PLAYER_INFO_INTERVAL=1
     ((PLAYER_INFO_INTERVAL < 1)) && PLAYER_INFO_INTERVAL=1
 
@@ -302,6 +416,11 @@ player_refresh_info() {
     local new_ready=$PLAYER_STREAM_READY
     local new_position=""
 
+    if player_title_probe_poll; then
+        new_title="$PLAYER_STREAM_TITLE_PROBE_VALUE"
+    fi
+    player_title_probe_start "$now" >/dev/null 2>&1 || true
+
     if [[ "$new_audio_pts" =~ ^-?[0-9]+([.][0-9]+)?$ ]]; then
         new_position="$new_audio_pts"
     elif [[ "$new_playback_time" =~ ^-?[0-9]+([.][0-9]+)?$ ]]; then
@@ -332,6 +451,18 @@ player_refresh_info() {
             new_title=""
             ;;
     esac
+
+    # Algunas radios entregan el primer título, pero no propagan los cambios
+    # ID3 posteriores. No mantener una canción antigua indefinidamente.
+    [[ "$PLAYER_STREAM_TITLE_MAX_AGE" =~ ^[0-9]+$ ]] || PLAYER_STREAM_TITLE_MAX_AGE=300
+    if [[ -n "$new_title" ]]; then
+        if [[ "$new_title" != "$PLAYER_STREAM_TITLE_LAST_SEEN" ]]; then
+            PLAYER_STREAM_TITLE_LAST_SEEN="$new_title"
+            PLAYER_STREAM_TITLE_UPDATED_AT=$now
+        elif ((PLAYER_STREAM_TITLE_UPDATED_AT > 0 && now - PLAYER_STREAM_TITLE_UPDATED_AT >= PLAYER_STREAM_TITLE_MAX_AGE)); then
+            new_title=''
+        fi
+    fi
 
     local old_state
     old_state="$PLAYER_STREAM_TITLE|$PLAYER_CODEC|$PLAYER_BITRATE_KBPS|$PLAYER_SAMPLE_RATE|$PLAYER_CHANNELS|$PLAYER_BUFFERING|$PLAYER_STREAM_READY"

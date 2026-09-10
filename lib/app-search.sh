@@ -19,21 +19,23 @@ stations_select_fzf_external() {
         stations_emit_tsv |
             fzf \
                 --delimiter=$'\t' \
-                --with-nth=1,2,3,4 \
+                --with-nth=1,2,3,4,6 \
                 --prompt='Buscar emisora > ' \
-                --header='Nombre | Ámbito | País | Formato' \
+                --header='Nombre | Ámbito/Tags | País | Formato | Código' \
                 --layout=reverse \
                 --border
     ) || return $?
 
     [[ -n "$selection" ]] || return 1
 
-    IFS=$'\t' read -r \
+    local record="${selection//$'\t'/$'\x1f'}"
+    IFS=$'\x1f' read -r \
         SELECTED_NAME \
         SELECTED_AMBIT \
         SELECTED_COUNTRY \
         SELECTED_FORMAT \
-        SELECTED_URL <<< "$selection"
+        SELECTED_URL \
+        SELECTED_COUNTRYCODE <<< "$record"
 
     [[ -n "${SELECTED_NAME:-}" && -n "${SELECTED_URL:-}" ]]
 }
@@ -149,6 +151,30 @@ stations_select_fzf() {
     # 0,0 y repinta sin borrar toda la terminal, evitando el destello al pulsar B.
     # Si aún no existe catálogo, la preparación se hace silenciosamente antes
     # del primer render del buscador.
+    if declare -F stations_tsv_valid >/dev/null 2>&1 && ! stations_tsv_valid; then
+        if [[ -n "${CATALOG_PID:-}" ]]; then
+            app_message "${CATALOG_STATUS:-Preparando índice local…}" 4
+            return 1
+        fi
+        if declare -F stations_json_valid >/dev/null 2>&1 && stations_json_valid; then
+            app_message 'Preparando índice local…' 4
+            if declare -F stations_rebuild_tsv >/dev/null 2>&1 && stations_rebuild_tsv >/dev/null 2>&1 && stations_tsv_valid; then
+                app_message 'Índice local preparado.' 2
+            else
+                if declare -F catalog_start >/dev/null 2>&1; then
+                    catalog_start || true
+                fi
+                app_message "${CATALOG_STATUS:-Preparando índice local…}" 4
+                return 1
+            fi
+        fi
+        if ! stations_tsv_valid && declare -F catalog_start >/dev/null 2>&1; then
+            catalog_start force || true
+            app_message "${CATALOG_STATUS:-Cargando emisoras…}" 4
+            return 1
+        fi
+    fi
+
     if ! stations_catalog_valid; then
         if [[ -n "${CATALOG_PID:-}" ]]; then
             app_message 'Cargando emisoras…' 3
@@ -255,6 +281,16 @@ stations_select_fzf() {
                     return 1
                 elif [[ "$INPUT_KEY" == 'M' ]]; then
                     app_toggle_mute || true
+                    redraw=1
+                elif [[ "$INPUT_KEY" == 'P' ]]; then
+                    favorites_confirm_clear
+                    search_country_filter_toggle
+                    search_apply_pending_filter || true
+                    if ((SEARCH_COUNTRY_FILTER_ENABLED)); then
+                        app_message "Filtro país activado: $KEILA_CATALOG_COUNTRY_FILTER" 4
+                    else
+                        app_message "Filtro país desactivado: búsqueda global" 4
+                    fi
                     redraw=1
                 elif [[ "$INPUT_KEY" == 'C' ]]; then
                     favorites_confirm_clear

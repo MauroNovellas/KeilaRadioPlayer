@@ -5,6 +5,7 @@
 
 KEILA_LOCK_ATTEMPTS="${KEILA_LOCK_ATTEMPTS:-40}"
 KEILA_LOCK_SLEEP="${KEILA_LOCK_SLEEP:-0.05}"
+KEILA_LOCK_INVALID_GRACE="${KEILA_LOCK_INVALID_GRACE:-2}"
 
 # shellcheck source=lib/data-safety.sh
 source "$(dirname "${BASH_SOURCE[0]}")/data-safety.sh"
@@ -28,7 +29,7 @@ lock_retire() {
 
 lock_acquire() {
     local lock_dir="$1"
-    local attempt owner
+    local attempt owner modified now age
     local self="${BASHPID:-$$}"
 
     mkdir -p "$(dirname "$lock_dir")" || return 1
@@ -47,7 +48,23 @@ lock_acquire() {
             IFS= read -r owner < "$lock_dir/pid" || true
         fi
 
-        if [[ "$owner" =~ ^[0-9]+$ ]] && ! kill -0 "$owner" 2>/dev/null; then
+        if [[ ! "$owner" =~ ^[0-9]+$ ]]; then
+            modified=$(stat -c %Y "$lock_dir" 2>/dev/null || printf '0')
+            now=$(date +%s)
+            if [[ "$modified" =~ ^[0-9]+$ ]]; then
+                age=$((now - modified))
+            else
+                age=0
+            fi
+            if ((age < KEILA_LOCK_INVALID_GRACE)); then
+                sleep "$KEILA_LOCK_SLEEP"
+                continue
+            fi
+            lock_retire "$lock_dir" 'invalid' "$self" >/dev/null 2>&1 || true
+            continue
+        fi
+
+        if ! kill -0 "$owner" 2>/dev/null; then
             lock_retire "$lock_dir" 'stale' "$self" >/dev/null 2>&1 || true
             continue
         fi

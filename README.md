@@ -68,10 +68,38 @@ Salida esperada para esta versión:
 Keila Radio Player 2.1.1
 ```
 
-## Dependencias
+## Revisar grabaciones
+
+Pulsa `;` en la pantalla principal para abrir el gestor. Al arrancar, Keila
+busca en segundo plano audios con marcador `.pending` y avisa si los encuentra,
+sin retrasar el inicio de la radio. La lista muestra nombre, fecha de modificación
+y tamaño en bytes; en pantallas estrechas cada entrada ocupa dos filas.
+
+- Flechas / Home / End: seleccionar; `Esc`: regresar.
+- `C`: comprobar el audio en segundo plano. Si mpv verifica un fragmento y el
+  archivo no ha cambiado, se retira el marcador y sale de la lista. El audio
+  permanece en su ubicación original; una comprobación dudosa no lo elimina.
+- `E`: escuchar o detener. Se pausa temporalmente la radio y se reanuda al
+  terminar o salir, si sigue siendo la misma sesión. No cambia el historial ni
+  la última emisora guardada. No se inicia una escucha mientras se graba.
+- `X`, seguido de `Enter`: mover audio y marcador a la carpeta `.trash` dentro
+  de grabaciones. Cualquier otra tecla cancela. No es un borrado definitivo:
+  los archivos pueden recuperarse manualmente desde esa carpeta.
+
+Los marcadores nuevos identifican el proceso de mpv para excluir grabaciones
+activas. Con marcadores antiguos vacíos, Keila es conservador y puede aplazar
+la revisión mientras haya otro mpv abierto. Solo se revisa la carpeta configurada,
+sin recorrer subcarpetas ni seguir enlaces simbólicos a archivos.
+
+Al iniciar una grabación se muestra «Preparando grabación» hasta que aparecen
+datos; después pasa a «Grabando». Al detenerla, «Cierre pendiente» indica que
+mpv aún no ha confirmado que liberó el archivo. Un fallo antes de que mpv acepte
+la orden limpia la reserva vacía.
 
 Las garantías de guardado y los marcadores de grabación `.pending` se explican
 en [Protección de datos](DATA-SAFETY.md), con pruebas y límites conocidos.
+
+## Dependencias
 
 Keila comprueba sus dependencias al arrancar. En esta fase de desarrollo personal, si falta alguna intenta instalarla automáticamente sin pedir confirmación.
 
@@ -112,6 +140,14 @@ Comprueba que la configuración, favoritos, estado y carpeta de grabaciones pued
 
 El diagnóstico también informa del perfil de ecualización y comprueba si el analizador dispone de `ffmpeg`, un backend de captura y un monitor PulseAudio/PipeWire. La ausencia del analizador se muestra como aviso porque no impide reproducir emisoras.
 
+Para diagnosticar el catálogo de Radio Browser sin abrir la TUI:
+
+```bash
+./keila-radio --catalog-status   # muestra JSON, índice local y número de emisoras
+./keila-radio --catalog-rebuild  # regenera el índice rápido desde la copia JSON
+./keila-radio --catalog-update   # descarga Radio Browser y regenera el índice
+```
+
 Los datos personales se guardan fuera del repositorio:
 
 ```text
@@ -119,6 +155,7 @@ Los datos personales se guardan fuera del repositorio:
 ~/.config/keila-radio/favorites
 ~/.local/state/keila-radio/state
 ~/.cache/keila-radio/radio.json
+~/.cache/keila-radio/radio.tsv
 ```
 
 La semilla inicial de favoritos vive en `defaults/favorites`. Solo se copia al directorio personal si todavía no existe un fichero de favoritos del usuario.
@@ -172,12 +209,18 @@ El fichero se interpreta como datos y nunca se ejecuta con `source`. Las claves 
 volume_step=5
 metadata_interval=1
 catalog_max_age=86400
+catalog_limit=50000
+catalog_country_filter=ES
+search_match_limit=300
 recordings_dir=
 ```
 
 - `volume_step`: salto de volumen para A/D y ←/→, entre 1 y 50.
 - `metadata_interval`: segundos entre consultas de metadatos de `mpv`, entre 1 y 60.
-- `catalog_max_age`: edad máxima de la caché de TDTChannels en segundos; `0` fuerza actualización.
+- `catalog_max_age`: edad máxima de la caché de Radio Browser en segundos; `0` fuerza actualización.
+- `catalog_limit`: máximo de emisoras a guardar desde Radio Browser, entre 100 y 100000.
+- `catalog_country_filter`: país preferido para el filtro rápido de búsqueda, en código ISO de dos letras (`ES`, `FR`, `US`...).
+- `search_match_limit`: máximo de resultados visibles por búsqueda, entre 100 y 20000. El catálogo completo sigue disponible; escribe más texto para afinar.
 - `recordings_dir`: vacío usa `grabaciones/` junto a Keila. También acepta rutas absolutas, `~/...` y rutas relativas a `$HOME`.
 
 Los valores inválidos se ignoran y se conserva el valor por defecto.
@@ -203,20 +246,21 @@ V                  mostrar/ocultar analizador de espectro
 X                  añadir/quitar la emisora en reproducción de Favoritas
 J / K              mover el favorito seleccionado abajo/arriba
 B                  abrir/editar la búsqueda integrada de emisoras
-U                  actualizar el catálogo de TDTChannels
+U                  actualizar el catálogo de Radio Browser
 H                  abrir/cerrar la ayuda completa
 Esc                cerrar la ayuda completa
 Q                  salir
 ```
 
-`U` actualiza exclusivamente el catálogo de TDTChannels; no se reutiliza para actualizar el programa.
+`U` actualiza exclusivamente el catálogo de Radio Browser; no se reutiliza para actualizar el programa.
 
-La navegación de Emisoras favoritas y Recientes es circular y tiene scroll automático. En cualquiera de las dos secciones, `1–9` reproduce las posiciones 1–9 y `0` la posición 10 de esa misma lista. El catálogo local de TDTChannels se carga al iniciar Keila y se actualiza en segundo plano cuando caduca. Sin conexión se conserva la copia guardada. Al pulsar `B`, Keila activa el filtro de la búsqueda integrada. La reproducción, los metadatos y los avisos continúan activos mientras se busca.
+La navegación de Emisoras favoritas y Recientes es circular y tiene scroll automático. En cualquiera de las dos secciones, `1–9` reproduce las posiciones 1–9 y `0` la posición 10 de esa misma lista. El catálogo local de Radio Browser se actualiza en segundo plano cuando caduca. La respuesta JSON se conserva como copia de respaldo y Keila genera a partir de ella un índice TSV podado con solo los campos que usa la TUI: nombre, ámbito/tags, país, formato, URL, código de país y una clave interna de búsqueda. Sin conexión se conserva la copia guardada. Si el índice ya está fresco, Keila precarga los primeros resultados al arrancar sin tomar el foco; `B` solo entra a editar la búsqueda. La reproducción, los metadatos y los avisos continúan activos mientras se busca.
 
 Dentro de la búsqueda:
 
 ```text
 escribir             filtrar por nombre, ámbito, país y formato
+P                     activar/desactivar filtro rápido por país
 ↑ / ↓                mover por los resultados
 Home / End            primer/último resultado
 PageUp / PageDown     saltar por los resultados
@@ -232,6 +276,14 @@ Esc                   volver a Favoritos conservando la consulta
 Todas las emisoras admiten un comentario personal: selecciona una en Favoritos, Recientes o la búsqueda y pulsa `C` (por ejemplo, `Rock FM` → `Heavy Metal`). `Enter` guarda, `Esc` cancela y `Ctrl-U` vacía el campo; guarda vacío para quitar el comentario. Los comentarios también se incluyen en el filtro de búsqueda y aparecen en las tres listas. Sus encabezados se muestran siempre como `COMENTARIOS` y conservan el color de su sección.
 
 `Recientes` muestra las últimas 20 emisoras distintas escuchadas, de más reciente a más antigua, incluidas las favoritas, marcadas con `★`. Una conexión que no llega a audio no se registra. `X` añade o quita de Favoritas la entrada reciente seleccionada; añadir es inmediato y quitar exige una segunda pulsación. La selección permanece en Recientes. Los presets `1–9` y `0` corresponden a las diez primeras entradas de la sección activa; las demás se recorren con cursores.
+
+Algunas emisoras HLS publican el cambio de canción mediante metadatos ID3
+temporizados. Keila lee primero los metadatos vivos de `mpv`; si el reproductor
+conserva fijo el primer título, abre en segundo plano una consulta nueva con
+`ffprobe` cada 20 segundos para leer de nuevo el stream sin reiniciar la emisora.
+Si tampoco aparece un título distinto, se aplica una caducidad de cinco minutos
+para no mostrar una canción antigua indefinidamente. `KEILA_TITLE_PROBE_INTERVAL`
+y `KEILA_TITLE_MAX_AGE` permiten ajustar ambos límites en segundos.
 
 Los comentarios se guardan en `$XDG_CONFIG_HOME/keila-radio/labels` (por defecto `~/.config/keila-radio/labels`) y el historial en `$XDG_STATE_HOME/keila-radio/history` (por defecto `~/.local/state/keila-radio/history`). El historial contiene nombres y URLs de emisoras, sin títulos de canciones ni marcas de tiempo. Puedes borrar el archivo con Keila cerrada para vaciarlo.
 

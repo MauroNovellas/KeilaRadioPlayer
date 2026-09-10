@@ -178,6 +178,21 @@ test_recording_helpers() (
     [[ "$file" == "$tmp/recordings/Radio_Test_"*.mka ]] || return 1
 )
 
+test_locking_invalid_owner_recovers() (
+    local tmp lock_dir
+    tmp=$(mktemp -d) || return 1
+    trap 'rm -rf "$tmp"' EXIT
+    source "$ROOT_DIR/lib/lock.sh"
+    lock_dir="$tmp/invalid.lock"
+    mkdir -p "$lock_dir"
+    : > "$lock_dir/pid"
+    touch -d '10 seconds ago' "$lock_dir"
+
+    lock_acquire "$lock_dir" || return 1
+    [[ -r "$lock_dir/pid" ]] || return 1
+    lock_release "$lock_dir" || return 1
+)
+
 test_ui_helpers() (
     source "$ROOT_DIR/lib/ui.sh"
     assert_eq '1' "$(ui_control_line_count)" 'ayuda compacta por defecto' || return 1
@@ -203,6 +218,7 @@ run_test 'configuración segura' test_config_parser
 run_test 'estado tratado como datos' test_state_is_data
 run_test 'favoritos' test_favorites
 run_test 'helpers de grabación' test_recording_helpers
+run_test 'locks inválidos recuperables' test_locking_invalid_owner_recovers
 run_test 'ayuda y mensajes TUI' test_ui_helpers
 printf '\n%d ok, %d fallos\n' "$PASS" "$FAIL"
 ((FAIL == 0))
