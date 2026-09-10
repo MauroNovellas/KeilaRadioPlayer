@@ -12,8 +12,9 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 - Búsqueda optimizada para catálogos grandes: la actualización genera un TSV
   local podado y normalizado, `B` carga solo resultados visibles, el filtro usa
   `awk` sobre ese índice y los comentarios personales siguen siendo buscables.
-  Añadidos `--catalog-status`, `--catalog-rebuild` y `--catalog-update` para
-  diagnosticar o regenerar el catálogo sin abrir la TUI.
+  `--catalog-status` informa ahora de estado fresco/offline, edad, próxima
+  actualización, recuento, rutas y configuración; `--catalog-rebuild` y
+  `--catalog-update` regeneran el catálogo sin abrir la TUI.
 - Si el índice local está fresco, la TUI precarga los primeros resultados al
   arrancar sin tomar el foco; `B` queda como entrada inmediata para editar la
   búsqueda.

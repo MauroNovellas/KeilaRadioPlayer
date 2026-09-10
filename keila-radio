@@ -121,6 +121,14 @@ app_init_data() {
     preferences_apply
 }
 
+app_init_catalog_data() {
+    keila_init_paths || return 1
+    if ! config_load "$BASE_DIR/grabaciones"; then
+        printf 'No se pudo cargar la configuración: %s\n' "$KEILA_CONFIG_FILE" >&2
+        return 1
+    fi
+}
+
 app_play() {
     local name="$1" url="$2"
     local recording_notice=""
@@ -628,18 +636,18 @@ main() {
             return $?
             ;;
         --catalog-status)
-            app_init_data || return 1
+            app_init_catalog_data || return 1
             stations_catalog_status
             return $?
             ;;
         --catalog-rebuild)
-            app_init_data || return 1
+            app_init_catalog_data || return 1
             stations_rebuild_tsv || return 1
             stations_catalog_status
             return 0
             ;;
         --catalog-update)
-            app_init_data || return 1
+            app_init_catalog_data || return 1
             stations_update_catalog || return 1
             stations_catalog_status
             return 0

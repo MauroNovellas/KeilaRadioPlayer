@@ -57,6 +57,78 @@ stations_catalog_is_fresh() {
     ((age >= 0 && age < KEILA_CATALOG_MAX_AGE))
 }
 
+stations_catalog_mtime() {
+    local file=''
+    if [[ -s "$KEILA_STATIONS_TSV" ]]; then
+        file="$KEILA_STATIONS_TSV"
+    elif [[ -s "$KEILA_STATIONS_JSON" ]]; then
+        file="$KEILA_STATIONS_JSON"
+    fi
+    [[ -n "$file" ]] || { printf '0'; return 0; }
+    stat -c %Y "$file" 2>/dev/null || printf '0'
+}
+
+stations_catalog_age_seconds() {
+    local modified now
+    modified=$(stations_catalog_mtime)
+    [[ "$modified" =~ ^[0-9]+$ ]] || modified=0
+    ((modified > 0)) || { printf '0'; return 0; }
+    now=$(date +%s)
+    if ((now >= modified)); then
+        printf '%s' "$((now - modified))"
+    else
+        printf '0'
+    fi
+}
+
+stations_human_duration() {
+    local seconds="${1:-0}" value unit
+    [[ "$seconds" =~ ^[0-9]+$ ]] || seconds=0
+    if ((seconds < 60)); then
+        printf '%ss' "$seconds"
+    elif ((seconds < 3600)); then
+        printf '%sm' "$((seconds / 60))"
+    elif ((seconds < 86400)); then
+        printf '%sh %02sm' "$((seconds / 3600))" "$(((seconds % 3600) / 60))"
+    else
+        value=$((seconds / 86400))
+        unit='d'
+        printf '%s%s %sh' "$value" "$unit" "$(((seconds % 86400) / 3600))"
+    fi
+}
+
+stations_human_size() {
+    local file="$1" size
+    [[ -e "$file" ]] || { printf 'no existe'; return 0; }
+    size=$(wc -c < "$file" 2>/dev/null || printf '0')
+    awk -v size="$size" 'BEGIN {
+        split("B KiB MiB GiB", units, " ")
+        value = size + 0
+        unit = 1
+        while (value >= 1024 && unit < 4) { value /= 1024; unit++ }
+        if (unit == 1) printf "%d %s", value, units[unit]
+        else printf "%.1f %s", value, units[unit]
+    }'
+}
+
+stations_catalog_updated_at() {
+    local modified
+    modified=$(stations_catalog_mtime)
+    [[ "$modified" =~ ^[0-9]+$ ]] || modified=0
+    ((modified > 0)) || { printf '—'; return 0; }
+    date -d "@$modified" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || printf '—'
+}
+
+stations_catalog_state_label() {
+    if stations_catalog_is_fresh; then
+        printf 'fresco'
+    elif stations_catalog_valid; then
+        printf 'offline/caducado'
+    else
+        printf 'sin catálogo válido'
+    fi
+}
+
 stations_json_is_fresh() {
     stations_json_valid || return 1
 
@@ -231,24 +303,27 @@ stations_count() {
 stations_catalog_status() {
     keila_init_paths
 
-    local json_status='no' tsv_status='no' json_size='0' tsv_size='0' count='0'
+    local json_status='no' tsv_status='no' count='0' state age updated next_refresh
     stations_json_valid && json_status='sí'
     stations_tsv_valid && tsv_status='sí'
-    [[ -e "$KEILA_STATIONS_JSON" ]] && json_size=$(wc -c < "$KEILA_STATIONS_JSON" 2>/dev/null || printf '0')
-    [[ -e "$KEILA_STATIONS_TSV" ]] && tsv_size=$(wc -c < "$KEILA_STATIONS_TSV" 2>/dev/null || printf '0')
     if stations_tsv_valid; then count=$(stations_count); fi
+    state=$(stations_catalog_state_label)
+    age=$(stations_catalog_age_seconds)
+    updated=$(stations_catalog_updated_at)
+    next_refresh='ahora'
+    if stations_catalog_is_fresh; then
+        next_refresh=$(stations_human_duration "$((KEILA_CATALOG_MAX_AGE - age))")
+    fi
 
     printf 'Catálogo Radio Browser\n'
-    printf 'JSON válido: %s · %s bytes · %s\n' "$json_status" "$json_size" "$KEILA_STATIONS_JSON"
-    printf 'Índice válido: %s · %s bytes · %s\n' "$tsv_status" "$tsv_size" "$KEILA_STATIONS_TSV"
+    printf 'Estado: %s\n' "$state"
     printf 'Emisoras indexadas: %s\n' "$count"
-    if stations_catalog_is_fresh; then
-        printf 'Estado: fresco\n'
-    elif stations_catalog_valid; then
-        printf 'Estado: disponible, pendiente de actualizar\n'
-    else
-        printf 'Estado: sin catálogo válido\n'
-    fi
+    printf 'Última actualización local: %s · hace %s\n' "$updated" "$(stations_human_duration "$age")"
+    printf 'Próxima actualización automática: %s\n' "$next_refresh"
+    printf 'Filtro rápido de país: %s\n' "${KEILA_CATALOG_COUNTRY_FILTER:-ES}"
+    printf 'JSON: %s · %s · %s\n' "$json_status" "$(stations_human_size "$KEILA_STATIONS_JSON")" "$KEILA_STATIONS_JSON"
+    printf 'Índice TUI: %s · %s · %s\n' "$tsv_status" "$(stations_human_size "$KEILA_STATIONS_TSV")" "$KEILA_STATIONS_TSV"
+    printf 'Límite configurado: %s emisoras · caducidad %s\n' "$KEILA_CATALOG_LIMIT" "$(stations_human_duration "$KEILA_CATALOG_MAX_AGE")"
 }
 
 stations_select_fzf() {

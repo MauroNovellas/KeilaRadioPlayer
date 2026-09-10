@@ -5,17 +5,7 @@ STATUS_ACTIVE=0
 STATUS_ROWS=()
 
 status_human_size() {
-    local file="$1" size
-    [[ -e "$file" ]] || { printf 'no existe'; return 0; }
-    size=$(wc -c < "$file" 2>/dev/null || printf '0')
-    awk -v size="$size" 'BEGIN {
-        split("B KiB MiB GiB", units, " ")
-        value = size + 0
-        unit = 1
-        while (value >= 1024 && unit < 4) { value /= 1024; unit++ }
-        if (unit == 1) printf "%d %s", value, units[unit]
-        else printf "%.1f %s", value, units[unit]
-    }'
+    stations_human_size "$1"
 }
 
 status_mtime() {
@@ -36,12 +26,8 @@ status_git_revision() {
 status_catalog_state() {
     if [[ -n "${CATALOG_PID:-}" ]]; then
         printf '%s' "${CATALOG_STATUS:-actualizando}"
-    elif stations_catalog_is_fresh; then
-        printf 'fresco'
-    elif stations_catalog_valid; then
-        printf 'disponible, pendiente de actualizar'
     else
-        printf 'sin catálogo válido'
+        stations_catalog_state_label
     fi
 }
 
@@ -58,8 +44,14 @@ status_player_state() {
 
 status_build_rows() {
     STATUS_ROWS=()
-    local catalog_count='0' pending_count title_age='—' title_state='sin título'
+    local catalog_count='0' pending_count title_age='—' title_state='sin título' catalog_age='—' catalog_next='ahora'
     if stations_tsv_valid; then catalog_count=$(stations_count); fi
+    if stations_catalog_valid; then
+        catalog_age=$(stations_human_duration "$(stations_catalog_age_seconds)")
+        if stations_catalog_is_fresh; then
+            catalog_next=$(stations_human_duration "$((KEILA_CATALOG_MAX_AGE - $(stations_catalog_age_seconds)))")
+        fi
+    fi
     pending_count=${#PENDING_FILES[@]}
     if [[ -n "${PLAYER_STREAM_TITLE:-}" ]]; then
         title_state="$PLAYER_STREAM_TITLE"
@@ -79,6 +71,8 @@ status_build_rows() {
     STATUS_ROWS+=("Volumen|${PLAYER_VOLUME:-?}%")
     STATUS_ROWS+=("Catálogo|$(status_catalog_state)")
     STATUS_ROWS+=("Emisoras indexadas|$catalog_count")
+    STATUS_ROWS+=("Catálogo actualizado|$(stations_catalog_updated_at) · hace $catalog_age")
+    STATUS_ROWS+=("Próxima actualización|$catalog_next")
     STATUS_ROWS+=("Resultados precargados|${#SEARCH_MATCHES[@]}")
     STATUS_ROWS+=("Filtro país|${KEILA_CATALOG_COUNTRY_FILTER:-ES} · $((SEARCH_COUNTRY_FILTER_ENABLED))")
     STATUS_ROWS+=("JSON Radio Browser|$(status_human_size "$KEILA_STATIONS_JSON") · $(status_mtime "$KEILA_STATIONS_JSON")")

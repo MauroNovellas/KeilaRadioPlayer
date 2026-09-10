@@ -148,7 +148,7 @@ El diagnóstico también informa del perfil de ecualización y comprueba si el a
 Para diagnosticar el catálogo de Radio Browser sin abrir la TUI:
 
 ```bash
-./keila-radio --catalog-status   # muestra JSON, índice local y número de emisoras
+./keila-radio --catalog-status   # estado, edad, recuento, rutas y próxima actualización
 ./keila-radio --catalog-rebuild  # regenera el índice rápido desde la copia JSON
 ./keila-radio --catalog-update   # descarga Radio Browser y regenera el índice
 ```
