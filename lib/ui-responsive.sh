@@ -109,8 +109,8 @@ ui_responsive_section_title() {
         minimal:now) printf '' ;;
         compact:favorites) printf 'FAV (%s)' "${#FAVORITE_NAMES[@]}" ;;
         minimal:favorites) printf 'FAV %s' "${#FAVORITE_NAMES[@]}" ;;
-        *:now) printf 'AHORA SUENA' ;;
-        *:favorites) printf 'EMISORAS FAVORITAS (%s)' "${#FAVORITE_NAMES[@]}" ;;
+        *:now) tr_ui ui.now_playing 'AHORA SUENA' ;;
+        *:favorites) printf '%s (%s)' "$(tr_ui ui.favorite_stations 'EMISORAS FAVORITAS')" "${#FAVORITE_NAMES[@]}" ;;
     esac
 }
 
@@ -259,7 +259,7 @@ ui_draw() {
         station_style='muted'
         favorite_badge=''
     else
-        station='Ninguna emisora seleccionada'
+        station=$(tr_ui ui.no_station_selected 'Ninguna emisora seleccionada')
         station_style='muted'
         favorite_badge=''
     fi
@@ -307,7 +307,7 @@ ui_draw() {
     if ((height >= 3)); then
         local comments_header=''
         if ! ui_small_screen; then comments_header=$(ui_labels_header "$((width - 4))"); fi
-        ui_box_split_line "$width" '  EMISORAS' "$comments_header" 0 accent accent
+        ui_box_split_line "$width" "  $(tr_ui ui.stations EMISORAS)" "$comments_header" 0 accent accent
         ((height -= 1))
     fi
     ui_navigation_sync "$height"

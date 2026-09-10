@@ -87,7 +87,7 @@ ui_navigation_row() {
     local row="$1" index url name label='' preset='' marker='  '
     UI_NAV_TEXT='' UI_NAV_BADGE='' UI_NAV_STYLE='' UI_NAV_BADGE_STYLE='' UI_NAV_SELECTED=0
     if ((UI_NAV_RECENT_HEADER > 0 && row == UI_NAV_FAVORITES_HEIGHT)); then
-        UI_NAV_TEXT="RECIENTES (${#RECENT_NAMES[@]})"
+        UI_NAV_TEXT="$(tr_ui ui.recents RECIENTES) (${#RECENT_NAMES[@]})"
         UI_NAV_STYLE=accent
         return 0
     elif ((row < UI_NAV_FAVORITES_HEIGHT)); then
@@ -131,5 +131,5 @@ ui_navigation_row() {
 # Umbral común para que ambas secciones abrevien a la vez en desktop.
 ui_labels_header() {
     # El nombre es único en todas las anchuras; así no cambia al redimensionar.
-    printf 'COMENTARIOS'
+    tr_ui ui.comments COMENTARIOS
 }

@@ -24,6 +24,7 @@ KEILA_CATALOG_LIMIT=50000
 KEILA_CATALOG_COUNTRY_FILTER=ES
 KEILA_SEARCH_MATCH_LIMIT=300
 KEILA_RECORDINGS_DIR=""
+KEILA_LANGUAGE="${KEILA_LANG:-${KEILA_LANGUAGE:-es}}"
 
 keila_init_paths() {
     mkdir -p "$KEILA_CONFIG_DIR" "$KEILA_STATE_DIR" "$KEILA_CACHE_DIR"
@@ -48,6 +49,7 @@ config_reset_defaults() {
     KEILA_CATALOG_COUNTRY_FILTER=ES
     KEILA_SEARCH_MATCH_LIMIT=300
     KEILA_RECORDINGS_DIR="$default_recordings_dir"
+    KEILA_LANGUAGE="${KEILA_LANG:-es}"
 }
 
 config_write_default() {
@@ -78,6 +80,9 @@ catalog_country_filter=ES
 
 # Máximo de resultados visibles por búsqueda. El catálogo completo sigue indexado.
 search_match_limit=300
+
+# Idioma de la interfaz: es o en. KEILA_LANG tiene prioridad si se define.
+language=es
 
 # Vacío = carpeta "grabaciones" junto a keila-radio.
 # También admite rutas absolutas, ~/... o rutas relativas a $HOME.
@@ -187,6 +192,29 @@ config_load() {
             recordings_dir)
                 KEILA_RECORDINGS_DIR=$(config_expand_path "$value" "$default_recordings_dir")
                 ;;
+            language)
+                if [[ -z "${KEILA_LANG:-}" ]]; then
+                    value="${value%%.*}"
+                    value="${value%%@*}"
+                    value="${value//_/-}"
+                    value="${value,,}"
+                    case "$value" in
+                        en-*|en) KEILA_LANGUAGE=en ;;
+                        es-*|es) KEILA_LANGUAGE=es ;;
+                    esac
+                fi
+                ;;
         esac
     done < "$KEILA_CONFIG_FILE"
+
+    if [[ -n "${KEILA_LANG:-}" ]]; then
+        value="${KEILA_LANG%%.*}"
+        value="${value%%@*}"
+        value="${value//_/-}"
+        value="${value,,}"
+        case "$value" in
+            en-*|en) KEILA_LANGUAGE=en ;;
+            es-*|es) KEILA_LANGUAGE=es ;;
+        esac
+    fi
 }

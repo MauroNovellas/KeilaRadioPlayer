@@ -60,6 +60,7 @@ test_config_parser() (
     assert_eq '5' "$KEILA_VOLUME_STEP" 'volume_step por defecto' || return 1
     assert_eq '1' "$KEILA_PLAYER_INFO_INTERVAL" 'metadata_interval por defecto' || return 1
     assert_eq '86400' "$KEILA_CATALOG_MAX_AGE" 'catalog_max_age por defecto' || return 1
+    assert_eq 'es' "$KEILA_LANGUAGE" 'language por defecto' || return 1
     assert_eq "$default_recordings" "$KEILA_RECORDINGS_DIR" 'grabaciones por defecto' || return 1
     [[ -f "$KEILA_CONFIG_FILE" ]] || return 1
 
@@ -67,6 +68,7 @@ test_config_parser() (
 volume_step=7
 metadata_interval=2
 catalog_max_age=3600
+language=en
 recordings_dir=~/Radio Captures
 unknown_key=ignored
 EOF
@@ -74,18 +76,21 @@ EOF
     assert_eq '7' "$KEILA_VOLUME_STEP" 'volume_step personalizado' || return 1
     assert_eq '2' "$KEILA_PLAYER_INFO_INTERVAL" 'metadata_interval personalizado' || return 1
     assert_eq '3600' "$KEILA_CATALOG_MAX_AGE" 'catalog_max_age personalizado' || return 1
+    assert_eq 'en' "$KEILA_LANGUAGE" 'language personalizado' || return 1
     assert_eq "$HOME/Radio Captures" "$KEILA_RECORDINGS_DIR" 'expansión de ~/' || return 1
 
     cat > "$KEILA_CONFIG_FILE" <<'EOF'
 volume_step=0
 metadata_interval=no
 catalog_max_age=-1
+language=zz
 recordings_dir=
 EOF
     config_load "$default_recordings" || return 1
     assert_eq '5' "$KEILA_VOLUME_STEP" 'valor inválido vuelve al defecto' || return 1
     assert_eq '1' "$KEILA_PLAYER_INFO_INTERVAL" 'intervalo inválido vuelve al defecto' || return 1
     assert_eq '86400' "$KEILA_CATALOG_MAX_AGE" 'caché inválida vuelve al defecto' || return 1
+    assert_eq 'es' "$KEILA_LANGUAGE" 'idioma inválido vuelve al defecto' || return 1
     assert_eq "$default_recordings" "$KEILA_RECORDINGS_DIR" 'ruta vacía conserva el defecto' || return 1
 )
 

@@ -89,7 +89,7 @@ stations_human_duration() {
     elif ((seconds < 3600)); then
         printf '%sm' "$((seconds / 60))"
     elif ((seconds < 86400)); then
-        printf '%sh %02sm' "$((seconds / 3600))" "$(((seconds % 3600) / 60))"
+        printf '%sh %02dm' "$((seconds / 3600))" "$(((seconds % 3600) / 60))"
     else
         value=$((seconds / 86400))
         unit='d'
@@ -121,11 +121,11 @@ stations_catalog_updated_at() {
 
 stations_catalog_state_label() {
     if stations_catalog_is_fresh; then
-        printf 'fresco'
+        tr_ui catalog.fresh fresco
     elif stations_catalog_valid; then
-        printf 'offline/caducado'
+        tr_ui catalog.offline offline/caducado
     else
-        printf 'sin catálogo válido'
+        tr_ui catalog.invalid 'sin catálogo válido'
     fi
 }
 
@@ -303,9 +303,11 @@ stations_count() {
 stations_catalog_status() {
     keila_init_paths
 
-    local json_status='no' tsv_status='no' count='0' state age updated next_refresh
-    stations_json_valid && json_status='sí'
-    stations_tsv_valid && tsv_status='sí'
+    local json_status tsv_status count='0' state age updated next_refresh
+    json_status=$(tr_ui catalog.no no)
+    tsv_status=$(tr_ui catalog.no no)
+    stations_json_valid && json_status=$(tr_ui catalog.yes sí)
+    stations_tsv_valid && tsv_status=$(tr_ui catalog.yes sí)
     if stations_tsv_valid; then count=$(stations_count); fi
     state=$(stations_catalog_state_label)
     age=$(stations_catalog_age_seconds)
@@ -315,15 +317,15 @@ stations_catalog_status() {
         next_refresh=$(stations_human_duration "$((KEILA_CATALOG_MAX_AGE - age))")
     fi
 
-    printf 'Catálogo Radio Browser\n'
-    printf 'Estado: %s\n' "$state"
-    printf 'Emisoras indexadas: %s\n' "$count"
-    printf 'Última actualización local: %s · hace %s\n' "$updated" "$(stations_human_duration "$age")"
-    printf 'Próxima actualización automática: %s\n' "$next_refresh"
-    printf 'Filtro rápido de país: %s\n' "${KEILA_CATALOG_COUNTRY_FILTER:-ES}"
-    printf 'JSON: %s · %s · %s\n' "$json_status" "$(stations_human_size "$KEILA_STATIONS_JSON")" "$KEILA_STATIONS_JSON"
-    printf 'Índice TUI: %s · %s · %s\n' "$tsv_status" "$(stations_human_size "$KEILA_STATIONS_TSV")" "$KEILA_STATIONS_TSV"
-    printf 'Límite configurado: %s emisoras · caducidad %s\n' "$KEILA_CATALOG_LIMIT" "$(stations_human_duration "$KEILA_CATALOG_MAX_AGE")"
+    printf '%s\n' "$(tr_ui catalog.title 'Catálogo Radio Browser')"
+    printf '%s: %s\n' "$(tr_ui catalog.state Estado)" "$state"
+    printf '%s: %s\n' "$(tr_ui catalog.indexed 'Emisoras indexadas')" "$count"
+    printf '%s: %s\n' "$(tr_ui catalog.updated 'Última actualización local')" "$(tr_ui catalog.updated_ago '%s · hace %s' "$updated" "$(stations_human_duration "$age")")"
+    printf '%s: %s\n' "$(tr_ui catalog.next_update 'Próxima actualización automática')" "$next_refresh"
+    printf '%s: %s\n' "$(tr_ui catalog.country_filter 'Filtro rápido de país')" "${KEILA_CATALOG_COUNTRY_FILTER:-ES}"
+    printf '%s: %s · %s · %s\n' "$(tr_ui catalog.json JSON)" "$json_status" "$(stations_human_size "$KEILA_STATIONS_JSON")" "$KEILA_STATIONS_JSON"
+    printf '%s: %s · %s · %s\n' "$(tr_ui catalog.tui_index 'Índice TUI')" "$tsv_status" "$(stations_human_size "$KEILA_STATIONS_TSV")" "$KEILA_STATIONS_TSV"
+    printf '%s: %s\n' "$(tr_ui catalog.limit 'Límite configurado')" "$(tr_ui catalog.limit_value '%s emisoras · caducidad %s' "$KEILA_CATALOG_LIMIT" "$(stations_human_duration "$KEILA_CATALOG_MAX_AGE")")"
 }
 
 stations_select_fzf() {

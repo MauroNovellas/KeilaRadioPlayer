@@ -4,6 +4,10 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - rama v2.1
 
+- Primera capa de internacionalización: traducciones en `locale/es.conf` y
+  `locale/en.conf`, español como fallback, `language=es|en` en configuración y
+  override temporal con `KEILA_LANG`. Traducidos rótulos principales de TUI,
+  búsqueda, diagnóstico y estado del catálogo.
 - Catálogo migrado de TDTChannels a Radio Browser: descubrimiento de servidor,
   `User-Agent` descriptivo, descarga local diaria con `hidebroken=true`,
   límite configurable de resultados, normalización de país/código/estado/tags/
