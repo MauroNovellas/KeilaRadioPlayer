@@ -500,9 +500,16 @@ app_poll_player() {
 
     player_is_running || return 1
     local changed=1 was_ready=$PLAYER_INFO_READY was_buffering=$PLAYER_BUFFERING
+    local track_rows_before=0 track_rows_after=0 track_changed=1
+    if declare -F track_history_visible_count >/dev/null 2>&1; then
+        track_rows_before=$(track_history_visible_count)
+    fi
     if player_refresh_info; then
         changed=0
-        track_history_observe >/dev/null 2>&1 || true
+        if track_history_observe >/dev/null 2>&1; then track_changed=0; fi
+        if declare -F track_history_visible_count >/dev/null 2>&1; then
+            track_rows_after=$(track_history_visible_count)
+        fi
         if ((!was_ready && PLAYER_INFO_READY)); then
             app_message "Reproduciendo: $PLAYER_NAME" 3
         elif ((!was_buffering && PLAYER_BUFFERING)); then
@@ -512,7 +519,11 @@ app_poll_player() {
         elif ((was_ready == PLAYER_INFO_READY && was_buffering == PLAYER_BUFFERING)); then
             # Un cambio solo de título/datos técnicos no modifica el layout.
             # Si el modo actual no permite dibujo parcial, conserva el completo.
-            if ui_draw_player_info_only; then changed=1; fi
+            if ((track_changed == 0 && track_rows_after != track_rows_before)); then
+                changed=0
+            elif ui_draw_player_info_only; then
+                changed=1
+            fi
         fi
     fi
     if history_observe; then changed=0; fi

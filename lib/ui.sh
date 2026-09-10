@@ -988,13 +988,14 @@ ui_has_audio_info() {
 }
 
 ui_stream_info_line_count() {
-    local count=0
+    local count=0 track_count=0
     if player_is_running; then
         [[ -n "${PLAYER_STREAM_TITLE:-}" ]] && ((count += 1))
-        ui_has_audio_info && ((count += 1))
         if declare -F track_history_visible_count >/dev/null 2>&1; then
-            (( $(track_history_visible_count) > 0 )) && ((count += 1))
+            track_count=$(track_history_visible_count)
+            ((track_count > 0)) && ((count += 1 + track_count))
         fi
+        ui_has_audio_info && ((count += 1))
     fi
     printf '%s\n' "$count"
 }
@@ -1146,15 +1147,21 @@ ui_draw() {
 
     if player_is_running; then
         [[ -n "${PLAYER_STREAM_TITLE:-}" ]] && ui_box_line "$width" "$UI_NOTE $PLAYER_STREAM_TITLE" accent
+        local track_history_count=0 track_history_index track_history_info=''
+        if declare -F track_history_visible_count >/dev/null 2>&1; then
+            track_history_count=$(track_history_visible_count)
+        fi
+        if ((track_history_count > 0)); then
+            ui_box_line "$width" '  Canciones anteriores' accent
+            for ((track_history_index = 0; track_history_index < track_history_count; track_history_index++)); do
+                track_history_info=$(track_history_line "$track_history_index" "$((width - 4))" 2>/dev/null || true)
+                ui_box_line "$width" "$track_history_info" muted
+            done
+        fi
         local audio_info
         ui_audio_info state
         audio_info=$UI_AUDIO_INFO
         [[ -n "$audio_info" ]] && ui_box_line "$width" "  $audio_info" muted
-        local track_history_info=''
-        if declare -F track_history_summary >/dev/null 2>&1; then
-            track_history_info=$(track_history_summary "$((width - 4))" 2>/dev/null || true)
-        fi
-        [[ -n "$track_history_info" ]] && ui_box_line "$width" "$track_history_info" muted
     fi
 
     local volume_bar_width volume_left volume_hint

@@ -15,6 +15,7 @@ SESSION_LOG_LAST_TITLE=''
 TRACK_HISTORY_URL=''
 TRACK_HISTORY_STATION=''
 TRACK_HISTORY_STATION_LOGGED=0
+TRACK_HISTORY_DISPLAY_LIMIT="${KEILA_TRACK_HISTORY_DISPLAY_LIMIT:-8}"
 TRACK_HISTORY_TITLES=()
 TRACK_HISTORY_TIMES=()
 
@@ -49,6 +50,15 @@ session_log_truncate() {
     else
         printf '%s...' "${text:0:max-3}"
     fi
+}
+
+track_history_display_limit() {
+    local limit="${TRACK_HISTORY_DISPLAY_LIMIT:-8}"
+
+    [[ "$limit" =~ ^[0-9]+$ ]] || limit=8
+    ((limit < 1)) && limit=1
+    ((limit > 20)) && limit=20
+    printf '%s\n' "$limit"
 }
 
 session_log_init() {
@@ -174,7 +184,9 @@ track_history_observe() {
     TRACK_HISTORY_TITLES=("$title" "${TRACK_HISTORY_TITLES[@]}")
     TRACK_HISTORY_TIMES=("$now" "${TRACK_HISTORY_TIMES[@]}")
 
-    while ((${#TRACK_HISTORY_TITLES[@]} > 4)); do
+    local keep
+    keep=$(($(track_history_display_limit) + 1))
+    while ((${#TRACK_HISTORY_TITLES[@]} > keep)); do
         last=$((${#TRACK_HISTORY_TITLES[@]} - 1))
         unset "TRACK_HISTORY_TITLES[$last]"
         last=$((${#TRACK_HISTORY_TIMES[@]} - 1))
@@ -188,10 +200,30 @@ track_history_observe() {
 }
 
 track_history_visible_count() {
-    local count=$((${#TRACK_HISTORY_TITLES[@]} - 1))
+    local count=$((${#TRACK_HISTORY_TITLES[@]} - 1)) limit
+    limit=$(track_history_display_limit)
     ((count < 0)) && count=0
-    ((count > 3)) && count=3
+    ((count > limit)) && count=$limit
     printf '%s\n' "$count"
+}
+
+track_history_line() {
+    local index="${1:-0}" width="${2:-80}" array_index time title prefix available
+
+    [[ "$index" =~ ^[0-9]+$ ]] || return 1
+    [[ "$width" =~ ^[0-9]+$ ]] || width=80
+
+    array_index=$((index + 1))
+    ((array_index < ${#TRACK_HISTORY_TITLES[@]})) || return 1
+
+    time="${TRACK_HISTORY_TIMES[array_index]:---:--:--}"
+    title="${TRACK_HISTORY_TITLES[array_index]:-}"
+    [[ -n "$title" ]] || return 1
+
+    prefix=$(printf '  %2d. %s  ' "$array_index" "$time")
+    available=$((width - ${#prefix}))
+    ((available < 4)) && available=4
+    printf '%s%s' "$prefix" "$(session_log_truncate "$title" "$available")"
 }
 
 track_history_summary() {

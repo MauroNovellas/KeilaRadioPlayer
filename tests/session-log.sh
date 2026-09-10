@@ -37,26 +37,26 @@ track_history_observe || fail 'no registró primer título'
 grep -F '(sintonizada)' "$SESSION_LOG_FILE" >/dev/null || fail 'sintonía no registrada'
 grep -F $'Rock FM' "$SESSION_LOG_FILE" >/dev/null || fail 'emisora no saneada'
 track_history_observe && fail 'duplicó título'
-PLAYER_STREAM_TITLE='Tema Dos'
-track_history_observe || fail 'no registró segundo título'
-PLAYER_STREAM_TITLE='Tema Tres'
-track_history_observe || fail 'no registró tercer título'
-PLAYER_STREAM_TITLE='Tema Cuatro'
-track_history_observe || fail 'no registró cuarto título'
+for title in 'Tema Dos' 'Tema Tres' 'Tema Cuatro' 'Tema Cinco' 'Tema Seis' 'Tema Siete' 'Tema Ocho' 'Tema Nueve' 'Tema Diez'; do
+    PLAYER_STREAM_TITLE="$title"
+    track_history_observe || fail "no registró $title"
+done
 
-[[ ${#TRACK_HISTORY_TITLES[@]} == 4 ]] || fail 'historial visible no se limita'
-[[ "${TRACK_HISTORY_TITLES[0]}" == 'Tema Cuatro' ]] || fail 'canción actual'
-[[ "${TRACK_HISTORY_TITLES[1]}" == 'Tema Tres' ]] || fail 'anterior 1'
-[[ "${TRACK_HISTORY_TITLES[2]}" == 'Tema Dos' ]] || fail 'anterior 2'
-[[ "${TRACK_HISTORY_TITLES[3]}" == 'Tema Uno' ]] || fail 'anterior 3'
-[[ "$(track_history_visible_count)" == 3 ]] || fail 'conteo visible'
+[[ ${#TRACK_HISTORY_TITLES[@]} == 9 ]] || fail 'historial visible no se limita'
+[[ "${TRACK_HISTORY_TITLES[0]}" == 'Tema Diez' ]] || fail 'canción actual'
+[[ "${TRACK_HISTORY_TITLES[1]}" == 'Tema Nueve' ]] || fail 'anterior 1'
+[[ "${TRACK_HISTORY_TITLES[8]}" == 'Tema Dos' ]] || fail 'anterior 8'
+[[ " ${TRACK_HISTORY_TITLES[*]} " != *' Tema Uno '* ]] || fail 'no descartó la canción antigua'
+[[ "$(track_history_visible_count)" == 8 ]] || fail 'conteo visible'
 
-summary=$(track_history_summary 80) || fail 'sin resumen visible'
-[[ "$summary" == *'Tema Tres'* && "$summary" == *'Tema Dos'* && "$summary" == *'Tema Uno'* ]] || fail 'resumen incompleto'
-[[ "$summary" != *'Tema Cuatro'* ]] || fail 'el resumen duplica la canción actual'
+line=$(track_history_line 0 80) || fail 'sin primera línea visible'
+[[ "$line" == *'1.'* && "$line" == *'Tema Nueve'* ]] || fail 'primera línea incorrecta'
+line=$(track_history_line 7 80) || fail 'sin octava línea visible'
+[[ "$line" == *'8.'* && "$line" == *'Tema Dos'* ]] || fail 'octava línea incorrecta'
+if track_history_line 8 80 >/dev/null; then fail 'mostró más de ocho anteriores'; fi
 
 title_lines=$(grep -c 'Tema ' "$SESSION_LOG_FILE")
-[[ "$title_lines" == 4 ]] || fail 'líneas de canciones duplicadas o perdidas'
+[[ "$title_lines" == 10 ]] || fail 'líneas de canciones duplicadas o perdidas'
 
 track_history_start_station 'Otra Radio' 'https://radio.invalid/otra'
 [[ ${#TRACK_HISTORY_TITLES[@]} == 0 && "$(track_history_visible_count)" == 0 ]] || fail 'cambio de emisora no reinicia historial visual'

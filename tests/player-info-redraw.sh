@@ -26,7 +26,11 @@ for dimensions in '132 40' '112 20'; do
     TRACK_HISTORY_TIMES=('12:00:02' '12:00:01' '12:00:00')
     read -r UI_COLS UI_LINES <<< "$dimensions"
     ui_draw >/dev/null
-    expected="<4,2>$(ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$UI_NOTE $PLAYER_STREAM_TITLE" accent)<5,2>$(PLAYER_BITRATE_KBPS=192; ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$(ui_audio_info)" muted)<6,2>$(ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$(track_history_summary "$UI_DESKTOP_LEFT_WIDTH")" muted)"
+    expected="<4,2>$(ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$UI_NOTE $PLAYER_STREAM_TITLE" accent)"
+    expected+="<5,2>$(ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" '  Canciones anteriores' accent)"
+    expected+="<6,2>$(ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$(track_history_line 0 "$UI_DESKTOP_LEFT_WIDTH")" muted)"
+    expected+="<7,2>$(ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$(track_history_line 1 "$UI_DESKTOP_LEFT_WIDTH")" muted)"
+    expected+="<8,2>$(PLAYER_BITRATE_KBPS=192; ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$(ui_audio_info)" muted)"
     actual=$(app_poll_player); status=$?
     [[ "$status" == 1 && "$actual" == "$expected" ]] || fail 'metadatos no limitados a sus filas parciales'
     # La desaparición del título borra el anterior con el texto de sustitución.
