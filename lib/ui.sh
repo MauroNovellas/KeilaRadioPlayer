@@ -1195,9 +1195,9 @@ ui_draw() {
         ui_box_line "$width" 'W/S o ↑/↓ mover   Home/End extremos   PgUp/PgDn saltar' muted
         ui_box_line "$width" 'Enter reproducir   A/D o ←/→ volumen   P pausa' muted
         ui_box_line "$width" 'F ir a Favoritas   X añadir/quitar actual   J/K reordenar' muted
-        ui_box_line "$width" 'B buscar   G grabar   U actualizar   D diagnóstico   Q salir   H cerrar ayuda' muted
+        ui_box_line "$width" 'B buscar   G grabar   O opciones   U actualizar   D diagnóstico   Q salir   H cerrar ayuda' muted
     else
-        ui_box_line "$width" "↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  B buscar  $UI_SEP  G grabar  $UI_SEP  D diag.  $UI_SEP  H ayuda  $UI_SEP  Q salir" muted
+        ui_box_line "$width" "↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  B buscar  $UI_SEP  O opciones  $UI_SEP  G grabar  $UI_SEP  D diag.  $UI_SEP  Q salir" muted
     fi
 
     if [[ -n "$UI_MESSAGE" ]]; then ui_box_line "$width" "$UI_MESSAGE"; else ui_box_line "$width" ''; fi

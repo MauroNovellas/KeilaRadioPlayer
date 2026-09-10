@@ -44,7 +44,6 @@ search_handle_key() {
     local key="$1"
     case "$key" in
         $'\x7f'|$'\x08') search_backspace || true ;;
-        $'\x15') search_clear || true ;;
         *) search_append "$key" || return 1 ;;
     esac
     return 0
@@ -270,6 +269,11 @@ stations_select_fzf() {
                 favorites_confirm_clear
                 search_prepare_results
                 search_move 5 || true
+                redraw=1
+                ;;
+            DELETE)
+                favorites_confirm_clear
+                search_clear || true
                 redraw=1
                 ;;
             ENTER)

@@ -6,8 +6,8 @@ PREF_COLOR=1
 PREF_UNICODE=1
 PREF_SPECTRUM=1
 PREFERENCES_ACTIVE=0
-declare -a PREF_ACTIONS=(b f r c x g p m l z v h q)
-declare -a PREF_LABELS=('Buscar emisoras' Favoritas Recientes Comentarios 'Añadir/quitar favorito' Grabación Pausa Silencio 'Alarma temporal' Ecualizador Espectrograma Ayuda Salir)
+declare -a PREF_ACTIONS=(b f r c x g p m l z v h o q)
+declare -a PREF_LABELS=('Buscar emisoras' Favoritas Recientes Comentarios 'Añadir/quitar favorito' Grabación Pausa Silencio 'Alarma temporal' Ecualizador Espectrograma Ayuda Opciones Salir)
 declare -A PREF_KEYS=()
 for pref_action in "${PREF_ACTIONS[@]}"; do PREF_KEYS[$pref_action]=$pref_action; done
 unset pref_action
@@ -109,7 +109,7 @@ app_preferences_menu() {
         done
         if [[ "$mode" == help ]]; then
             rows+=(
-                ', Configuración · ? Ayuda completa'
+                'O Opciones · , Configuración · ? Ayuda completa'
                 '; Grabaciones: revisar/escuchar'
                 '↑↓ seleccionar · ←→ volumen'
                 'Enter: reproducir selección'
@@ -119,7 +119,7 @@ app_preferences_menu() {
                 'Búsqueda: minúsculas escriben'
                 'Búsqueda: X favorito; C comentario'
                 'Búsqueda: F/R listas; M silencio'
-                'Búsqueda: Esc vuelve; Ctrl-U limpia'
+                'Búsqueda: Esc vuelve; Supr limpia'
                 'Comentarios: Enter guarda; Esc cancela'
                 'Ecualizador: ←→ banda; ↑↓ ganancia'
                 'Ecualizador: 1–5 presets'
@@ -128,6 +128,7 @@ app_preferences_menu() {
                 'Diagnóstico: D mayúscula estado en vivo'
                 'Alarma: HHMM; Enter guarda; vacío cancela'
                 'Alarma solo de sesión: equipo despierto'
+                'Opciones: árbol para configurar sin memorizar'
                 'Atajos personalizados: pantalla principal'
                 'Los editores conservan sus teclas locales'
                 'Volumen y última escucha: guardado'

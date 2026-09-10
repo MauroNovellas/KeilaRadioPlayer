@@ -60,6 +60,8 @@ source "$BASE_DIR/lib/equalizer-editor.sh"
 source "$BASE_DIR/lib/alarm.sh"
 # shellcheck source=lib/preferences.sh
 source "$BASE_DIR/lib/preferences.sh"
+# shellcheck source=lib/options.sh
+source "$BASE_DIR/lib/options.sh"
 # shellcheck source=lib/recording-manager.sh
 source "$BASE_DIR/lib/recording-manager.sh"
 # shellcheck source=lib/status-screen.sh
@@ -569,6 +571,7 @@ app_handle_key() {
         z|Z) app_edit_equalizer || true ;;
         v|V) app_toggle_spectrum || true ;;
         h|H) app_preferences_menu help ;;
+        o|O) app_options_menu || true ;;
         q|Q) app_message "Hasta luego." 0; return 2 ;;
         *) return 1 ;;
     esac

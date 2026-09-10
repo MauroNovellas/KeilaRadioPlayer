@@ -35,6 +35,10 @@ update_validate_tree() {
         lib/player-events.sh
         lib/recording.sh
         lib/diagnostics.sh
+        lib/alarm.sh
+        lib/preferences.sh
+        lib/options.sh
+        lib/recording-manager.sh
         lib/status-screen.sh
         lib/backup.sh
         lib/input.sh

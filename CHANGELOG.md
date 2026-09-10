@@ -21,6 +21,11 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 - En pantallas `tiny` y `minimal`, la búsqueda integrada muestra solo nombres
   de emisora por defecto; dentro del buscador `→` muestra detalles en todas las
   filas visibles y `←` vuelve a ocultarlos para recuperar legibilidad en Termux.
+- En la búsqueda integrada, `Supr` limpia la consulta completa; `Ctrl+U` queda
+  reservado para los editores de texto como comentarios.
+- Nuevo hub `[O] Opciones`, con entrada jerárquica a Visualización,
+  Temporizador, Grabaciones, Configuración, Diagnóstico y Ayuda para usuarios
+  que prefieren explorar sin memorizar todos los atajos.
 - Pantalla `D` de diagnóstico en vivo dentro de la TUI: versión, Git, terminal,
   reproductor, título, volumen, catálogo, resultados precargados, grabaciones,
   pendientes y rutas XDG principales, sin detener el audio.

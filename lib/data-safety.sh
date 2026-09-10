@@ -31,7 +31,7 @@ data_validate() {
                 [[ -n "$key" && -z "${seen[$key]:-}" ]] || return 1
                 case "$key" in
                     autoplay|color|unicode|spectrum) [[ "$value" == [01] ]] || return 1 ;;
-                    key_[bfrcxgpmlzvhq]) [[ "$value" == [bcefghilmnopqrtuvxyz] ]] || return 1 ;;
+                    key_[bfrcxgpmlzvhoq]) [[ "$value" == [bcefghilmnopqrtuvxyz] ]] || return 1 ;;
                     *) return 1 ;;
                 esac
                 seen[$key]=1

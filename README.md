@@ -42,6 +42,11 @@ reservados para navegación, volumen y ordenación. Los editores y la búsqueda
 mantienen sus teclas locales, para poder escribir sin activar acciones.
 Los encabezados de la pantalla principal reflejan las letras asignadas.
 
+Pulsa `O` para abrir **Opciones**, un menú jerárquico pensado para no memorizar
+todos los atajos. Desde ahí puedes entrar en `Visualización`, `Temporizador`,
+`Grabaciones`, `Configuración`, `Diagnóstico` y `Ayuda`. Los atajos directos
+siguen disponibles para usuarios habituales.
+
 `D` mayúscula abre **Diagnóstico en vivo** sin detener la reproducción. Muestra
 versión, rama/commit si el árbol es Git, estado de `mpv`, emisora y título
 actual, volumen, catálogo, resultados precargados, grabaciones pendientes y
@@ -262,6 +267,7 @@ Z                  abrir ecualizador
 V                  mostrar/ocultar analizador de espectro
 X                  añadir/quitar la emisora en reproducción de Favoritas
 J / K              mover el favorito seleccionado abajo/arriba
+O                  abrir Opciones
 B                  abrir/editar la búsqueda integrada de emisoras
 D                  diagnóstico en vivo
 U                  actualizar el catálogo de Radio Browser
@@ -288,7 +294,7 @@ X                     añadir/quitar el resultado de Favoritas
 F / R                 salir de búsqueda e ir a Favoritas / Recientes
 C                     editar el comentario del resultado seleccionado
 Backspace             borrar un carácter
-Ctrl+U                limpiar la consulta
+Supr                  limpiar la consulta
 Esc                   volver a Favoritos conservando la consulta
 ```
 
@@ -306,7 +312,7 @@ y `KEILA_TITLE_MAX_AGE` permiten ajustar ambos límites en segundos.
 
 Los comentarios se guardan en `$XDG_CONFIG_HOME/keila-radio/labels` (por defecto `~/.config/keila-radio/labels`) y el historial en `$XDG_STATE_HOME/keila-radio/history` (por defecto `~/.local/state/keila-radio/history`). El historial contiene nombres y URLs de emisoras, sin títulos de canciones ni marcas de tiempo. Puedes borrar el archivo con Keila cerrada para vaciarlo.
 
-Las minúsculas son texto normal dentro del buscador. `X` mayúscula añade o solicita confirmación para quitar el resultado de Favoritas; `C` abre su comentario y `F`/`R` cambian de sección. Los números siguen siendo texto de consulta.
+Las minúsculas son texto normal dentro del buscador. `X` mayúscula añade o solicita confirmación para quitar el resultado de Favoritas; `C` abre su comentario y `F`/`R` cambian de sección. Los números siguen siendo texto de consulta. `Supr` limpia la consulta completa.
 
 En pantallas `tiny` y `minimal`, la búsqueda muestra de entrada solo los nombres de emisora para mantener la lista legible. Dentro del buscador, `→` despliega los detalles disponibles en todas las filas visibles y `←` vuelve a ocultarlos; en ese contexto las flechas izquierda/derecha no cambian el volumen.
 

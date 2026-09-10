@@ -109,7 +109,7 @@ ui_search_desktop() {
                 left_style='muted'
                 ;;
             3)
-                left_text='Backspace borrar'
+                left_text='Backspace borrar · Supr limpiar'
                 left_style='muted'
                 ;;
             4)
@@ -168,7 +168,7 @@ ui_search_desktop() {
     done
 
     ui_desktop_join_rule "$width"
-    ui_box_line "$width" "Escribe  $UI_SEP  P país $KEILA_CATALOG_COUNTRY_FILTER  $UI_SEP  ↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  X favorito  $UI_SEP  Esc volver" muted
+    ui_box_line "$width" "Escribe  $UI_SEP  P país $KEILA_CATALOG_COUNTRY_FILTER  $UI_SEP  Supr limpiar  $UI_SEP  ↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  X favorito  $UI_SEP  Esc volver" muted
     if [[ -n "$UI_MESSAGE" ]]; then
         ui_box_line "$width" "$UI_MESSAGE"
     else
@@ -248,7 +248,7 @@ ui_search_single_column() {
     if ((${LABEL_EDITOR_ACTIVE:-0})); then
         ui_box_line "$width" 'Enter guardar · Esc cancelar · Ctrl-U borrar' muted
     else
-        ui_box_line "$width" '↑↓ Enter  ←/→ detalles  P país  X favorito  C comentario  Esc volver' muted
+        ui_box_line "$width" '↑↓ Enter  Supr limpiar  ←/→ detalles  P país  X favorito  C comentario  Esc volver' muted
     fi
     if [[ -n "$UI_MESSAGE" ]]; then
         ui_box_line "$width" "$UI_MESSAGE"
@@ -322,7 +322,7 @@ ui_draw_search() {
         if ((${LABEL_EDITOR_ACTIVE:-0})); then
             ui_print_padded "$tiny_width" 'Enter guardar · Esc cancelar'
         else
-            ui_print_padded "$tiny_width" '↑↓ Enter · → detalles · ← ocultar · Esc'
+            ui_print_padded "$tiny_width" '↑↓ Enter · Supr · ←/→ detalles · Esc'
         fi
         printf '\n'
         tput ed 2>/dev/null || true

@@ -124,6 +124,10 @@ done
 input_read() { return 1; }
 DRAW_CALLS=0
 
+SEARCH_QUERY=rock
+search_handle_key $'\x15' && fail 'Ctrl-U ya no debe limpiar la consulta de búsqueda'
+assert_eq rock "$SEARCH_QUERY" 'Ctrl-U modificó la consulta'
+
 # En pantallas pequeñas, dentro de la búsqueda las flechas izquierda/derecha
 # alternan entre una lista limpia de nombres y la vista con detalles.
 SEARCH_DETAILS_VISIBLE=0
@@ -142,6 +146,23 @@ stations_select_fzf || selector_status=$?
 assert_eq 1 "$selector_status" 'EOF simulado cierra el buscador tras alternar detalles'
 assert_eq 0 "$SEARCH_DETAILS_VISIBLE" 'LEFT no oculta los detalles de búsqueda'
 [[ "$LAST_MESSAGE" == 'Detalles de búsqueda ocultos.' ]] || fail 'LEFT no informa de que oculta detalles'
+input_read() { return 1; }
+DRAW_CALLS=0
+
+SEARCH_QUERY=rock
+TEST_EVENT=0
+input_read() {
+    ((TEST_EVENT+=1))
+    if ((TEST_EVENT == 1)); then
+        INPUT_EVENT=DELETE
+        return 0
+    fi
+    return 1
+}
+selector_status=0
+stations_select_fzf || selector_status=$?
+assert_eq 1 "$selector_status" 'EOF simulado cierra el buscador tras Supr'
+assert_eq '' "$SEARCH_QUERY" 'Supr no limpia la consulta de búsqueda'
 input_read() { return 1; }
 DRAW_CALLS=0
 

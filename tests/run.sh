@@ -42,6 +42,7 @@ test_shellcheck() {
         "$ROOT_DIR/lib/state.sh" \
         "$ROOT_DIR/lib/favorites.sh" \
         "$ROOT_DIR/lib/recording.sh" \
+        "$ROOT_DIR/lib/options.sh" \
         "$ROOT_DIR/lib/ui.sh" \
         "$ROOT_DIR/tests/run.sh" \
         "$ROOT_DIR/tests/recording-formats.sh" \
