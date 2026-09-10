@@ -308,7 +308,7 @@ Los comentarios se guardan en `$XDG_CONFIG_HOME/keila-radio/labels` (por defecto
 
 Las minúsculas son texto normal dentro del buscador. `X` mayúscula añade o solicita confirmación para quitar el resultado de Favoritas; `C` abre su comentario y `F`/`R` cambian de sección. Los números siguen siendo texto de consulta.
 
-En pantallas muy estrechas, la búsqueda muestra de entrada solo los nombres de emisora para mantener la lista legible. Dentro del buscador, `→` despliega los detalles disponibles solo de la emisora seleccionada y `←` vuelve a ocultarlos; en ese contexto las flechas izquierda/derecha no cambian el volumen.
+En pantallas `tiny` y `minimal`, la búsqueda muestra de entrada solo los nombres de emisora para mantener la lista legible. Dentro del buscador, `→` despliega los detalles disponibles en todas las filas visibles y `←` vuelve a ocultarlos; en ese contexto las flechas izquierda/derecha no cambian el volumen.
 
 Al salir de la búsqueda con `Esc`, la consulta permanece visible. Pulsar de nuevo `B` la reabre para seguir editándola. Para usar el selector externo clásico con `fzf`:
 

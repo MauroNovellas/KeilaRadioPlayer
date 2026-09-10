@@ -55,7 +55,7 @@ ui_search_result_badge() {
 
 ui_search_show_details() {
     case "${UI_LAYOUT_MODE:-standard}" in
-        tiny|minimal|compact)
+        tiny|minimal)
             (( ${SEARCH_DETAILS_VISIBLE:-0} ))
             ;;
         *)
@@ -287,7 +287,7 @@ ui_draw_search() {
             ((SEARCH_DETAILS_VISIBLE)) && tiny_detail='detalles'
             ui_print_padded "$tiny_width" "Resultados: ${#SEARCH_MATCHES[@]} · $tiny_filter · $tiny_detail"
         printf '\n'
-        local row match_position source_index text badge playing selected
+        local row match_position source_index text badge playing
         for ((row = 0; row < tiny_body_height; row++)); do
             match_position=$((SEARCH_SCROLL_OFFSET + row))
             if ((match_position >= ${#SEARCH_MATCHES[@]})); then
@@ -303,16 +303,14 @@ ui_draw_search() {
             ui_search_result_parts "$source_index"
             playing=0
             if player_is_running && [[ "${SEARCH_URLS[$source_index]}" == "$PLAYER_URL" ]]; then playing=1; fi
-            selected=0
             if ((match_position == SEARCH_SELECTED_INDEX)); then
                 text="$UI_SELECT $UI_SEARCH_NAME"
-                selected=1
             elif ((playing)); then
                 text="$UI_PLAY $UI_SEARCH_NAME"
             else
                 text="  $UI_SEARCH_NAME"
             fi
-            if ((SEARCH_DETAILS_VISIBLE && selected)); then
+            if ((SEARCH_DETAILS_VISIBLE)); then
                 badge=$(ui_search_result_badge "$playing")
                 [[ -n "$badge" ]] && text+=" · $badge"
             elif ((UI_SEARCH_IS_FAVORITE)); then

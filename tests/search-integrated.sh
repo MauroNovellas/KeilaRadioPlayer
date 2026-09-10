@@ -172,16 +172,27 @@ render=$(ui_draw_search)
 SEARCH_DETAILS_VISIBLE=1
 render=$(ui_draw_search)
 [[ "$render" == *'Madrid'* || "$render" == *'España'* || "$render" == *'AAC'* ]] || fail 'búsqueda pequeña no muestra detalles al activarlos'
+[[ "$render" == *'Barcelona'* || "$render" == *'MP3'* ]] || fail 'búsqueda minimal no muestra detalles de todos los resultados al activarlos'
 
-SEARCH_DETAILS_VISIBLE=1
+SEARCH_DETAILS_VISIBLE=0
 SEARCH_SELECTED_INDEX=0
 SEARCH_SCROLL_OFFSET=0
 UI_COLS=40
 UI_LINES=10
 render=$(ui_draw_search)
+[[ "$render" == *'Rock FM'* ]] || fail 'búsqueda tiny no muestra nombres'
+[[ "$render" != *'Madrid'* && "$render" != *'España'* && "$render" != *'AAC'* ]] || fail 'búsqueda tiny muestra detalles por defecto'
+SEARCH_DETAILS_VISIBLE=1
+render=$(ui_draw_search)
 [[ "$render" == *'Rock FM · Madrid'* || "$render" == *'Rock FM · España'* || "$render" == *'Rock FM · AAC'* ]] || fail 'búsqueda tiny no muestra detalles del resultado seleccionado'
 [[ "$render" == *'Classic Rock'* ]] || fail 'búsqueda tiny oculta otros nombres al mostrar detalles'
-[[ "$render" != *'Barcelona'* && "$render" != *'MP3'* ]] || fail 'búsqueda tiny muestra detalles de resultados no seleccionados'
+[[ "$render" == *'Barcelona'* || "$render" == *'MP3'* ]] || fail 'búsqueda tiny no muestra detalles de todos los resultados al activarlos'
+
+SEARCH_DETAILS_VISIBLE=0
+UI_COLS=55
+UI_LINES=15
+render=$(ui_draw_search)
+[[ "$render" == *'Madrid'* || "$render" == *'España'* || "$render" == *'AAC'* ]] || fail 'búsqueda compact oculta detalles por defecto'
 
 declare -F stations_select_fzf_external >/dev/null || fail 'falta fallback fzf'
 declare -F stations_select_fzf >/dev/null || fail 'falta selector integrado'

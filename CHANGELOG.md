@@ -17,9 +17,9 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 - Si el índice local está fresco, la TUI precarga los primeros resultados al
   arrancar sin tomar el foco; `B` queda como entrada inmediata para editar la
   búsqueda.
-- En pantallas pequeñas, la búsqueda integrada muestra solo nombres de emisora
-  por defecto; dentro del buscador `→` muestra detalles de la entrada
-  seleccionada y `←` vuelve a ocultarlos para recuperar legibilidad en Termux.
+- En pantallas `tiny` y `minimal`, la búsqueda integrada muestra solo nombres
+  de emisora por defecto; dentro del buscador `→` muestra detalles en todas las
+  filas visibles y `←` vuelve a ocultarlos para recuperar legibilidad en Termux.
 - Pantalla `D` de diagnóstico en vivo dentro de la TUI: versión, Git, terminal,
   reproductor, título, volumen, catálogo, resultados precargados, grabaciones,
   pendientes y rutas XDG principales, sin detener el audio.
