@@ -29,6 +29,8 @@ source "$BASE_DIR/lib/lock.sh"
 source "$BASE_DIR/lib/state.sh"
 # shellcheck source=lib/favorites.sh
 source "$BASE_DIR/lib/favorites.sh"
+# shellcheck source=lib/session-log.sh
+source "$BASE_DIR/lib/session-log.sh"
 # shellcheck source=lib/stations.sh
 source "$BASE_DIR/lib/stations.sh"
 # shellcheck source=lib/player.sh
@@ -70,6 +72,7 @@ source "$BASE_DIR/lib/status-screen.sh"
 source "$BASE_DIR/lib/backup.sh"
 
 cleanup() {
+    session_log_close >/dev/null 2>&1 || true
     pending_cleanup >/dev/null 2>&1 || true
     spectrum_stop >/dev/null 2>&1 || true
     catalog_stop >/dev/null 2>&1 || true
@@ -183,6 +186,7 @@ app_play() {
         return 1
     fi
 
+    track_history_start_station "$name" "$url"
     HISTORY_PENDING_URL="$url"
     save_player_state >/dev/null 2>&1 || true
     if [[ -n "$recording_notice" ]]; then
@@ -498,6 +502,7 @@ app_poll_player() {
     local changed=1 was_ready=$PLAYER_INFO_READY was_buffering=$PLAYER_BUFFERING
     if player_refresh_info; then
         changed=0
+        track_history_observe >/dev/null 2>&1 || true
         if ((!was_ready && PLAYER_INFO_READY)); then
             app_message "Reproduciendo: $PLAYER_NAME" 3
         elif ((!was_buffering && PLAYER_BUFFERING)); then
@@ -678,6 +683,7 @@ main() {
     app_init_data || exit 1
     player_require_dependencies || exit 1
     ui_require_dependencies || exit 1
+    session_log_init || true
     ui_select_url "$STATE_LAST_URL" >/dev/null 2>&1 || true
 
     local station_url="${1:-}"

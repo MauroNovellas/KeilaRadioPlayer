@@ -51,6 +51,7 @@ make_release() {
         lock.sh
         state.sh
         personal.sh
+        session-log.sh
         navigation.sh
         catalog-startup.sh
         label-editor.sh

@@ -17,6 +17,10 @@
   cierre es confirmado y la comprobación de reproducción tiene éxito. Si queda
   tras un fallo o cierre forzado, el audio puede estar incompleto o no verificado.
   No se elimina automáticamente ese audio, aunque esté vacío.
+- Cada sesión interactiva crea un registro de escucha en
+  `$XDG_STATE_HOME/keila-radio/sessions/` con permisos privados. Se escribe en
+  modo append, como texto legible, y no participa en los archivos estructurados
+  que se restauran automáticamente desde `.bak`.
 
 ## Copia anterior y recuperación
 
@@ -50,7 +54,9 @@ falta una copia externa.
 `./keila-radio --backup [archivo.tar.gz]` crea una copia privada de los datos
 personales pequeños: configuración, favoritos, comentarios, preferencias,
 volumen/última emisora, historial y ecualizador. No incluye grabaciones, cachés
-ni el catálogo de Radio Browser.
+ni el catálogo de Radio Browser. Los registros de sesión con canciones y marcas
+de tiempo tampoco se exportan por defecto, por privacidad y para evitar copias
+crecientes sin límite.
 
 `./keila-radio --restore archivo.tar.gz` valida la lista de rutas del archivo y
 el formato de cada dato soportado antes de restaurar. Si la copia es válida,
@@ -78,12 +84,19 @@ archivo ausente y lectura de los datos recuperados.
 caché, restauración validada, respaldo previo automático y rechazo de una copia
 malformada.
 
+`bash tests/session-log.sh` comprueba creación privada del registro de sesión,
+saneado de texto, deduplicación de títulos, reinicio visual al cambiar de
+emisora y cierre del archivo.
+
 ## Límites y trabajo pendiente
 
 - Esto no demuestra durabilidad ante pérdida eléctrica: no hay sincronización
   explícita de archivos y directorios a almacenamiento físico.
 - La copia anterior y la recuperación cubren únicamente los cuatro archivos
   indicados y sus errores estructurales detectables, no cualquier corrupción.
+- Los registros de sesión son append-only: no tienen `.bak`, no se validan al
+  arrancar y pueden truncarse si el sistema se apaga justo durante la escritura.
+  Una línea dañada no impide arrancar porque Keila no necesita releerlos.
 - Un marcador pendiente no certifica daño ni recuperabilidad. El gestor (`;`)
   comprueba un fragmento de audio, no la integridad completa de toda la grabación.
   Su eliminación mueve audio y marcador a `.trash` con confirmación. Los dos

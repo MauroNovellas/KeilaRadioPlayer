@@ -166,9 +166,10 @@ Para mover tus datos personales entre equipos o teléfonos:
 ```
 
 La copia incluye configuración, favoritos, comentarios, preferencias, estado,
-historial y ecualizador. No incluye grabaciones ni caché de Radio Browser. Al
-restaurar se valida el archivo completo antes de tocar nada y se crea una copia
-previa automática en `~/.config/keila-radio/pre-restore-*.tar.gz`.
+historial y ecualizador. No incluye grabaciones, registros de sesión ni caché
+de Radio Browser. Al restaurar se valida el archivo completo antes de tocar nada
+y se crea una copia previa automática en
+`~/.config/keila-radio/pre-restore-*.tar.gz`.
 
 Los datos personales se guardan fuera del repositorio:
 
@@ -176,6 +177,8 @@ Los datos personales se guardan fuera del repositorio:
 ~/.config/keila-radio/config
 ~/.config/keila-radio/favorites
 ~/.local/state/keila-radio/state
+~/.local/state/keila-radio/history
+~/.local/state/keila-radio/sessions/keila-session-*.txt
 ~/.cache/keila-radio/radio.json
 ~/.cache/keila-radio/radio.tsv
 ```
@@ -310,7 +313,32 @@ Si tampoco aparece un título distinto, se aplica una caducidad de cinco minutos
 para no mostrar una canción antigua indefinidamente. `KEILA_TITLE_PROBE_INTERVAL`
 y `KEILA_TITLE_MAX_AGE` permiten ajustar ambos límites en segundos.
 
-Los comentarios se guardan en `$XDG_CONFIG_HOME/keila-radio/labels` (por defecto `~/.config/keila-radio/labels`) y el historial en `$XDG_STATE_HOME/keila-radio/history` (por defecto `~/.local/state/keila-radio/history`). El historial contiene nombres y URLs de emisoras, sin títulos de canciones ni marcas de tiempo. Puedes borrar el archivo con Keila cerrada para vaciarlo.
+Mientras escuchas una emisora, Keila conserva en pantalla una línea con las
+canciones anteriores detectadas en esa misma sintonía, sin repetir la canción
+actual que ya aparece en `Ahora suena`. Es una memoria de la reproducción en
+curso: al cambiar manualmente de emisora se reinicia.
+
+Cada ejecución interactiva crea además un archivo de sesión en texto plano:
+
+```text
+~/.local/state/keila-radio/sessions/keila-session-AAAA-MM-DD_HH-MM-SS-*.txt
+```
+
+Cada línea útil contiene fecha/hora, emisora y canción o evento, separados por
+tabuladores. El archivo se crea con permisos privados (`600`) dentro de un
+directorio privado (`700`). Es intencionadamente legible para poder revisarlo,
+depurar metadatos o importarlo más adelante en otra herramienta.
+
+Los comentarios se guardan en `$XDG_CONFIG_HOME/keila-radio/labels` (por defecto
+`~/.config/keila-radio/labels`) y el historial de emisoras recientes en
+`$XDG_STATE_HOME/keila-radio/history` (por defecto
+`~/.local/state/keila-radio/history`). Ese historial contiene solo nombres y
+URLs de emisoras; los títulos y marcas de tiempo quedan en los registros de
+sesión. Puedes borrar esos archivos con Keila cerrada para vaciarlos.
+
+La futura opción para emitir hacia altavoces, televisores u otros dispositivos
+por Bluetooth o Wi‑Fi queda pendiente como bloque separado: requerirá elegir
+backends por plataforma, especialmente en Termux/Android.
 
 Las minúsculas son texto normal dentro del buscador. `X` mayúscula añade o solicita confirmación para quitar el resultado de Favoritas; `C` abre su comentario y `F`/`R` cambian de sección. Los números siguen siendo texto de consulta. `Supr` limpia la consulta completa.
 
@@ -525,7 +553,7 @@ La carpeta está ignorada por Git. Al detener una grabación Keila espera a que 
 
 ## Comprobaciones
 
-Keila 2.1.0 incluye regresiones para configuración, estado, favoritos, grabación, tema, responsive, geometría desktop, protección contra autowrap/scroll, búsqueda integrada, Favoritos desde búsqueda, persistencia fallida, protección del terminal, autorepeat, actualización, validación de paquetes, rollback, reconexión automática, analizador de espectro, empaquetado Linux y aviso de actualización en la TUI.
+Keila 2.1.0 incluye regresiones para configuración, estado, favoritos, grabación, tema, responsive, geometría desktop, protección contra autowrap/scroll, búsqueda integrada, Favoritos desde búsqueda, persistencia fallida, protección del terminal, autorepeat, actualización, validación de paquetes, rollback, reconexión automática, registro de sesión, analizador de espectro, empaquetado Linux y aviso de actualización en la TUI.
 
 Ejecutar la batería local principal:
 
@@ -541,6 +569,7 @@ bash ./tests/search-integrated.sh
 bash ./tests/equalizer.sh
 bash ./tests/spectrum.sh
 bash ./tests/search-favorites.sh
+bash ./tests/session-log.sh
 bash ./tests/ui-desktop-search-pane.sh
 bash ./tests/ui-terminal-guard.sh
 bash ./tests/input-repeat.sh

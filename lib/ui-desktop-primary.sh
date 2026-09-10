@@ -10,26 +10,32 @@ UI_SPECTRUM_CURSOR_CACHE_KEY=''
 UI_PLAYER_INFO_CURSOR_KEY=''
 UI_PLAYER_TITLE_CURSOR=''
 UI_PLAYER_AUDIO_CURSOR=''
+UI_PLAYER_HISTORY_CURSOR=''
 
-# Metadatos y bitrate ocupan dos filas fijas del panel de reproducción.
+# Metadatos, bitrate e historial breve ocupan filas fijas del panel.
 # No afectan a favoritos, búsqueda, volumen ni al rectángulo del espectro.
 ui_draw_player_info_only() {
     ((${PREFERENCES_ACTIVE:-0})) && return 1
     ((UI_ACTIVE && !UI_SUSPENDED && !${INPUT_RESIZE_PENDING:-0})) || return 1
     ui_desktop_enabled "$UI_COLS" "$UI_LINES" "$UI_LAYOUT_MODE" || return 1
     [[ "$UI_PLAYER_INFO_CURSOR_KEY" == "${TERM:-}|$UI_COLS|$UI_LINES|$UI_DESKTOP_LEFT_WIDTH" ]] || return 1
-    [[ -n "$UI_PLAYER_TITLE_CURSOR" && -n "$UI_PLAYER_AUDIO_CURSOR" ]] || return 1
-    local title='Sin título de emisión disponible' style=muted audio
+    [[ -n "$UI_PLAYER_TITLE_CURSOR" && -n "$UI_PLAYER_AUDIO_CURSOR" && -n "$UI_PLAYER_HISTORY_CURSOR" ]] || return 1
+    local title='Sin título de emisión disponible' style=muted audio previous=''
     if [[ -n "${PLAYER_STREAM_TITLE:-}" ]]; then
         title="$UI_NOTE $PLAYER_STREAM_TITLE"
         style=accent
     fi
     ui_audio_info state
     audio=$UI_AUDIO_INFO
+    if declare -F track_history_summary >/dev/null 2>&1; then
+        previous=$(track_history_summary "$UI_DESKTOP_LEFT_WIDTH" 2>/dev/null || true)
+    fi
     printf '%s' "$UI_PLAYER_TITLE_CURSOR"
     ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$title" "$style"
     printf '%s' "$UI_PLAYER_AUDIO_CURSOR"
     ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$audio" muted
+    printf '%s' "$UI_PLAYER_HISTORY_CURSOR"
+    ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$previous" muted
     return 0
 }
 
@@ -158,6 +164,7 @@ ui_draw_desktop() {
     if [[ "$info_key" != "$UI_PLAYER_INFO_CURSOR_KEY" ]]; then
         UI_PLAYER_TITLE_CURSOR=$(tput cup 4 2 2>/dev/null || true)
         UI_PLAYER_AUDIO_CURSOR=$(tput cup 5 2 2>/dev/null || true)
+        UI_PLAYER_HISTORY_CURSOR=$(tput cup 6 2 2>/dev/null || true)
         UI_PLAYER_INFO_CURSOR_KEY=$info_key
     fi
 
@@ -213,8 +220,11 @@ ui_draw_desktop() {
         main_badge_style='favorite'
     fi
 
-    local audio_info=''
+    local audio_info='' track_history_info=''
     player_is_running && audio_info=$(ui_audio_info)
+    if player_is_running && declare -F track_history_summary >/dev/null 2>&1; then
+        track_history_info=$(track_history_summary "$UI_DESKTOP_LEFT_WIDTH" 2>/dev/null || true)
+    fi
 
     local volume_bar_width volume_left volume_hint
     volume_bar_width=$((UI_DESKTOP_LEFT_WIDTH - 22))
@@ -258,6 +268,11 @@ ui_draw_desktop() {
                 main_style='muted'
             fi
         elif ((row == 3)); then
+            if [[ -n "$track_history_info" ]]; then
+                main_text="$track_history_info"
+                main_style='muted'
+            fi
+        elif ((row == 4)); then
             main_text="$volume_left"
             main_badge="$volume_hint"
             main_style='accent'
