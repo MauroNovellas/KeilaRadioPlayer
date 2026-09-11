@@ -43,8 +43,11 @@ mantienen sus teclas locales, para poder escribir sin activar acciones.
 Los encabezados de la pantalla principal reflejan las letras asignadas.
 
 Pulsa `O` para abrir **Opciones**, un menú jerárquico pensado para no memorizar
-todos los atajos. Desde ahí puedes entrar en `Visualización`, `Temporizador`,
-`Grabaciones`, `Sesión`, `Configuración`, `Diagnóstico` y `Ayuda`. Los atajos
+todos los atajos. Desde ahí puedes entrar en `Reproducción`, `Emisoras`,
+`Visualización`, `Temporizador`, `Grabaciones`, `Sesión`, `Configuración`,
+`Diagnóstico` y `Ayuda`. Muchos controles cotidianos —pausa, silencio, volumen,
+búsqueda, catálogo, favoritos, comentarios, grabación, alarma, ecualizador y
+espectrograma— también pueden ejecutarse navegando por ese árbol. Los atajos
 directos siguen disponibles para usuarios habituales.
 
 `D` mayúscula abre **Diagnóstico en vivo** sin detener la reproducción. Muestra

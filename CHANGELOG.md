@@ -23,9 +23,11 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
   filas visibles y `←` vuelve a ocultarlos para recuperar legibilidad en Termux.
 - En la búsqueda integrada, `Supr` limpia la consulta completa; `Ctrl+U` queda
   reservado para los editores de texto como comentarios.
-- Nuevo hub `[O] Opciones`, con entrada jerárquica a Visualización,
-  Temporizador, Grabaciones, Sesión, Configuración, Diagnóstico y Ayuda para
-  usuarios que prefieren explorar sin memorizar todos los atajos.
+- `[O] Opciones` pasa de hub básico a árbol operativo: añade categorías de
+  Reproducción y Emisoras, y permite ejecutar pausa, silencio, volumen,
+  búsqueda, catálogo, favoritos, comentarios, grabación, alarma, ecualizador,
+  espectrograma, sesión, diagnóstico, configuración y ayuda sin memorizar los
+  atajos directos.
 - La pantalla de reproducción reserva ocho líneas para canciones anteriores de
   la emisora actual y usa la novena para mostrar la ruta del TXT de sesión,
   evitando que la TUI se desplace conforme aparecen títulos nuevos. Cada sesión
