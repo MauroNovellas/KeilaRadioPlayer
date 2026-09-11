@@ -580,7 +580,10 @@ app_handle_key() {
         z|Z) app_edit_equalizer || true ;;
         v|V) app_toggle_spectrum || true ;;
         h|H) app_preferences_menu help ;;
-        o|O) app_options_menu || true ;;
+        o|O)
+            app_options_menu || status=$?
+            ((status == 2)) && return 2
+            ;;
         q|Q) app_message "Hasta luego." 0; return 2 ;;
         *) return 1 ;;
     esac

@@ -123,6 +123,7 @@ session_history_draw() {
 
 app_session_history_screen() {
     local event key redraw=1 previous_signature current_signature visible at_bottom=1 max_scroll=0
+    local previous_preferences=$PREFERENCES_ACTIVE
 
     SESSION_HISTORY_ACTIVE=1
     PREFERENCES_ACTIVE=1
@@ -192,7 +193,7 @@ app_session_history_screen() {
             KEY)
                 case "$key" in
                     s|S) break ;;
-                    q|Q) SESSION_HISTORY_ACTIVE=0; PREFERENCES_ACTIVE=0; return 2 ;;
+                    q|Q) SESSION_HISTORY_ACTIVE=0; PREFERENCES_ACTIVE=$previous_preferences; return 2 ;;
                     *) redraw=0 ;;
                 esac
                 ;;
@@ -202,6 +203,6 @@ app_session_history_screen() {
     done
 
     SESSION_HISTORY_ACTIVE=0
-    PREFERENCES_ACTIVE=0
-    ui_draw
+    PREFERENCES_ACTIVE=$previous_preferences
+    ((${OPTIONS_ACTIVE:-0})) || ui_draw
 }

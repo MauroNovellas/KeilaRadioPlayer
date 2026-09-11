@@ -113,6 +113,7 @@ status_draw() {
 
 app_status_screen() {
     local event key redraw=1 status=0
+    local previous_preferences=$PREFERENCES_ACTIVE
     STATUS_ACTIVE=1
     PREFERENCES_ACTIVE=1
     while true; do
@@ -134,20 +135,20 @@ app_status_screen() {
                     d|D) break ;;
                     s|S)
                         app_session_history_screen || status=$?
-                        ((status == 2)) && { STATUS_ACTIVE=0; PREFERENCES_ACTIVE=0; return 2; }
+                        ((status == 2)) && { STATUS_ACTIVE=0; PREFERENCES_ACTIVE=$previous_preferences; return 2; }
                         STATUS_ACTIVE=1
                         PREFERENCES_ACTIVE=1
                         ;;
                     u|U) app_update_catalog || true ;;
                     b|B) app_search_catalog || true ;;
                     ';') app_pending_menu || true ;;
-                    q|Q) STATUS_ACTIVE=0; PREFERENCES_ACTIVE=0; return 2 ;;
+                    q|Q) STATUS_ACTIVE=0; PREFERENCES_ACTIVE=$previous_preferences; return 2 ;;
                     *) redraw=0 ;;
                 esac
                 ;;
         esac
     done
     STATUS_ACTIVE=0
-    PREFERENCES_ACTIVE=0
-    ui_draw
+    PREFERENCES_ACTIVE=$previous_preferences
+    ((${OPTIONS_ACTIVE:-0})) || ui_draw
 }

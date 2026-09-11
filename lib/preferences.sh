@@ -90,6 +90,8 @@ preferences_translate_key() {
 app_preferences_menu() {
     local mode=${1:-settings} selected=0 offset=0 capture=0 notice='' event key i height width action other old redraw=1 title='CONFIGURACIÓN' confirm=0 description=''
     [[ "$mode" == help ]] && title='AYUDA'
+    local previous_preferences=$PREFERENCES_ACTIVE
+    if ((${OPTIONS_ACTIVE:-0})); then title="OPCIONES > $title"; fi
     local -a rows=()
     local -a labels=(Desactivado Activado)
     local restore_index=$((4 + ${#PREF_ACTIONS[@]}))
@@ -109,7 +111,7 @@ app_preferences_menu() {
         done
         if [[ "$mode" == help ]]; then
             rows+=(
-                'O Opciones · , Configuración · ? Ayuda completa'
+                "${PREF_KEYS[o]^^} Opciones · , Configuración · ? Ayuda completa"
                 '; Grabaciones: revisar/escuchar'
                 '↑↓ seleccionar · ←→ volumen'
                 'Enter: reproducir selección'
@@ -128,7 +130,12 @@ app_preferences_menu() {
                 'Diagnóstico: D mayúscula estado en vivo'
                 'Alarma: HHMM; Enter guarda; vacío cancela'
                 'Alarma solo de sesión: equipo despierto'
-                'Opciones: árbol para configurar sin memorizar'
+                'Opciones: Enter abre o ejecuta; derecha abre categorías'
+                'Opciones: izquierda/Esc vuelve un nivel'
+                'Opciones: ? explica la selección; Esc cierra el detalle'
+                'Opciones: PgUp/PgDn página; Home/End extremos'
+                'Opciones: letras locales, no atajos personalizados'
+                'Opciones: Favoritas/Recientes vuelve a la lista'
                 'Atajos personalizados: pantalla principal'
                 'Los editores conservan sus teclas locales'
                 'Volumen y última escucha: guardado'
@@ -221,6 +228,6 @@ app_preferences_menu() {
         if preferences_save; then notice='Guardado.'; else notice='Error al guardar; el cambio solo dura esta sesión.'; fi
         preferences_apply
     done
-    PREFERENCES_ACTIVE=0
-    ui_draw
+    PREFERENCES_ACTIVE=$previous_preferences
+    ((${OPTIONS_ACTIVE:-0})) || ui_draw
 }

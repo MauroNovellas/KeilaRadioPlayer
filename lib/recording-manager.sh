@@ -173,6 +173,7 @@ pending_cleanup() {
 
 app_pending_menu() {
     local selected=0 offset=0 width height row file name date size confirm='' signature='' redraw=1 event key selected_file index
+    local previous_preferences=$PREFERENCES_ACTIVE
     pending_scan_start || true
     PENDING_NOTICE='Buscando pendientes…'
     PREFERENCES_ACTIVE=1
@@ -264,6 +265,6 @@ app_pending_menu() {
     PENDING_PROBE_PID=''
     [[ -z "$PENDING_PROBE_DIR" ]] || rm -rf -- "$PENDING_PROBE_DIR"
     PENDING_PROBE_DIR=''
-    PREFERENCES_ACTIVE=0
-    ui_draw
+    PREFERENCES_ACTIVE=$previous_preferences
+    ((${OPTIONS_ACTIVE:-0})) || ui_draw
 }

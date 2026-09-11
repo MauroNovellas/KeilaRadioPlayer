@@ -50,6 +50,30 @@ búsqueda, catálogo, favoritos, comentarios, grabación, alarma, ecualizador y
 espectrograma— también pueden ejecutarse navegando por ese árbol. Los atajos
 directos siguen disponibles para usuarios habituales.
 
+El menú muestra la ruta (`OPCIONES > EMISORAS`) y conserva la selección de cada
+categoría al volver. `↑`/`↓` seleccionan, `Enter` abre o ejecuta, `→` abre una
+categoría y `←`/`Esc` vuelve un nivel. La flecha derecha no cambia ajustes ni
+confirma eliminaciones. `PgUp`/`PgDn` avanza una página visible y `Home`/`End`
+salta a los extremos. Las letras entre corchetes son accesos locales del menú;
+no cambian al personalizar los atajos de la pantalla principal.
+
+Cada opción incluye una explicación y su estado cuando corresponde: pausa,
+silencio, volumen, alarma, fase de grabación, catálogo o preferencia guardada.
+Las acciones no disponibles se atenúan y explican qué falta para usarlas.
+En terminales anchas la explicación queda al lado de la lista; en Termux se
+usan filas compactas y un bloque de detalle de altura fija. `?` abre la
+explicación completa, desplazable incluso en pantallas pequeñas; `Esc` vuelve
+a la misma opción. Esta vista es de lectura y no ejecuta acciones.
+
+`Ir a Favoritas`, `Ir a Recientes`, la búsqueda y una reproducción iniciada
+desde el menú devuelven el control al reproductor. La gestión de favoritas
+dentro de Opciones actúa sobre la emisora **seleccionada**, aunque otra esté
+sonando. Añadir es inmediato; eliminar exige repetir `Enter` o `X`, y navegar
+cancela esa confirmación. Si falla el guardado de colores, Unicode o inicio
+automático desde Opciones, se mantiene el valor anterior y se muestra el error.
+La alarma, reconexión y detección de grabaciones siguen atendidas con el menú
+abierto; los estados se reutilizan sin analizar el catálogo por cada tecla.
+
 `D` mayúscula abre **Diagnóstico en vivo** sin detener la reproducción. Muestra
 versión, rama/commit si el árbol es Git, estado de `mpv`, emisora y título
 actual, volumen, catálogo, resultados precargados, grabaciones pendientes y
@@ -583,6 +607,9 @@ bash ./tests/spectrum.sh
 bash ./tests/search-favorites.sh
 bash ./tests/session-history.sh
 bash ./tests/session-log.sh
+bash ./tests/options-menu.sh
+bash ./tests/options-layout.sh
+bash ./tests/options-safety.sh
 bash ./tests/ui-desktop-search-pane.sh
 bash ./tests/ui-terminal-guard.sh
 bash ./tests/input-repeat.sh

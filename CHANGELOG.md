@@ -4,6 +4,22 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - rama v2.1
 
+- Pulido de `[O] Opciones`: ruta visible, memoria de selección y desplazamiento
+  por categoría, flechas para entrar/volver y páginas ajustadas a la terminal.
+  Explicación lateral en escritorio, filas compactas y detalle fijo en Termux;
+  `?` abre una explicación completa desplazable y de solo lectura. Se respetan
+  ancho, altura, caracteres anchos, acentos combinantes y modo ASCII.
+- Estados de reproducción, silencio, volumen, alarma, grabación, catálogo y
+  preferencias dentro de Opciones; las acciones no disponibles explican el
+  motivo. No se reconstruye el menú por cada cuadro de audio ni se relee el
+  catálogo por cada tecla. Las pantallas hijas restauran el foco al regresar.
+- Corregida la gestión de favoritas desde Opciones para actuar sobre la emisora
+  seleccionada, no sobre otra que esté sonando. Eliminar requiere confirmar y
+  moverse cancela. Los saltos a listas y búsqueda cierran Opciones; la salida
+  desde diagnóstico o sesión se propaga correctamente al reproductor.
+- Los cambios de colores, Unicode e inicio automático desde Opciones conservan
+  el valor anterior si no pueden guardarse. Ayuda y README actualizados;
+  pruebas de navegación, seguridad y composición incorporadas a GitHub Actions.
 - Catálogo migrado de TDTChannels a Radio Browser: descubrimiento de servidor,
   `User-Agent` descriptivo, descarga local diaria con `hidebroken=true`,
   límite configurable de resultados, normalización de país/código/estado/tags/
