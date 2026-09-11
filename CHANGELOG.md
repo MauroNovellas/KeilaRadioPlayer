@@ -24,14 +24,16 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 - En la búsqueda integrada, `Supr` limpia la consulta completa; `Ctrl+U` queda
   reservado para los editores de texto como comentarios.
 - Nuevo hub `[O] Opciones`, con entrada jerárquica a Visualización,
-  Temporizador, Grabaciones, Configuración, Diagnóstico y Ayuda para usuarios
-  que prefieren explorar sin memorizar todos los atajos.
+  Temporizador, Grabaciones, Sesión, Configuración, Diagnóstico y Ayuda para
+  usuarios que prefieren explorar sin memorizar todos los atajos.
 - La pantalla de reproducción reserva ocho líneas para canciones anteriores de
   la emisora actual y usa la novena para mostrar la ruta del TXT de sesión,
   evitando que la TUI se desplace conforme aparecen títulos nuevos. Cada sesión
   interactiva crea un registro privado en texto con hora, emisora y título
   detectado. El límite visual puede ajustarse temporalmente con
   `KEILA_TRACK_HISTORY_DISPLAY_LIMIT`.
+- Nuevo visor `O > Sesión` para consultar desde la TUI el TXT de la sesión
+  actual con scroll, ruta visible y refresco en vivo mientras continúa el audio.
 - Pantalla `D` de diagnóstico en vivo dentro de la TUI: versión, Git, terminal,
   reproductor, título, volumen, catálogo, resultados precargados, grabaciones,
   pendientes y rutas XDG principales, sin detener el audio.

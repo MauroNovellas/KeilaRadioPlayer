@@ -52,6 +52,7 @@ make_release() {
         state.sh
         personal.sh
         session-log.sh
+        session-history.sh
         navigation.sh
         catalog-startup.sh
         label-editor.sh

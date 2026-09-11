@@ -16,6 +16,7 @@ options_draw() {
         'V|Visualización|Espectrograma, colores, Unicode y ajustes visuales'
         'T|Temporizador|Alarma temporal; base para apagado automático'
         'G|Grabaciones|Revisar, comprobar, escuchar y proteger grabaciones'
+        'S|Sesión|Ver el TXT de canciones reproducidas en esta ejecución'
         'C|Configuración|Preferencias y atajos personalizables'
         'D|Diagnóstico|Estado del reproductor, catálogo, rutas y grabaciones'
         'H|Ayuda|Atajos completos y controles locales'
@@ -51,7 +52,7 @@ options_draw() {
         printf '\n'
     done
 
-    ui_print_padded "$width" '↑↓ seleccionar · Enter abrir · V/T/G/C/D/H directo · Esc volver'
+    ui_print_padded "$width" '↑↓ seleccionar · Enter abrir · V/T/G/S/C/D/H directo · Esc volver'
     printf '\n'
     ui_print_padded "$width" "${UI_MESSAGE:-}"
     tput ed 2>/dev/null || true
@@ -62,9 +63,10 @@ options_open_selected() {
         0) app_preferences_menu settings ;;
         1) app_edit_alarm || true ;;
         2) app_pending_menu || true ;;
-        3) app_preferences_menu settings ;;
-        4) app_status_screen || true ;;
-        5) app_preferences_menu help ;;
+        3) app_session_history_screen || true ;;
+        4) app_preferences_menu settings ;;
+        5) app_status_screen || true ;;
+        6) app_preferences_menu help ;;
     esac
     PREFERENCES_ACTIVE=1
     OPTIONS_ACTIVE=1
@@ -75,9 +77,10 @@ options_key_select() {
         v) OPTIONS_SELECTED=0; return 0 ;;
         t) OPTIONS_SELECTED=1; return 0 ;;
         g) OPTIONS_SELECTED=2; return 0 ;;
-        c) OPTIONS_SELECTED=3; return 0 ;;
-        d) OPTIONS_SELECTED=4; return 0 ;;
-        h) OPTIONS_SELECTED=5; return 0 ;;
+        s) OPTIONS_SELECTED=3; return 0 ;;
+        c) OPTIONS_SELECTED=4; return 0 ;;
+        d) OPTIONS_SELECTED=5; return 0 ;;
+        h) OPTIONS_SELECTED=6; return 0 ;;
     esac
     return 1
 }
@@ -109,13 +112,13 @@ app_options_menu() {
                 ((OPTIONS_SELECTED > 0)) && ((OPTIONS_SELECTED -= 1))
                 ;;
             DOWN)
-                ((OPTIONS_SELECTED < 5)) && ((OPTIONS_SELECTED += 1))
+                ((OPTIONS_SELECTED < 6)) && ((OPTIONS_SELECTED += 1))
                 ;;
             HOME)
                 OPTIONS_SELECTED=0
                 ;;
             END)
-                OPTIONS_SELECTED=5
+                OPTIONS_SELECTED=6
                 ;;
             ENTER)
                 options_open_selected

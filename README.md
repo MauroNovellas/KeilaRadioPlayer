@@ -44,8 +44,8 @@ Los encabezados de la pantalla principal reflejan las letras asignadas.
 
 Pulsa `O` para abrir **Opciones**, un menú jerárquico pensado para no memorizar
 todos los atajos. Desde ahí puedes entrar en `Visualización`, `Temporizador`,
-`Grabaciones`, `Configuración`, `Diagnóstico` y `Ayuda`. Los atajos directos
-siguen disponibles para usuarios habituales.
+`Grabaciones`, `Sesión`, `Configuración`, `Diagnóstico` y `Ayuda`. Los atajos
+directos siguen disponibles para usuarios habituales.
 
 `D` mayúscula abre **Diagnóstico en vivo** sin detener la reproducción. Muestra
 versión, rama/commit si el árbol es Git, estado de `mpv`, emisora y título
@@ -322,6 +322,11 @@ compactos o sin altura suficiente se oculta para no volver ilegible la pantalla.
 Durante pruebas puede ajustarse con `KEILA_TRACK_HISTORY_DISPLAY_LIMIT` entre
 1 y 20; en ese caso la ruta del TXT aparece después de las líneas reservadas.
 
+Desde `O > Sesión` puedes abrir ese TXT dentro de la TUI. La pantalla muestra
+hora, emisora y canción/evento, permite desplazarse con flechas, Home/End y
+PageUp/PageDown, enseña la ruta del archivo y se actualiza mientras la radio
+sigue sonando. Desde `D` Diagnóstico también puedes entrar con `S`.
+
 Cada ejecución interactiva crea además un archivo de sesión en texto plano:
 
 ```text
@@ -557,7 +562,7 @@ La carpeta está ignorada por Git. Al detener una grabación Keila espera a que 
 
 ## Comprobaciones
 
-Keila 2.1.0 incluye regresiones para configuración, estado, favoritos, grabación, tema, responsive, geometría desktop, protección contra autowrap/scroll, búsqueda integrada, Favoritos desde búsqueda, persistencia fallida, protección del terminal, autorepeat, actualización, validación de paquetes, rollback, reconexión automática, registro de sesión, analizador de espectro, empaquetado Linux y aviso de actualización en la TUI.
+Keila 2.1.0 incluye regresiones para configuración, estado, favoritos, grabación, tema, responsive, geometría desktop, protección contra autowrap/scroll, búsqueda integrada, Favoritos desde búsqueda, persistencia fallida, protección del terminal, autorepeat, actualización, validación de paquetes, rollback, reconexión automática, registro y visor de sesión, analizador de espectro, empaquetado Linux y aviso de actualización en la TUI.
 
 Ejecutar la batería local principal:
 
@@ -573,6 +578,7 @@ bash ./tests/search-integrated.sh
 bash ./tests/equalizer.sh
 bash ./tests/spectrum.sh
 bash ./tests/search-favorites.sh
+bash ./tests/session-history.sh
 bash ./tests/session-log.sh
 bash ./tests/ui-desktop-search-pane.sh
 bash ./tests/ui-terminal-guard.sh

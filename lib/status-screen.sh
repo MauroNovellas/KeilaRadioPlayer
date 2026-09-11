@@ -105,14 +105,14 @@ status_draw() {
         ui_print_styled_padded "$width" "$line" accent
         printf '\n'
     done
-    ui_print_padded "$width" 'D/Esc volver · U actualiza catálogo · ; grabaciones · B búsqueda'
+    ui_print_padded "$width" 'D/Esc volver · S sesión · U actualiza catálogo · ; grabaciones · B búsqueda'
     printf '\n'
     ui_print_padded "$width" "${UI_MESSAGE:-}"
     tput ed 2>/dev/null || true
 }
 
 app_status_screen() {
-    local event key redraw=1
+    local event key redraw=1 status=0
     STATUS_ACTIVE=1
     PREFERENCES_ACTIVE=1
     while true; do
@@ -132,6 +132,12 @@ app_status_screen() {
             KEY)
                 case "$key" in
                     d|D) break ;;
+                    s|S)
+                        app_session_history_screen || status=$?
+                        ((status == 2)) && { STATUS_ACTIVE=0; PREFERENCES_ACTIVE=0; return 2; }
+                        STATUS_ACTIVE=1
+                        PREFERENCES_ACTIVE=1
+                        ;;
                     u|U) app_update_catalog || true ;;
                     b|B) app_search_catalog || true ;;
                     ';') app_pending_menu || true ;;

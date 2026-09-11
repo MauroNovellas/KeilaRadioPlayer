@@ -22,6 +22,7 @@ update_validate_tree() {
         lib/state.sh
         lib/personal.sh
         lib/session-log.sh
+        lib/session-history.sh
         lib/navigation.sh
         lib/catalog-startup.sh
         lib/label-editor.sh

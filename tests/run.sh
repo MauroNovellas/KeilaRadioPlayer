@@ -43,6 +43,7 @@ test_shellcheck() {
         "$ROOT_DIR/lib/favorites.sh" \
         "$ROOT_DIR/lib/recording.sh" \
         "$ROOT_DIR/lib/session-log.sh" \
+        "$ROOT_DIR/lib/session-history.sh" \
         "$ROOT_DIR/lib/options.sh" \
         "$ROOT_DIR/lib/ui.sh" \
         "$ROOT_DIR/tests/run.sh" \

@@ -17,6 +17,7 @@ DRAW_CALLS=0
 VISUAL_CALLS=0
 ALARM_CALLS=0
 PENDING_CALLS=0
+SESSION_CALLS=0
 
 ui_draw() { ((DRAW_CALLS += 1)); }
 ui_refresh_size() { UI_COLS=80 UI_LINES=24; }
@@ -29,6 +30,7 @@ app_preferences_menu() {
 }
 app_edit_alarm() { ((ALARM_CALLS += 1)); }
 app_pending_menu() { ((PENDING_CALLS += 1)); }
+app_session_history_screen() { ((SESSION_CALLS += 1)); }
 app_status_screen() { :; }
 
 events=0
@@ -42,6 +44,18 @@ input_read() {
 }
 app_options_menu >/dev/null
 assert_eq 1 "$PENDING_CALLS" 'G no abre grabaciones desde opciones'
+
+events=0
+input_read() {
+    ((events += 1))
+    INPUT_KEY=''
+    case "$events" in
+        1) INPUT_EVENT=KEY; INPUT_KEY=S ;;
+        *) INPUT_EVENT=ESC ;;
+    esac
+}
+app_options_menu >/dev/null
+assert_eq 1 "$SESSION_CALLS" 'S no abre historial de sesión desde opciones'
 
 events=0
 input_read() {
@@ -70,4 +84,4 @@ assert_eq 1 "$VISUAL_CALLS" 'Enter sobre Visualización no abre preferencias vis
 assert_eq 0 "$OPTIONS_ACTIVE" 'opciones no libera foco al salir'
 ((DRAW_CALLS >= 3)) || fail 'opciones no repinta al volver'
 
-printf 'ok   opciones: hub jerárquico para visualización, temporizador y grabaciones\n'
+printf 'ok   opciones: hub jerárquico para visualización, temporizador, sesión y grabaciones\n'
