@@ -50,6 +50,7 @@ panel_draw() {
     local OPTIONS_TITLE=$title OPTIONS_SELECTED=$selected OPTIONS_SCROLL=$offset OPTIONS_VISIBLE=1
     local OPTIONS_BREADCRUMB OPTIONS_FOOTER_OVERRIDE=$footer OPTIONS_NOTICE_OVERRIDE=$notice OPTIONS_SUMMARY_OVERRIDE
     local OPTIONS_FORM=${PANEL_FORM:-0} OPTIONS_DETAIL_HEADING=''
+    local OPTIONS_FULL_WIDTH=${PANEL_FULL_WIDTH:-0} OPTIONS_BADGE_MAX_WIDTH=${PANEL_BADGE_MAX_WIDTH:-0}
     ((OPTIONS_FORM == 0)) || OPTIONS_DETAIL_HEADING='Ayuda de edición'
     local -a OPTIONS_ROWS=("${PANEL_ROWS[@]}") OPTIONS_DETAIL_LINES=()
     if ((${#OPTIONS_ROWS[@]} == 0)); then OPTIONS_ROWS=('|Sin elementos|No hay elementos para mostrar.|panel||'); fi
@@ -67,7 +68,7 @@ panel_snapshot() {
     printf -v PANEL_SNAPSHOT '%s\034' "${PLAYER_PID:-}" "${PLAYER_PAUSED:-0}" "${PLAYER_MUTED:-0}" \
         "${PLAYER_VOLUME:-0}" "${PLAYER_STREAM_READY:-0}" "${PLAYER_BUFFERING:-0}" "${PLAYER_NAME:-}" \
         "${ALARM_AT:-0}" "${RECORDING_PHASE:-}" "${UI_MESSAGE:-}" "${CATALOG_PID:-}" "${CATALOG_LAST_ERROR:-}" \
-        "${PENDING_SCAN_PID:-}"
+        "${PENDING_SCAN_PID:-}" "${PENDING_SCAN_GENERATION:-0}" "${PENDING_PREVIEW_STATE:-}" "${PENDING_NOTICE:-}"
 }
 
 panel_poll() {
@@ -76,6 +77,7 @@ panel_poll() {
     app_poll_player || true
     catalog_poll || true
     pending_scan_poll || true
+    pending_preview_poll || true
     ui_message_tick || true
     panel_snapshot
     [[ "$before" != "$PANEL_SNAPSHOT" ]]

@@ -20,7 +20,7 @@ o dobles de prueba, no los altavoces del usuario.
 
 El runner necesita Bash 5, las utilidades habituales de GNU/Linux o Termux
 (incluido `timeout`), `jq`, Python 3 y ShellCheck. Integración necesita además
-`ffmpeg`, `ffprobe`, `script` y `setsid`. La falta de una dependencia requerida
+`ffmpeg`, `ffprobe`, `script`, `setsid`, `mpv` y `socat`. La falta de una dependencia requerida
 es un error, no una prueba aprobada por omisión. El reproductor no necesita
 ShellCheck: es una dependencia exclusiva de desarrollo.
 
@@ -51,6 +51,13 @@ secuencial. Medir rendimiento en una máquina sobrecargada puede dar resultados
 distintos: repetir aisladamente y revisar el tiempo antes de cambiar el umbral.
 Las pruebas individuales siguen siendo ejecutables con `bash tests/nombre.sh`.
 `tests/run.sh` conserva sus comprobaciones básicas, pero no es la batería completa.
+
+La escucha de grabaciones se verifica también con mpv real: genera un WAV
+sintético, lo reproduce mediante `--ao=null` y comprueba pausa, saltos, posición,
+fin de archivo y limpieza del grupo privado. No envía audio a los altavoces.
+Requiere que el entorno permita sockets Unix locales: un aislamiento que
+bloquee su creación impedirá esta prueba. No se omite ni se declara aprobada
+por ese motivo; ejecutarla en un entorno que permita ese IPC local.
 
 ## Resultados y fallos
 

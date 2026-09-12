@@ -17,6 +17,7 @@ STATUS_ROWS=('Versión|Keila 2.1' 'Volumen|50%' 'Config|/una/ruta/muy/larga/para
 STATUS_REFRESH_AT=$((EPOCHSECONDS + 3600))
 PENDING_FILES=('/grabaciones/Radio con un nombre muy largo.mp3')
 PENDING_NOTICE=''
+PENDING_PREVIEW_FILE=${PENDING_FILES[0]} PENDING_PREVIEW_STATE='En pausa' PENDING_PREVIEW_PAUSED=1
 BACKUP_FILES=('/copias/keila-backup-con-nombre-muy-largo.tar.gz')
 BACKUP_SIZES=(8192) BACKUP_DATES=('2026-09-12 10:00:00')
 BACKUP_TARGET=${BACKUP_FILES[0]} BACKUP_NOTICE='Copia privada de datos personales'
@@ -47,7 +48,7 @@ for geometry in '160 45' '110 24' '97 16' '96 16' '80 24' '62 16' '50 13' '42 11
     read -r UI_COLS UI_LINES <<< "$geometry"
     for unicode in 0 1; do
         UI_UNICODE=$unicode; ui_configure_glyphs
-        for screen in preferencias ayuda alarma ecualizador comentarios historial grabaciones diagnostico copias confirmacion; do
+        for screen in preferencias ayuda alarma ecualizador comentarios historial grabaciones escucha diagnostico copias confirmacion; do
             BACKUP_PREPARED_DIR=''
             case "$screen" in
                 preferencias) preferences_build_rows settings; frame=$(panel_draw PREFERENCIAS 0 0 'Enter cambiar | Esc volver' '') ;;
@@ -57,6 +58,7 @@ for geometry in '160 45' '110 24' '97 16' '96 16' '80 24' '62 16' '50 13' '42 11
                 comentarios) frame=$(label_editor_draw 'Radio con nombre largo' 'Comentario largo para comprobar que el cursor de escritura queda siempre visible Z') ;;
                 historial) frame=$(session_history_draw) ;;
                 grabaciones) frame=$(pending_draw 0 0) ;;
+                escucha) frame=$(pending_preview_draw 0 0) ;;
                 diagnostico) frame=$(status_draw) ;;
                 copias) frame=$(backup_manager_draw) ;;
                 confirmacion) BACKUP_PREPARED_DIR='/copias/preparada'; frame=$(backup_manager_draw) ;;
@@ -75,4 +77,4 @@ panel_draw PREFERENCIAS 3 0 'Enter cambiar | Esc volver' '' >/dev/null
 [[ "$OPTIONS_TITLE:$OPTIONS_SELECTED:$OPTIONS_SCROLL" == PADRE:7:2 ]] || fail 'el hijo altera selección o título del padre'
 [[ "${OPTIONS_ROWS[0]}" == 'P|Padre|Se conserva|menu:main||' ]] || fail 'el hijo reemplaza las filas del padre'
 
-printf 'ok   diez pantallas: 13 geometrías, dos modos, cursor de edición y aislamiento del padre\n'
+printf 'ok   once pantallas: 13 geometrías, dos modos, cursor de edición y aislamiento del padre\n'

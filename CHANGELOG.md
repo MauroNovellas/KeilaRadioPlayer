@@ -4,6 +4,17 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - rama v2.1
 
+- Biblioteca de grabaciones unificada, ordenada por fecha de modificación con
+  nombre, tamaño y estados explícitos, incluyendo archivos en curso de solo
+  consulta. Metadatos en segundo plano, refresco con U y selección estable
+  también cuando el listado termina de actualizarse dentro de un detalle.
+- Pantalla de escucha con pausa, saltos de diez segundos e inicio; controles
+  navegables y adaptables al terminal. mpv separado con IPC y grupo privados,
+  preparación cancelable, respuestas verificadas y retorno conservador a radio
+  ante salida, fin de archivo o error. No altera audio guardado ni historiales.
+- Pruebas de biblioteca, controles, alarmas y errores; prueba con mpv real y
+  audio sintético hacia salida nula. Once pantallas en 13 geometrías y dos modos
+  de símbolos. CI exige también mpv y socat para la prueba de escucha real.
 - Nuevo `O` → `A`, Datos y almacenamiento: crear copias privadas y consultar
   las disponibles con nombre, fecha y tamaño. `R` verifica y abre una pantalla
   con los datos incluidos; solo Enter confirma la restauración. Esc cancela,

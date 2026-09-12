@@ -43,6 +43,7 @@ update_validate_tree() {
         lib/options.sh
         lib/panels.sh
         lib/recording-manager.sh
+        lib/recording-preview.sh
         lib/status-screen.sh
         lib/backup.sh
         lib/backup-archive.sh

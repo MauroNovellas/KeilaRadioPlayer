@@ -29,6 +29,7 @@ fast|preferences.sh|
 fast|recent-workflow.sh|
 fast|recording-switch.sh|
 fast|recording-validation.sh|
+fast|recording-preview.sh|
 fast|render-cache.sh|
 fast|search-favorites.sh|
 fast|search-integrated.sh|
@@ -60,6 +61,8 @@ integration|player-title-probe.sh|
 integration|pre-rc.sh|
 integration|recording-formats.sh|
 integration|recording-manager.sh|
+integration|recording-library.sh|
+integration|recording-preview-audio.sh|
 integration|spectrum.sh|
 integration|ui-terminal-guard.sh|
 integration|profile-live.sh|--self-test

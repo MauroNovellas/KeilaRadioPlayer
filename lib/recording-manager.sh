@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
-# Gestor de pendientes. No reutiliza el reproductor de radio para las escuchas.
+# Biblioteca de grabaciones. El listado nunca decodifica audio.
 PENDING_FILES=()
 PENDING_SCAN_PID='' PENDING_SCAN_DIR='' PENDING_PROBE_PID='' PENDING_PROBE_DIR=''
-PENDING_PREVIEW_PID='' PENDING_RADIO_PID='' PENDING_RADIO_URL=''
 PENDING_NOTICE='' PENDING_TARGET='' PENDING_SIGNATURE=''
+PENDING_SCAN_GENERATION=0 PENDING_SUMMARY='' PENDING_SCAN_DEADLINE=0 PENDING_SCAN_AGAIN=0
+declare -A PENDING_METADATA=() PENDING_STATES=() PENDING_DOUBTFUL=()
+# shellcheck source=lib/recording-preview.sh
+source "$(dirname "${BASH_SOURCE[0]}")/recording-preview.sh"
 
 pending_signature() {
     [[ -f "$1" && ! -L "$1" && ! -L "$1.pending" ]] || return 1
+    [[ ! -e "$1.pending" || -f "$1.pending" ]] || return 1
     stat -c '%d:%i:%s:%y:%z' -- "$1" || return 1
     if [[ -f "$1.pending" ]]; then stat -c '%d:%i:%s:%y:%z' -- "$1.pending"; else printf 'closed\n'; fi
 }
@@ -14,7 +18,8 @@ pending_signature() {
 pending_busy() {
     local file=$1 owner='' proc comm
     [[ "$file" == "${RECORDING_FILE:-}" && ${RECORDING_ACTIVE:-0} == 1 ]] && return 0
-    [[ -e "$file.pending" ]] || return 1
+    [[ -e "$file.pending" || -L "$file.pending" ]] || return 1
+    [[ -f "$file.pending" && ! -L "$file.pending" ]] || return 0
     IFS= read -r owner < "$file.pending" || true
     [[ "$owner" == closed ]] && return 1
     if [[ "$owner" =~ ^[1-9][0-9]*$ ]]; then
@@ -43,59 +48,69 @@ pending_stop_child() {
 }
 
 pending_scan_start() {
-    [[ -z "$PENDING_SCAN_PID" ]] || return 0
+    [[ -z "$PENDING_SCAN_PID" ]] || { PENDING_SCAN_AGAIN=1; return 0; }
+    PENDING_SCAN_AGAIN=0
     PENDING_SCAN_DIR=$(mktemp -d "${TMPDIR:-/tmp}/keila-pending.XXXXXX") || return 1
+    PENDING_SCAN_DEADLINE=$((EPOCHSECONDS+30))
     (
         trap - EXIT
         shopt -s nullglob
+        local file info state status=0 signature
         for file in "$RECORDINGS_DIR"/*; do
-            case "$file" in *.mp3|*.aac|*.ts|*.ogg|*.flac|*.wav|*.mka|*.mp4|*.m4a) : ;; *) continue ;; esac
+            case "${file,,}" in *.mp3|*.aac|*.ts|*.ogg|*.flac|*.wav|*.mka|*.mp4|*.m4a|*.opus) : ;; *) continue ;; esac
             [[ -f "$file" && ! -L "$file" ]] || continue
-            pending_busy "$file" && continue
-            printf '%s\0' "$file"
-        done > "$PENDING_SCAN_DIR/files"
-        : > "$PENDING_SCAN_DIR/done"
-    ) &
+            info=$(stat -c $'%Y\t%s\t%y' -- "$file") || continue
+            state=Finalizada
+            [[ ! -e "$file.pending" ]] || state=Pendiente
+            [[ -s "$file" ]] || state=Vacía
+            if [[ -n "${PENDING_DOUBTFUL[$file]:-}" ]]; then
+                signature=$(pending_signature "$file") || signature=''
+                [[ "$signature" != "${PENDING_DOUBTFUL[$file]}" ]] || state=Dudosa
+            fi
+            if pending_busy "$file"; then state='En curso'; fi
+            if [[ -L "$file.pending" || ( -e "$file.pending" && ! -f "$file.pending" ) || ! -r "$file" ]]; then state='No disponible'; fi
+            printf '%s\t%s\t%s\0' "$info" "$state" "$file"
+        done > "$PENDING_SCAN_DIR/unsorted" || status=1
+        LC_ALL=C sort -z -s -t $'\t' -k1,1nr "$PENDING_SCAN_DIR/unsorted" > "$PENDING_SCAN_DIR/files" || status=1
+        printf '%s\n' "$status" > "$PENDING_SCAN_DIR/done"
+    ) 2> "$PENDING_SCAN_DIR/error.log" &
     PENDING_SCAN_PID=$!
 }
 
 pending_scan_poll() {
-    [[ -n "$PENDING_SCAN_PID" && -f "$PENDING_SCAN_DIR/done" ]] || return 1
+    [[ -n "$PENDING_SCAN_PID" ]] || return 1
+    if [[ ! -f "$PENDING_SCAN_DIR/done" ]]; then
+        if ((EPOCHSECONDS < PENDING_SCAN_DEADLINE)) && kill -0 "$PENDING_SCAN_PID" 2>/dev/null; then return 1; fi
+        pending_stop_child "$PENDING_SCAN_PID"
+    fi
     wait "$PENDING_SCAN_PID" 2>/dev/null || true
     PENDING_SCAN_PID=''
-    mapfile -d '' -t PENDING_FILES < "$PENDING_SCAN_DIR/files"
+    if [[ ! -f "$PENDING_SCAN_DIR/done" || $(<"$PENDING_SCAN_DIR/done") != 0 ]]; then
+        PENDING_NOTICE='No se pudo actualizar la lista. Se conserva la anterior; U reintenta.'
+        rm -rf -- "$PENDING_SCAN_DIR"; PENDING_SCAN_DIR=''
+        return 0
+    fi
+    local row rest file size date state finished=0 pending=0 active=0 doubtful=0
+    PENDING_FILES=() PENDING_METADATA=() PENDING_STATES=()
+    while IFS= read -r -d '' row; do
+        rest=${row#*$'\t'}; size=${rest%%$'\t'*}; rest=${rest#*$'\t'}
+        date=${rest%%$'\t'*}; rest=${rest#*$'\t'}
+        state=${rest%%$'\t'*}; file=${rest#*$'\t'}
+        PENDING_FILES+=("$file") PENDING_METADATA[$file]="$size|$date" PENDING_STATES[$file]=$state
+        case "$state" in
+            Finalizada) ((finished+=1)) ;; Pendiente) ((pending+=1)) ;;
+            'En curso') ((active+=1)) ;; *) ((doubtful+=1)) ;;
+        esac
+    done < "$PENDING_SCAN_DIR/files"
+    ((PENDING_SCAN_GENERATION+=1))
+    PENDING_SUMMARY="$finished finalizadas | $pending pendientes | $active en curso | $doubtful por revisar"
     rm -rf -- "$PENDING_SCAN_DIR"
     PENDING_SCAN_DIR=''
-    local notice="${#PENDING_FILES[@]} grabaciones · ; abrir"
+    local notice="${#PENDING_FILES[@]} grabaciones · Más recientes primero · U actualiza"
     if [[ -z "$PENDING_NOTICE" || "$PENDING_NOTICE" == Buscando* ]]; then PENDING_NOTICE=$notice; fi
-    if ((${#PENDING_FILES[@]})); then app_message "$notice" 12; fi
+    if ((${#PENDING_FILES[@]})); then app_message "${#PENDING_FILES[@]} grabaciones · ; abrir" 12; fi
+    ((PENDING_SCAN_AGAIN == 0)) || pending_scan_start || true
     return 0
-}
-
-pending_preview_stop() {
-    pending_stop_child "$PENDING_PREVIEW_PID"
-    PENDING_PREVIEW_PID=''
-    if [[ -n "$PENDING_RADIO_PID" && "$PENDING_RADIO_PID" == "${PLAYER_PID:-}" && "$PENDING_RADIO_URL" == "${PLAYER_URL:-}" ]] && ((${PLAYER_PAUSED:-0})); then
-        player_toggle_pause || true
-    fi
-    PENDING_RADIO_PID='' PENDING_RADIO_URL=''
-}
-
-pending_preview_start() {
-    local file=$1
-    pending_signature "$file" >/dev/null && ! pending_busy "$file" || return 1
-    ((${RECORDING_ACTIVE:-0} == 0)) || { PENDING_NOTICE='Detén la grabación antes de escuchar.'; return 1; }
-    pending_preview_stop
-    if player_is_running && ((${PLAYER_PAUSED:-0} == 0)); then
-        player_toggle_pause || return 1
-        PENDING_RADIO_PID=$PLAYER_PID PENDING_RADIO_URL=$PLAYER_URL
-    fi
-    local mute=no
-    ((${PLAYER_MUTED:-0})) && mute=yes
-    mpv --no-config --really-quiet --no-terminal --no-video --audio-display=no \
-        --volume="${PLAYER_VOLUME:-50}" --mute="$mute" -- "$file" >/dev/null 2>&1 &
-    PENDING_PREVIEW_PID=$!
-    PENDING_NOTICE='Escuchando · E detiene · Esc vuelve'
 }
 
 pending_probe_start() {
@@ -127,9 +142,14 @@ pending_probe_poll() {
     PENDING_PROBE_PID=''
     signature=$(pending_signature "$PENDING_TARGET") || signature=''
     PENDING_NOTICE='Dudosa: se conserva el audio y su marcador.'
+    if [[ -n "$signature" && "$signature" == "$PENDING_SIGNATURE" ]]; then
+        PENDING_DOUBTFUL[$PENDING_TARGET]=$signature
+        PENDING_STATES[$PENDING_TARGET]=Dudosa
+    fi
     if [[ "$result" == 0 && -s "$PENDING_TARGET" && "$signature" == "$PENDING_SIGNATURE" ]] && ! pending_busy "$PENDING_TARGET"; then
         if [[ ! -e "$PENDING_TARGET.pending" ]] || rm -- "$PENDING_TARGET.pending"; then
             PENDING_NOTICE='Verificada y finalizada. Audio conservado.'
+            unset 'PENDING_DOUBTFUL[$PENDING_TARGET]'
             pending_scan_start || true
         else
             PENDING_NOTICE='Audio verificado; no se pudo finalizar.'
@@ -165,7 +185,7 @@ pending_cleanup() {
     pending_preview_stop
     pending_stop_child "$PENDING_PROBE_PID"
     pending_stop_child "$PENDING_SCAN_PID"
-    PENDING_PROBE_PID='' PENDING_SCAN_PID=''
+    PENDING_PROBE_PID='' PENDING_SCAN_PID='' PENDING_SCAN_AGAIN=0
     [[ -z "$PENDING_PROBE_DIR" ]] || rm -rf -- "$PENDING_PROBE_DIR"
     [[ -z "$PENDING_SCAN_DIR" ]] || rm -rf -- "$PENDING_SCAN_DIR"
     PENDING_PROBE_DIR='' PENDING_SCAN_DIR=''
@@ -176,8 +196,7 @@ pending_build_panel() {
     PANEL_ROWS=()
     for index in "${!PENDING_FILES[@]}"; do
         file=${PENDING_FILES[index]} name=${PENDING_FILES[index]##*/}
-        state=Finalizada
-        [[ ! -e "$file.pending" ]] || state=Pendiente
+        state=${PENDING_STATES[$file]:-Finalizada}
         info=${PENDING_METADATA[$file]:-}
         if [[ -z "$info" ]] && ((index == selected || (index >= offset && index < offset + UI_LINES))); then
             info=$(stat -c '%s|%y' -- "$file" 2>/dev/null) || info='?|No disponible'
@@ -188,41 +207,57 @@ pending_build_panel() {
         if [[ "$size" =~ ^[0-9]+$ ]]; then
             if ((size >= 1048576)); then size_label="$((size/1048576))MiB"
             elif ((size >= 1024)); then size_label="$((size/1024))KiB"; fi
-            badge="${state:0:1} ${date:0:10} $size_label"
+            badge="$state $size_label"
+            if ((UI_COLS >= 80)); then printf -v badge '%-13s %-10s %7s' "$state" "${date:0:10}" "$size_label"; fi
         fi
-        panel_add_row '' "$name" "Archivo: $file. Fecha: ${date:0:16}. Tamaño: ${size:-?} B. Estado: $state. C comprueba y finaliza los verificados; E escucha o detiene; X prepara la eliminación a papelera. Enter confirma y Esc cancela." "$badge"
+        local reason=''
+        case "$state" in 'En curso'|'No disponible') reason='No se puede escuchar, comprobar ni borrar mientras esté ocupado o no sea accesible.' ;; esac
+        panel_add_row '' "$name" "Archivo: $file. Fecha de modificación: ${date:0:16}. Tamaño: ${size:-?} B. Estado: $state. Finalizada significa sin cierre pendiente; C comprueba el audio. E abre la escucha con pausa y saltos de 10 segundos. X prepara el traslado a papelera, con confirmación. U actualiza la lista." "$badge" "$reason"
     done
     if ((${#PENDING_FILES[@]} == 0)); then
         if [[ -n "$PENDING_SCAN_PID" ]]; then
             panel_add_row '' 'Buscando grabaciones' 'La detección se hace en segundo plano. Puedes volver al reproductor mientras termina.'
         else
-            panel_add_row '' 'No hay grabaciones guardadas' 'Para grabar una emisora, vuelve al reproductor y pulsa G. No se incluyen archivos que siguen en uso.'
+            panel_add_row '' 'No hay grabaciones guardadas' "Para grabar una emisora, vuelve al reproductor y pulsa G. Carpeta: $RECORDINGS_DIR. U vuelve a buscar."
         fi
     fi
 }
 
 pending_draw() {
-    local selected=$1 offset=$2 confirm=${3:-} footer='C comprobar | E escuchar | X borrar | Esc volver'
+    local selected=$1 offset=$2 confirm=${3:-} footer='E escuchar | C comprobar | U actualizar | X papelera | Esc volver'
     local -a PANEL_ROWS=()
+    # Una biblioteca necesita ancho para nombre + estado/fecha/tamaño. Conserva
+    # el marco común y el detalle inferior; no estrecharla con un segundo panel.
+    local PANEL_FULL_WIDTH=1 PANEL_BADGE_MAX_WIDTH=0
     ui_refresh_size
+    ((UI_COLS < 80)) || PANEL_BADGE_MAX_WIDTH=32
     pending_build_panel "$selected" "$offset"
     [[ -z "$confirm" ]] || footer='Enter confirma | Esc cancela'
-    panel_draw GRABACIONES "$selected" "$offset" "$footer" "$PENDING_NOTICE" "${#PENDING_FILES[@]} archivos | ${PENDING_PREVIEW_PID:+Escucha activa}"
+    panel_draw GRABACIONES "$selected" "$offset" "$footer" "$PENDING_NOTICE" "${PENDING_SUMMARY:-${#PENDING_FILES[@]} archivos}"
 }
 
 app_pending_menu() {
-    local selected=0 offset=0 file confirm='' signature='' redraw=1 event key selected_file index snapshot
+    local selected=0 offset=0 file confirm='' signature='' redraw=1 event key selected_file=${PENDING_FILES[0]:-} index snapshot
+    local generation=$PENDING_SCAN_GENERATION
     local previous_preferences=$PREFERENCES_ACTIVE
-    local -A PENDING_METADATA=()
     local PANEL_SELECTED=0 PANEL_SCROLL=0 PANEL_VISIBLE=1
     pending_scan_start || true
     PENDING_NOTICE='Buscando grabaciones...'
     PREFERENCES_ACTIVE=1
     while true; do
+        if ((generation != PENDING_SCAN_GENERATION)); then
+            generation=$PENDING_SCAN_GENERATION
+            for index in "${!PENDING_FILES[@]}"; do
+                if [[ ${PENDING_FILES[index]} == "$selected_file" ]]; then selected=$index; break; fi
+            done
+            if [[ -n "$confirm" ]]; then confirm=''; PENDING_NOTICE='Lista actualizada; confirma de nuevo.'; fi
+            redraw=1
+        fi
         if ((redraw)); then
             pending_draw "$selected" "$offset" "$confirm"
             selected=$PANEL_SELECTED offset=$PANEL_SCROLL
         fi
+        selected_file=${PENDING_FILES[selected]:-}
         input_read || break
         event=$INPUT_EVENT key=${INPUT_KEY,,} redraw=1
         if [[ "$event" == TICK ]]; then
@@ -231,27 +266,9 @@ app_pending_menu() {
             app_poll_player || true
             ui_message_tick || true
             catalog_poll || true
-            selected_file=${PENDING_FILES[selected]:-}
-            if pending_scan_poll; then
-                redraw=1
-                PENDING_METADATA=()
-                for index in "${!PENDING_FILES[@]}"; do
-                    if [[ ${PENDING_FILES[index]} == "$selected_file" ]]; then selected=$index; break; fi
-                done
-                if [[ -n "$confirm" ]]; then confirm=''; PENDING_NOTICE='Lista actualizada; confirma de nuevo.'; fi
-            fi
-            if pending_probe_poll; then redraw=1; PENDING_METADATA=(); fi
-            if [[ -n "$PENDING_RADIO_PID" && "$PENDING_RADIO_PID" != "${PLAYER_PID:-}" ]]; then
-                pending_preview_stop; PENDING_NOTICE='Escucha detenida por cambio de reproducción.'; redraw=1
-            fi
-            if [[ -n "$PENDING_PREVIEW_PID" ]] && ! kill -0 "$PENDING_PREVIEW_PID" 2>/dev/null; then
-                local preview_status=0
-                wait "$PENDING_PREVIEW_PID" 2>/dev/null || preview_status=$?
-                PENDING_PREVIEW_PID=''
-                pending_preview_stop
-                if ((preview_status)); then PENDING_NOTICE='No se pudo reproducir el archivo.'; else PENDING_NOTICE='Escucha terminada.'; fi
-                redraw=1
-            fi
+            pending_scan_poll && redraw=1
+            pending_probe_poll && redraw=1
+            pending_preview_poll && redraw=1
             panel_snapshot
             [[ "$snapshot" == "$PANEL_SNAPSHOT" ]] || redraw=1
             continue
@@ -277,6 +294,7 @@ app_pending_menu() {
                 pending_build_panel "$selected" "$offset"
                 panel_detail GRABACIONES "$selected" ;;
             KEY)
+                if [[ "$key" == u ]]; then pending_scan_start || true; PENDING_NOTICE='Buscando grabaciones...'; continue; fi
                 [[ -n "$file" ]] || continue
                 case "$key" in
                     '?')
@@ -284,8 +302,8 @@ app_pending_menu() {
                         pending_build_panel "$selected" "$offset"
                         panel_detail GRABACIONES "$selected" ;;
                     c) pending_probe_start "$file" || PENDING_NOTICE='No se puede comprobar: archivo ocupado.' ;;
-                    e) if [[ -n "$PENDING_PREVIEW_PID" ]]; then pending_preview_stop; PENDING_NOTICE='Escucha detenida.'; else pending_preview_start "$file" || PENDING_NOTICE='No se puede escuchar: archivo ocupado.'; fi ;;
-                    x) signature=$(pending_signature "$file") || continue
+                    e) app_recording_preview "$file" || true ;;
+                    x) signature=$(pending_signature "$file") || { PENDING_NOTICE='Archivo no disponible; U actualiza la lista.'; continue; }
                        confirm=$file; PENDING_NOTICE='¿Mover selección a papelera? Enter sí; otra tecla no.' ;;
                 esac ;;
         esac

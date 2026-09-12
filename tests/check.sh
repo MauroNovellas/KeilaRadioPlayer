@@ -67,7 +67,7 @@ check_main() {
     local -a dependencies=(bash timeout mktemp jq python3)
     if [[ "$suite" == all || "$suite" == fast ]]; then dependencies+=(shellcheck); fi
     if [[ "$suite" == all || "$suite" == integration ]]; then
-        dependencies+=(ffmpeg ffprobe script setsid)
+        dependencies+=(ffmpeg ffprobe script setsid mpv socat)
     fi
     [[ "$suite" != packaging ]] || dependencies+=(dpkg-deb)
     for tool in "${dependencies[@]}"; do

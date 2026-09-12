@@ -73,6 +73,7 @@ make_release() {
         options.sh
         panels.sh
         recording-manager.sh
+        recording-preview.sh
         status-screen.sh
         backup.sh
         backup-archive.sh

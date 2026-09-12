@@ -211,7 +211,7 @@ options_build_rows() {
             options_add_row G "$OPTIONS_RECORD_LABEL" "Graba la emisora actual. Archivo: ${RECORDING_FILE:-todavía no iniciado}. El cierre se verifica antes de dar la grabación por finalizada." record_toggle "$OPTIONS_RECORDING"
             local files="${#PENDING_FILES[@]} archivos"
             [[ -z "$PENDING_SCAN_PID" ]] || files='Buscando archivos'
-            options_add_row R 'Revisar grabaciones' 'Lista los archivos con fecha y tamaño. Permite comprobar, escuchar y finalizar los verificados. Eliminar requiere confirmación y usa una papelera recuperable.' pending "$files"
+            options_add_row R 'Revisar y escuchar grabaciones' 'Lista unificada por fecha, con tamaño y estado. E abre la escucha con pausa y saltos; al volver se retoma la misma radio si no estaba pausada. C comprueba y finaliza. Eliminar requiere confirmación y usa una papelera recuperable.' pending "$files"
             ;;
         session)
             OPTIONS_TITLE='SESIÓN'
@@ -339,7 +339,12 @@ options_draw_row() {
     fi
     if [[ "$OPTIONS_ROW_ACTION" == menu:* ]]; then badge="${badge:+$badge } >"; fi
     if [[ -n "$badge" ]]; then
-        options_fit_text "$badge" "$((width / 3))"
+        local badge_limit=$((width / 3))
+        if ((${OPTIONS_BADGE_MAX_WIDTH:-0} > 0)); then
+            badge_limit=$OPTIONS_BADGE_MAX_WIDTH
+            ((badge_limit <= width / 2)) || badge_limit=$((width / 2))
+        fi
+        options_fit_text "$badge" "$badge_limit"
         badge=$OPTIONS_FITTED badge_width=$((OPTIONS_FITTED_WIDTH + 2))
     fi
     if ((width < 9)); then
@@ -375,7 +380,7 @@ options_draw() {
         return 0
     fi
     body=$((lines - 4))
-    if ((width >= 96 && lines >= 16)); then
+    if ((width >= 96 && lines >= 16 && !${OPTIONS_FULL_WIDTH:-0})); then
         split=1
         list_width=$((width * 48 / 100))
         ((list_width > 60)) && list_width=60

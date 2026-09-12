@@ -126,25 +126,28 @@ Keila Radio Player 2.1.1
 ## Revisar grabaciones
 
 Pulsa `;` en la pantalla principal para abrir el gestor. Al arrancar, Keila
-busca en segundo plano audios con marcador `.pending` y avisa si los encuentra,
-sin retrasar el inicio de la radio. La lista muestra nombre, fecha de modificación
-y tamaño en bytes; en pantallas estrechas cada entrada ocupa dos filas.
+busca en segundo plano audios terminados y pendientes, sin retrasar el inicio
+de la radio. Se ordenan por fecha de modificación e incluyen tamaño y estado.
+En pantallas estrechas se prioriza el nombre; el detalle muestra todos los datos.
 
 - Flechas / Home / End: seleccionar; `Esc`: regresar.
 - `C`: comprobar el audio en segundo plano. Si mpv verifica un fragmento y el
-  archivo no ha cambiado, se retira el marcador y sale de la lista. El audio
-  permanece en su ubicación original; una comprobación dudosa no lo elimina.
-- `E`: escuchar o detener. Se pausa temporalmente la radio y se reanuda al
-  terminar o salir, si sigue siendo la misma sesión. No cambia el historial ni
-  la última emisora guardada. No se inicia una escucha mientras se graba.
+  archivo no ha cambiado, se retira el marcador y permanece en la lista como
+  Finalizada. Una comprobación dudosa no elimina el audio ni su marcador.
+- `E`: abre la escucha con pausa, saltos e inicio. Al terminar o salir se retoma
+  la misma radio solo si no estaba ya pausada. No cambia el historial ni la
+  última emisora guardada. No se inicia una escucha mientras se graba.
+- `U`: actualiza la lista; `Enter` o `?`: consulta el detalle completo.
 - `X`, seguido de `Enter`: mover audio y marcador a la carpeta `.trash` dentro
   de grabaciones. Cualquier otra tecla cancela. No es un borrado definitivo:
   los archivos pueden recuperarse manualmente desde esa carpeta.
 
-Los marcadores nuevos identifican el proceso de mpv para excluir grabaciones
-activas. Con marcadores antiguos vacíos, Keila es conservador y puede aplazar
+Los marcadores nuevos identifican el proceso de mpv para proteger grabaciones
+activas, que se muestran como En curso. Con marcadores antiguos vacíos, Keila es conservador y puede aplazar
 la revisión mientras haya otro mpv abierto. Solo se revisa la carpeta configurada,
 sin recorrer subcarpetas ni seguir enlaces simbólicos a archivos.
+
+Los controles de escucha se detallan en [Biblioteca y escucha de grabaciones](#biblioteca-y-escucha-de-grabaciones).
 
 Al iniciar una grabación se muestra «Preparando grabación» hasta que aparecen
 datos; después pasa a «Grabando». Al detenerla, «Cierre pendiente» indica que
@@ -646,6 +649,43 @@ KeilaRadioPlayer/grabaciones/
 ```
 
 La carpeta está ignorada por Git. Al detener una grabación Keila espera a que el muxer termine de cerrar buffers, comprueba que el fichero existe y contiene datos, y muestra también su tamaño. Si `mpv` cae inesperadamente, intenta validar y conservar el archivo que haya quedado.
+
+### Biblioteca y escucha de grabaciones
+
+Abre `O` → `G` → `R`, o pulsa `;` desde el reproductor. La lista reúne los
+archivos terminados y pendientes, ordenados por fecha de modificación (los más
+recientes primero), con nombre, fecha, tamaño y estado. `U` actualiza sin
+interrumpir la radio; se conserva el archivo seleccionado al reordenar o cambiar
+el tamaño de la terminal. `Enter` o `?` abre el detalle con la ruta completa.
+
+Los estados distinguen **Finalizada**, **Pendiente**, **En curso**, **Vacía**,
+**Dudosa** y **No disponible**. Finalizada indica que no hay un cierre pendiente,
+no que se haya comprobado todo el audio. `C` comprueba el archivo y retira el
+marcador únicamente si supera la verificación y no ha cambiado. Una comprobación
+fallida conserva el archivo; el aviso Dudosa se mantiene durante esta sesión.
+Las grabaciones en uso se muestran, pero no se pueden escuchar, comprobar ni borrar.
+La detección solo lee metadatos de archivos, no decodifica todos los audios.
+
+`E` abre **Escuchar grabación**, con el mismo estilo y navegación que Opciones:
+
+- `P` o espacio pausa/reanuda el archivo.
+- `A` / flecha izquierda retrocede 10 segundos; `D` / derecha avanza 10 segundos.
+- `I` vuelve al inicio. Los saltos dependen de que el formato los permita.
+- `R` o `Esc` cierra la escucha y vuelve a la lista.
+- También puedes elegir cada control con arriba/abajo y activarlo con `Enter`.
+
+La escucha hereda el volumen y silencio de la radio, sin modificar sus ajustes
+guardados. Usa otro mpv con socket y grupo privados; pausa temporalmente la radio
+y la retoma al terminar o salir, **solo si sigue siendo la misma y no estaba ya
+pausada**. Una alarma o cambio de emisora detiene la escucha local sin deshacer
+esa nueva reproducción. Los errores se indican y nunca borran ni finalizan el
+archivo. No se añade esta escucha al historial de emisoras o canciones.
+
+Durante la preparación se puede salir sin esperar; después no se consulta mpv
+por cada tick del teclado, solo al usar los controles. Los comandos se confirman
+por su respuesta [JSON IPC de mpv](https://mpv.io/manual/stable/#json-ipc).
+`X` mantiene el traslado a la papelera local con confirmación. Renombrar y
+recuperar desde esa papelera mediante la interfaz quedan para otra iteración.
 
 ## Comprobaciones
 

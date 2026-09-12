@@ -180,6 +180,19 @@ Ver [Guía de pruebas](TESTING.md) para grupos, dependencias y registros de fall
 
 ## Límites y trabajo pendiente
 
+La biblioteca de grabaciones no decodifica los archivos durante el escaneo ni
+considera la ausencia de `.pending` una verificación del audio. Un marcador que
+sea enlace, directorio o FIFO bloquea las operaciones; nunca se lee como texto.
+La advertencia Dudosa de una comprobación fallida se conserva durante la sesión
+mientras el archivo no cambie. El audio y el marcador se mantienen para revisarlos.
+
+Escuchar utiliza un mpv con configuración desactivada, socket en directorio
+privado y grupo de procesos propio. No escribe posiciones de reanudación ni
+modifica los archivos, sus marcadores o historiales. Al cerrar se limpia solo
+ese reproductor y se retoma la radio únicamente si esta escucha la pausó y no
+ha cambiado. Una alarma tiene prioridad. Las pruebas cubren fin de archivo,
+errores, pausa previa, IPC rechazado, timeout y saltos reales con audio sintético.
+
 - Esto no demuestra durabilidad ante pérdida eléctrica: no hay sincronización
   explícita de archivos y directorios a almacenamiento físico.
 - La copia anterior y la recuperación cubren únicamente los siete archivos
@@ -212,3 +225,8 @@ personales reales ni llenar el almacenamiento del teléfono para estas pruebas.
    permanecen y que una grabación posterior no reutiliza su nombre.
 4. Registrar Android/Termux, ubicación del almacenamiento y resultado. Un cierre
    forzado no equivale a un apagado físico; no se afirma durabilidad eléctrica.
+5. Escuchar una grabación de prueba, pausar, saltar y volver: comprobar que se
+   retoma la radio anterior. Repetir con la radio ya pausada y con una alarma;
+   no debe reanudarse una pausa previa ni sustituirse la emisora de la alarma.
+6. Recorrer la biblioteca a 40 y 62 columnas, abrir detalles y actualizar la
+   lista. Comprobar que conserva el archivo seleccionado y no desplaza columnas.

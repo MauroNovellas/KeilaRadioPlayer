@@ -28,7 +28,7 @@ wait_probe() {
 }
 pending_scan_start || fail scan
 wait_scan
-[[ ${#PENDING_FILES[@]} == 1 && ${PENDING_FILES[0]} == "$file" ]] || fail listado
+[[ ${#PENDING_FILES[@]} == 2 && ${PENDING_STATES[$file]} == Pendiente && ${PENDING_STATES[$active]} == 'En curso' ]] || fail listado
 if pending_probe_start "$active"; then fail 'verifica grabación activa'; fi
 if pending_trash "$active" "$(pending_signature "$active")"; then fail 'borra grabación activa'; fi
 
@@ -46,7 +46,7 @@ wait_probe
 [[ ! -e "$file.pending" && -s "$file" ]] || fail 'no finaliza verificada'
 wait_scan
 
-[[ ${#PENDING_FILES[@]} == 1 && ${PENDING_FILES[0]} == "$file" ]] || fail 'desaparece grabación finalizada'
+[[ ${#PENDING_FILES[@]} == 2 && ${PENDING_STATES[$file]} == Finalizada ]] || fail 'desaparece grabación finalizada'
 
 printf '999999999\n' > "$file.pending"
 signature=$(pending_signature "$file")
