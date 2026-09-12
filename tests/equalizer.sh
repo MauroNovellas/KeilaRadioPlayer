@@ -14,6 +14,9 @@ source "$ROOT_DIR/lib/lock.sh"
 source "$ROOT_DIR/lib/player.sh"
 source "$ROOT_DIR/lib/equalizer.sh"
 source "$ROOT_DIR/lib/ui.sh"
+source "$ROOT_DIR/lib/options.sh"
+source "$ROOT_DIR/lib/panels.sh"
+PREFERENCES_ACTIVE=0
 
 trap 'rm -rf "$task_tmp"' EXIT
 config_load "$task_tmp/recordings" || fail 'configuración'
@@ -92,7 +95,7 @@ input_read() {
     INPUT_KEY=${editor_keys[editor_step]}
     ((editor_step+=1))
 }
-app_edit_equalizer || fail 'edición integrada'
+app_edit_equalizer >/dev/null || fail 'edición integrada'
 assert_eq '0' "$EQUALIZER_SELECTED" 'flechas horizontales seleccionan frecuencia'
 assert_eq '1' "${EQUALIZER_GAINS[1]}" 'flecha arriba aumenta ganancia'
 assert_eq '0' "${EQUALIZER_GAINS[0]}" 'C centra la banda seleccionada'

@@ -74,6 +74,24 @@ automático desde Opciones, se mantiene el valor anterior y se muestra el error.
 La alarma, reconexión y detección de grabaciones siguen atendidas con el menú
 abierto; los estados se reutilizan sin analizar el catálogo por cada tecla.
 
+Preferencias, Ayuda, Alarma, Ecualizador, Comentarios, Grabaciones, Historial
+de sesión y Diagnóstico comparten esa misma presentación, tanto al abrirlos
+desde Opciones como mediante su atajo directo: cabecera con ruta, cursor
+estable, estados alineados, explicación y controles al pie. El formato se
+adapta al tamaño y al modo ASCII/Unicode desde un único renderizador.
+En las listas, `Enter` o `?` permite leer los detalles completos y `Esc` vuelve
+al nivel anterior; en Preferencias, `Enter` cambia el ajuste y `?` lo explica.
+Los editores conservan sus teclas de escritura y ajuste: un `?` escrito en
+Comentarios forma parte del texto.
+
+La alarma y los comentarios disponen de un campo de edición propio. El texto
+y las confirmaciones se conservan al redimensionar la terminal. Si falla el
+guardado de un comentario, el editor permite reintentarlo sin perder el texto;
+si falla el guardado de preferencias o atajos, se conserva el valor anterior.
+Diagnóstico y el historial permiten llegar a cualquier fila con las flechas,
+`PgUp`/`PgDn` y `Home`/`End`, y consultar rutas y textos largos en su detalle.
+El historial solo sigue las nuevas canciones si ya estabas leyendo al final.
+
 `D` mayúscula abre **Diagnóstico en vivo** sin detener la reproducción. Muestra
 versión, rama/commit si el árbol es Git, estado de `mpv`, emisora y título
 actual, volumen, catálogo, resultados precargados, grabaciones pendientes y
@@ -394,7 +412,11 @@ Los mensajes de acciones y errores son temporales: avisos como el cambio de volu
 
 El ecualizador de cinco bandas —60 Hz, 250 Hz, 1 kHz, 4 kHz y 12 kHz— permanece visible a todo el ancho de `Ahora suena`, justo debajo del volumen. Cada barra representa su ganancia entre −12 y +12 dB y el punto medio corresponde a 0 dB.
 
-Pulsa `Z` para activar la edición sobre ese mismo panel, sin cambiar de pantalla. Usa `←`/`→` para elegir la frecuencia y `↑`/`↓` para subir o bajar su valor. `C` centra únicamente la banda seleccionada en 0 dB y `R` devuelve las cinco bandas al sonido plano; `Z`, `Enter` o `Esc` desactivan la edición.
+Pulsa `Z` para abrir el editor del ecualizador, con el mismo estilo que Opciones
+y disponible también en pantallas pequeñas. Usa `←`/`→` para elegir la banda y
+`↑`/`↓` para ajustar su ganancia. `C` centra la banda seleccionada en 0 dB y `R`
+deja las cinco planas; `Z`, `Enter` o `Esc` vuelven. Los cambios se aplican al
+editarlos; salir del editor no los deshace. `?` explica los controles completos.
 
 Mientras editas, las teclas `1` a `5` aplican presets rápidos: `1` Plano, `2` Rock, `3` Pop, `4` Jazz y `5` Voz. Solo funcionan dentro del editor y se guardan igual que los ajustes manuales; fuera de `Z`, las teclas numéricas mantienen sus presets de Favoritos.
 
@@ -610,6 +632,8 @@ bash ./tests/session-log.sh
 bash ./tests/options-menu.sh
 bash ./tests/options-layout.sh
 bash ./tests/options-safety.sh
+bash ./tests/panels-layout.sh
+bash ./tests/panels-navigation.sh
 bash ./tests/ui-desktop-search-pane.sh
 bash ./tests/ui-terminal-guard.sh
 bash ./tests/input-repeat.sh

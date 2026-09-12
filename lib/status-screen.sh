@@ -90,65 +90,68 @@ status_build_rows() {
     STATUS_ROWS+=("Runtime IPC|${PLAYER_RUNTIME_DIR:-—}")
 }
 
+STATUS_SELECTED=0
+STATUS_SCROLL=0
+STATUS_REFRESH_AT=0
+
 status_draw() {
-    ui_refresh_size
-    status_build_rows
-    local width=$((UI_COLS - 1)) height=$((UI_LINES - 4)) i label value line
-    ((width < 1)) && width=1
-    ((height < 1)) && height=1
-    tput cup 0 0 2>/dev/null || true
-    ui_print_styled_padded "$width" 'KEILA · DIAGNÓSTICO EN VIVO' title; printf '\n'
-    for ((i=0; i<height && i<${#STATUS_ROWS[@]}; i++)); do
-        label=${STATUS_ROWS[i]%%|*}
-        value=${STATUS_ROWS[i]#*|}
-        line=$(printf '%-22s %s' "$label" "$value")
-        ui_print_styled_padded "$width" "$line" accent
-        printf '\n'
+    local item label value
+    local -a PANEL_ROWS=()
+    if ((EPOCHSECONDS >= STATUS_REFRESH_AT)); then
+        status_build_rows
+        STATUS_REFRESH_AT=$((EPOCHSECONDS + 2))
+    fi
+    for item in "${STATUS_ROWS[@]}"; do
+        label=${item%%|*} value=${item#*|}
+        panel_add_row '' "$label" "$label: $value" "$value"
     done
-    ui_print_padded "$width" 'D/Esc volver · S sesión · U actualiza catálogo · ; grabaciones · B búsqueda'
-    printf '\n'
-    ui_print_padded "$width" "${UI_MESSAGE:-}"
-    tput ed 2>/dev/null || true
+    panel_draw DIAGNÓSTICO "$STATUS_SELECTED" "$STATUS_SCROLL" 'Flechas mover | Enter detalle | Esc volver' "${UI_MESSAGE:-}"
+    STATUS_SELECTED=$PANEL_SELECTED STATUS_SCROLL=$PANEL_SCROLL
 }
 
 app_status_screen() {
-    local event key redraw=1 status=0
-    local previous_preferences=$PREFERENCES_ACTIVE
-    STATUS_ACTIVE=1
-    PREFERENCES_ACTIVE=1
+    local event key redraw=1 status=0 previous_preferences=$PREFERENCES_ACTIVE
+    local PANEL_SELECTED=0 PANEL_SCROLL=0 PANEL_VISIBLE=1
+    STATUS_ACTIVE=1 PREFERENCES_ACTIVE=1 STATUS_REFRESH_AT=0
     while true; do
         ((redraw)) && status_draw
         input_read || break
         event=$INPUT_EVENT key=$INPUT_KEY redraw=1
         case "$event" in
             TICK)
-                redraw=0
-                app_poll_player && redraw=1
-                catalog_poll && redraw=1
-                pending_scan_poll && redraw=1
-                ui_message_tick && redraw=1
-                ;;
-            RESIZE) redraw=1 ;;
-            ESC) break ;;
+                redraw=0; panel_poll && redraw=1
+                ((EPOCHSECONDS < STATUS_REFRESH_AT)) || redraw=1 ;;
+            RESIZE) ;;
+            ESC|LEFT) break ;;
+            UP|DOWN|HOME|END|PAGE_UP|PAGE_DOWN)
+                panel_move "$event" "$STATUS_SELECTED" "${#STATUS_ROWS[@]}" "$PANEL_VISIBLE"
+                STATUS_SELECTED=$PANEL_SELECTED ;;
+            ENTER)
+                local -a PANEL_ROWS=()
+                local row
+                for row in "${STATUS_ROWS[@]}"; do panel_add_row '' "${row%%|*}" "${row#*|}"; done
+                panel_detail DIAGNÓSTICO "$STATUS_SELECTED" ;;
             KEY)
                 case "$key" in
                     d|D) break ;;
+                    '?')
+                        local -a PANEL_ROWS=()
+                        local row
+                        for row in "${STATUS_ROWS[@]}"; do panel_add_row '' "${row%%|*}" "${row#*|}"; done
+                        panel_detail DIAGNÓSTICO "$STATUS_SELECTED" ;;
                     s|S)
-                        app_session_history_screen || status=$?
-                        ((status == 2)) && { STATUS_ACTIVE=0; PREFERENCES_ACTIVE=$previous_preferences; return 2; }
-                        STATUS_ACTIVE=1
-                        PREFERENCES_ACTIVE=1
-                        ;;
-                    u|U) app_update_catalog || true ;;
-                    b|B) app_search_catalog || true ;;
-                    ';') app_pending_menu || true ;;
-                    q|Q) STATUS_ACTIVE=0; PREFERENCES_ACTIVE=$previous_preferences; return 2 ;;
+                        panel_call DIAGNÓSTICO app_session_history_screen || status=$?
+                        ((status == 2)) && break
+                        STATUS_REFRESH_AT=0 ;;
+                    u|U) app_update_catalog || true; STATUS_REFRESH_AT=0 ;;
+                    b|B) panel_call DIAGNÓSTICO app_search_catalog || true ;;
+                    ';') panel_call DIAGNÓSTICO app_pending_menu || true ;;
+                    q|Q) status=2; break ;;
                     *) redraw=0 ;;
-                esac
-                ;;
+                esac ;;
         esac
     done
-    STATUS_ACTIVE=0
-    PREFERENCES_ACTIVE=$previous_preferences
-    ((${OPTIONS_ACTIVE:-0})) || ui_draw
+    STATUS_ACTIVE=0 PREFERENCES_ACTIVE=$previous_preferences
+    if ((!previous_preferences && status != 2)); then ui_draw; fi
+    return "$status"
 }

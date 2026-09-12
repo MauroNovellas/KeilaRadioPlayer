@@ -45,6 +45,7 @@ test_shellcheck() {
         "$ROOT_DIR/lib/session-log.sh" \
         "$ROOT_DIR/lib/session-history.sh" \
         "$ROOT_DIR/lib/options.sh" \
+        "$ROOT_DIR/lib/panels.sh" \
         "$ROOT_DIR/lib/ui.sh" \
         "$ROOT_DIR/tests/run.sh" \
         "$ROOT_DIR/tests/recording-formats.sh" \

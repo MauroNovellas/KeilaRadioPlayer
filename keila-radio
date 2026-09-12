@@ -66,6 +66,8 @@ source "$BASE_DIR/lib/alarm.sh"
 source "$BASE_DIR/lib/preferences.sh"
 # shellcheck source=lib/options.sh
 source "$BASE_DIR/lib/options.sh"
+# shellcheck source=lib/panels.sh
+source "$BASE_DIR/lib/panels.sh"
 # shellcheck source=lib/recording-manager.sh
 source "$BASE_DIR/lib/recording-manager.sh"
 # shellcheck source=lib/status-screen.sh

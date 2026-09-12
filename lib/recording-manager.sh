@@ -171,55 +171,76 @@ pending_cleanup() {
     PENDING_PROBE_DIR='' PENDING_SCAN_DIR=''
 }
 
+pending_build_panel() {
+    local selected=$1 offset=$2 index file name state info size date size_label badge
+    PANEL_ROWS=()
+    for index in "${!PENDING_FILES[@]}"; do
+        file=${PENDING_FILES[index]} name=${PENDING_FILES[index]##*/}
+        state=Finalizada
+        [[ ! -e "$file.pending" ]] || state=Pendiente
+        info=${PENDING_METADATA[$file]:-}
+        if [[ -z "$info" ]] && ((index == selected || (index >= offset && index < offset + UI_LINES))); then
+            info=$(stat -c '%s|%y' -- "$file" 2>/dev/null) || info='?|No disponible'
+            PENDING_METADATA[$file]=$info
+        fi
+        size=${info%%|*} date=${info#*|}
+        size_label="${size:-?}B" badge=$state
+        if [[ "$size" =~ ^[0-9]+$ ]]; then
+            if ((size >= 1048576)); then size_label="$((size/1048576))MiB"
+            elif ((size >= 1024)); then size_label="$((size/1024))KiB"; fi
+            badge="${state:0:1} ${date:0:10} $size_label"
+        fi
+        panel_add_row '' "$name" "Archivo: $file. Fecha: ${date:0:16}. Tamaño: ${size:-?} B. Estado: $state. C comprueba y finaliza los verificados; E escucha o detiene; X prepara la eliminación a papelera. Enter confirma y Esc cancela." "$badge"
+    done
+    if ((${#PENDING_FILES[@]} == 0)); then
+        if [[ -n "$PENDING_SCAN_PID" ]]; then
+            panel_add_row '' 'Buscando grabaciones' 'La detección se hace en segundo plano. Puedes volver al reproductor mientras termina.'
+        else
+            panel_add_row '' 'No hay grabaciones guardadas' 'Para grabar una emisora, vuelve al reproductor y pulsa G. No se incluyen archivos que siguen en uso.'
+        fi
+    fi
+}
+
+pending_draw() {
+    local selected=$1 offset=$2 confirm=${3:-} footer='C comprobar | E escuchar | X borrar | Esc volver'
+    local -a PANEL_ROWS=()
+    ui_refresh_size
+    pending_build_panel "$selected" "$offset"
+    [[ -z "$confirm" ]] || footer='Enter confirma | Esc cancela'
+    panel_draw GRABACIONES "$selected" "$offset" "$footer" "$PENDING_NOTICE" "${#PENDING_FILES[@]} archivos | ${PENDING_PREVIEW_PID:+Escucha activa}"
+}
+
 app_pending_menu() {
-    local selected=0 offset=0 width height row file name date size confirm='' signature='' redraw=1 event key selected_file index
+    local selected=0 offset=0 file confirm='' signature='' redraw=1 event key selected_file index snapshot
     local previous_preferences=$PREFERENCES_ACTIVE
+    local -A PENDING_METADATA=()
+    local PANEL_SELECTED=0 PANEL_SCROLL=0 PANEL_VISIBLE=1
     pending_scan_start || true
-    PENDING_NOTICE='Buscando pendientes…'
+    PENDING_NOTICE='Buscando grabaciones...'
     PREFERENCES_ACTIVE=1
     while true; do
         if ((redraw)); then
-            ui_refresh_size
-            width=$((UI_COLS-1)); ((width<1)) && width=1
-            height=$(((UI_LINES-5)/2)); ((height<1)) && height=1
-            ((selected>=${#PENDING_FILES[@]})) && selected=$((${#PENDING_FILES[@]}-1))
-            ((selected<0)) && selected=0
-            ((selected<offset)) && offset=$selected
-            ((selected>=offset+height)) && offset=$((selected-height+1))
-            tput cup 0 0 2>/dev/null || true
-            ui_print_styled_padded "$width" 'GRABACIONES' title; printf '\n'
-            for ((row=offset; row<offset+height && row<${#PENDING_FILES[@]}; row++)); do
-                file=${PENDING_FILES[row]} name=${PENDING_FILES[row]##*/}
-                name=${name//[[:cntrl:]]/ }
-                local mark='  ' state='Finalizada'; ((row==selected)) && mark='> '
-                [[ -e "$file.pending" ]] && state='Pendiente'
-                ui_print_styled_padded "$width" "$mark$name" accent; printf '\n'
-                date=$(stat -c '%y' -- "$file" 2>/dev/null) || date='no disponible'
-                size=$(stat -c '%s' -- "$file" 2>/dev/null) || size='?'
-                ui_print_padded "$width" "${date:0:16} · $size B · $state"; printf '\n'
-            done
-            if ((${#PENDING_FILES[@]}==0)); then ui_print_padded "$width" 'Sin pendientes / buscando…'; printf '\n'; fi
-            ui_print_padded "$width" 'C comprobar · E escuchar/parar · X borrar'; printf '\n'
-            ui_print_padded "$width" '↑↓ navegar · Esc volver'; printf '\n'
-            ui_print_padded "$width" "$PENDING_NOTICE"
-            tput ed 2>/dev/null || true
+            pending_draw "$selected" "$offset" "$confirm"
+            selected=$PANEL_SELECTED offset=$PANEL_SCROLL
         fi
         input_read || break
         event=$INPUT_EVENT key=${INPUT_KEY,,} redraw=1
         if [[ "$event" == TICK ]]; then
             redraw=0
+            panel_snapshot; snapshot=$PANEL_SNAPSHOT
             app_poll_player || true
             ui_message_tick || true
             catalog_poll || true
             selected_file=${PENDING_FILES[selected]:-}
             if pending_scan_poll; then
                 redraw=1
+                PENDING_METADATA=()
                 for index in "${!PENDING_FILES[@]}"; do
                     if [[ ${PENDING_FILES[index]} == "$selected_file" ]]; then selected=$index; break; fi
                 done
                 if [[ -n "$confirm" ]]; then confirm=''; PENDING_NOTICE='Lista actualizada; confirma de nuevo.'; fi
             fi
-            pending_probe_poll && redraw=1
+            if pending_probe_poll; then redraw=1; PENDING_METADATA=(); fi
             if [[ -n "$PENDING_RADIO_PID" && "$PENDING_RADIO_PID" != "${PLAYER_PID:-}" ]]; then
                 pending_preview_stop; PENDING_NOTICE='Escucha detenida por cambio de reproducción.'; redraw=1
             fi
@@ -231,8 +252,11 @@ app_pending_menu() {
                 if ((preview_status)); then PENDING_NOTICE='No se pudo reproducir el archivo.'; else PENDING_NOTICE='Escucha terminada.'; fi
                 redraw=1
             fi
+            panel_snapshot
+            [[ "$snapshot" == "$PANEL_SNAPSHOT" ]] || redraw=1
             continue
         fi
+        [[ "$event" != RESIZE ]] || continue
         if [[ -n "$confirm" ]]; then
             if [[ "$event" == ENTER ]]; then
                 pending_preview_stop
@@ -244,14 +268,21 @@ app_pending_menu() {
         fi
         file=${PENDING_FILES[selected]:-}
         case "$event" in
-            ESC) break ;;
-            UP) ((selected>0)) && ((selected-=1)) ;;
-            DOWN) ((selected+1<${#PENDING_FILES[@]})) && ((selected+=1)) ;;
-            HOME) selected=0 ;;
-            END) selected=$((${#PENDING_FILES[@]}-1)) ;;
+            ESC|LEFT) break ;;
+            UP|DOWN|HOME|END|PAGE_UP|PAGE_DOWN)
+                panel_move "$event" "$selected" "${#PENDING_FILES[@]}" "$PANEL_VISIBLE"
+                selected=$PANEL_SELECTED ;;
+            ENTER)
+                local -a PANEL_ROWS=()
+                pending_build_panel "$selected" "$offset"
+                panel_detail GRABACIONES "$selected" ;;
             KEY)
                 [[ -n "$file" ]] || continue
                 case "$key" in
+                    '?')
+                        local -a PANEL_ROWS=()
+                        pending_build_panel "$selected" "$offset"
+                        panel_detail GRABACIONES "$selected" ;;
                     c) pending_probe_start "$file" || PENDING_NOTICE='No se puede comprobar: archivo ocupado.' ;;
                     e) if [[ -n "$PENDING_PREVIEW_PID" ]]; then pending_preview_stop; PENDING_NOTICE='Escucha detenida.'; else pending_preview_start "$file" || PENDING_NOTICE='No se puede escuchar: archivo ocupado.'; fi ;;
                     x) signature=$(pending_signature "$file") || continue
@@ -266,5 +297,6 @@ app_pending_menu() {
     [[ -z "$PENDING_PROBE_DIR" ]] || rm -rf -- "$PENDING_PROBE_DIR"
     PENDING_PROBE_DIR=''
     PREFERENCES_ACTIVE=$previous_preferences
-    ((${OPTIONS_ACTIVE:-0})) || ui_draw
+    ((previous_preferences)) || ui_draw
+    return 0
 }

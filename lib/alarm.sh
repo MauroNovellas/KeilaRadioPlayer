@@ -57,38 +57,47 @@ app_toggle_mute() {
     fi
 }
 
+alarm_editor_draw() {
+    local text=$1 notice=${2:-} hour=${1:0:2} minute=${1:3:2}
+    local PANEL_FORM=1
+    local -a PANEL_ROWS=()
+    hour="${hour}__" minute="${minute}__"
+    panel_add_row '' "Hora: ${hour:0:2}:${minute:0:2}" "Escribe cuatro cifras (HHMM). Los dos puntos son automáticos. Enter guarda; entrada vacía cancela la alarma. Retroceso borra; Supr o Ctrl+U vacían. Alarma actual: ${ALARM_LABEL:-sin programar}. Sonará la última emisora; mantén Keila abierto y el equipo despierto."
+    panel_draw ALARMA 0 0 'Enter guardar | Esc cancelar' "$notice"
+}
+
 app_edit_alarm() {
-    local text='' redraw=1
+    local text='' redraw=1 notice='' result=0 previous_preferences=${PREFERENCES_ACTIVE:-0}
+    PREFERENCES_ACTIVE=1
     while true; do
-        if ((redraw)); then
-            app_message "Alarma HH:MM: ${text}_ · Enter guardar (vacío cancela) · Esc volver" 0
-            ui_draw
-        fi
-        input_read || { ui_clear_message; return 1; }
+        ((redraw)) && alarm_editor_draw "$text" "$notice"
+        input_read || { result=1; break; }
         redraw=1
         case "$INPUT_EVENT" in
-            ESC) ui_clear_message; return 0 ;;
-            ENTER) if alarm_set "$text"; then return 0; else ui_draw; redraw=0; fi ;;
-            TICK) redraw=0; app_poll_player && redraw=1; catalog_poll && redraw=1; if declare -F ui_message_tick >/dev/null; then ui_message_tick && redraw=1; fi ;;
+            ESC) break ;;
+            ENTER)
+                if alarm_set "$text"; then break
+                else notice=${UI_MESSAGE:-Hora inválida. Usa HHMM, entre 0000 y 2359.}; fi ;;
+            TICK) redraw=0; panel_poll && redraw=1 ;;
+            RESIZE) ;;
+            DELETE) text='' notice='' ;;
             KEY)
+                notice=''
                 case "$INPUT_KEY" in
                     $'\x7f'|$'\x08')
-                        # Al borrar minutos, quitar primero los dos puntos
-                        # automáticos para que el cursor vuelva a HH.
-                        if [[ "$text" == *: ]]; then text=${text%:}; fi
-                        text=${text%?}
-                        ;;
+                        [[ "$text" != *: ]] || text=${text%:}
+                        text=${text%?} ;;
                     $'\x15') text='' ;;
                     [0-9])
                         if ((${#text} < 2)); then
-                            text+="$INPUT_KEY"
-                            ((${#text} == 2)) && text+=':'
-                        elif ((${#text} >= 3 && ${#text} < 5)); then
-                            text+="$INPUT_KEY"
-                        fi
-                        ;;
-                    :) ((${#text} == 2)) && text+=':' ;;
+                            text+=$INPUT_KEY
+                            ((${#text} != 2)) || text+=':'
+                        elif ((${#text} < 5)); then text+=$INPUT_KEY; fi ;;
+                    :) ((${#text} != 2)) || text+=':' ;;
                 esac ;;
         esac
     done
+    PREFERENCES_ACTIVE=$previous_preferences
+    ((previous_preferences)) || ui_draw
+    return "$result"
 }

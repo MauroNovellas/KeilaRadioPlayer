@@ -331,7 +331,10 @@ options_draw_row() {
         [[ -z "$OPTIONS_ROW_REASON" ]] || badge='No disponible'
     fi
     if [[ "$OPTIONS_ROW_ACTION" == menu:* ]]; then badge="${badge:+$badge } >"; fi
-    if [[ -n "$badge" ]]; then badge_width=$((${#badge} + 2)); fi
+    if [[ -n "$badge" ]]; then
+        options_fit_text "$badge" "$((width / 3))"
+        badge=$OPTIONS_FITTED badge_width=$((OPTIONS_FITTED_WIDTH + 2))
+    fi
     if ((width < 9)); then
         options_print "$width" "$marker$OPTIONS_ROW_LABEL" "$style"
         return
@@ -339,7 +342,7 @@ options_draw_row() {
     options_print 2 "$marker" "$style"
     local key_style=warning
     [[ -z "$OPTIONS_ROW_REASON" ]] || key_style=muted
-    options_print 4 "[$OPTIONS_ROW_KEY] " "$key_style"
+    options_print 4 "${OPTIONS_ROW_KEY:+[$OPTIONS_ROW_KEY] }" "$key_style"
     options_print "$((width - 6 - badge_width))" "$OPTIONS_ROW_LABEL" "$style"
     if ((badge_width)); then options_print "$badge_width" "  $badge" muted; fi
 }
@@ -377,9 +380,13 @@ options_draw() {
         OPTIONS_VISIBLE=$((body - detail_count - 1))
     fi
     ((OPTIONS_VISIBLE < 1)) && OPTIONS_VISIBLE=1
+    if ((!split && ${OPTIONS_FORM:-0} && count < OPTIONS_VISIBLE)); then
+        OPTIONS_VISIBLE=$count
+        detail_count=$((body - OPTIONS_VISIBLE - 1))
+    fi
     options_clamp_selection
     options_parse_row "${OPTIONS_ROWS[OPTIONS_SELECTED]}"
-    title=$OPTIONS_ROW_LABEL state=$OPTIONS_ROW_STATE reason=$OPTIONS_ROW_REASON
+    title=${OPTIONS_DETAIL_HEADING:-$OPTIONS_ROW_LABEL} state=$OPTIONS_ROW_STATE reason=$OPTIONS_ROW_REASON
     detail=$OPTIONS_ROW_DETAIL
     [[ -z "$reason" ]] || detail="No disponible: $reason $detail"
     [[ -z "$state" ]] || detail="$state. $detail"
@@ -390,14 +397,21 @@ options_draw() {
     local breadcrumb=OPCIONES
     [[ "$OPTIONS_TITLE" == OPCIONES ]] || breadcrumb="OPCIONES > $OPTIONS_TITLE"
     if ((width < 32)) && [[ "$OPTIONS_TITLE" != OPCIONES ]]; then breadcrumb="O > $OPTIONS_TITLE"; fi
+    if [[ -n "${OPTIONS_BREADCRUMB:-}" ]]; then
+        breadcrumb=$OPTIONS_BREADCRUMB
+        if ((${#breadcrumb} > width - 8)); then breadcrumb=${breadcrumb/OPCIONES > /O > }; fi
+        if ((${#breadcrumb} > width - 8)) && [[ "$breadcrumb" == *' > '* ]]; then breadcrumb="< ${breadcrumb##* > }"; fi
+    fi
     local position="$((OPTIONS_SELECTED + 1))/$count"
     ((width >= 70)) && position="KEILA  $position"
     ui_print_split_styled "$width" "$breadcrumb" "$position" title muted
     printf '\n'
-    summary="$OPTIONS_PLAYBACK | Vol $PLAYER_VOLUME%"
-    ((PLAYER_MUTED)) && summary+=' | Silencio'
-    ((RECORDING_ACTIVE)) && summary+=" | $OPTIONS_RECORDING"
-    if ((width >= 70)) && [[ -n "$PLAYER_NAME" ]]; then summary+=" | $PLAYER_NAME"; fi
+    summary="${OPTIONS_SUMMARY_OVERRIDE:-${OPTIONS_PLAYBACK:-Detenido} | Vol ${PLAYER_VOLUME:-0}%}"
+    if [[ -z "${OPTIONS_SUMMARY_OVERRIDE:-}" ]]; then
+        ((${PLAYER_MUTED:-0})) && summary+=' | Silencio'
+        ((${RECORDING_ACTIVE:-0})) && summary+=" | ${OPTIONS_RECORDING:-Grabando}"
+        if ((width >= 70)) && [[ -n "${PLAYER_NAME:-}" ]]; then summary+=" | $PLAYER_NAME"; fi
+    fi
     summary=${summary//[[:cntrl:]]/ }
     options_print "$width" "$summary" muted
     printf '\n'
@@ -430,10 +444,20 @@ options_draw() {
     fi
     if ((${#footer} > width)); then footer='Enter abrir | Esc volver'; fi
     if ((${#footer} > width)); then footer='Enter | Esc volver'; fi
+    if [[ -n "${OPTIONS_FOOTER_OVERRIDE:-}" ]]; then
+        footer=$OPTIONS_FOOTER_OVERRIDE
+        # Reservar siempre la salida; las instrucciones completas están en ?.
+        if ((${#footer} > width)); then
+            local back=${footer##*| }
+            [[ "$back" == Esc* ]] || back='Esc volver'
+            options_fit_text "$footer" "$((width - ${#back} - 3))"
+            footer="$OPTIONS_FITTED | $back"
+        fi
+    fi
     options_print "$width" "$footer" muted
     printf '\n'
-    local notice=${UI_MESSAGE:-}
-    [[ -n "$notice" ]] || notice='? detalle | Letras: acceso directo'
+    local notice=${OPTIONS_NOTICE_OVERRIDE-${UI_MESSAGE:-}}
+    if [[ -z "$notice" && -z "${OPTIONS_NOTICE_OVERRIDE+x}" ]]; then notice='? detalle | Letras: acceso directo'; fi
     notice=${notice//[[:cntrl:]]/ }
     options_print "$width" "$notice" warning
     tput ed 2>/dev/null || true
@@ -458,7 +482,9 @@ options_detail_draw() {
     ((OPTIONS_DETAIL_SCROLL > max_scroll)) && OPTIONS_DETAIL_SCROLL=$max_scroll
     ((OPTIONS_DETAIL_SCROLL < 0)) && OPTIONS_DETAIL_SCROLL=0
     tput cup 0 0 2>/dev/null || true
-    options_print "$width" 'OPCIONES > DETALLE' title; printf '\n'
+    local path=${OPTIONS_BREADCRUMB:-OPCIONES > DETALLE}
+    if ((${#path} > width)) && [[ "$path" == *' > '* ]]; then path="< ${path##* > }"; fi
+    options_print "$width" "$path" title; printf '\n'
     options_print "$width" "$OPTIONS_ROW_LABEL" selected; printf '\n'
     for ((row=0; row<OPTIONS_DETAIL_VISIBLE; row++)); do
         options_print "$width" "${OPTIONS_DETAIL_LINES[OPTIONS_DETAIL_SCROLL+row]:-}"
@@ -473,6 +499,8 @@ options_detail_draw() {
 
 options_execute() {
     local action=$1 status=0
+    local PANEL_PARENT_PATH=OPCIONES
+    [[ "$OPTIONS_TITLE" == OPCIONES ]] || PANEL_PARENT_PATH="OPCIONES > $OPTIONS_TITLE"
     [[ "$action" == favorite_toggle ]] || options_cancel_confirmation
     case "$action" in
         menu:*) options_menu_loop "${action#menu:}" ;;

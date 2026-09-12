@@ -4,6 +4,8 @@
 
 SESSION_HISTORY_ACTIVE=0
 SESSION_HISTORY_SCROLL=0
+SESSION_HISTORY_SELECTED=0
+SESSION_HISTORY_CHECK_AT=0
 SESSION_HISTORY_SIGNATURE=''
 SESSION_HISTORY_ROWS=()
 
@@ -29,9 +31,9 @@ session_history_load() {
         [[ -n "$raw" && "${raw:0:1}" != '#' ]] || continue
         IFS=$'\t' read -r timestamp station title rest <<< "$raw"
         [[ -n "$timestamp$station$title" ]] || continue
-        timestamp=$(session_log_text "$timestamp" 32)
-        station=$(session_log_text "$station" 120)
-        title=$(session_log_text "$title" 240)
+        timestamp=${timestamp//[[:cntrl:]]/ } timestamp=${timestamp:0:32}
+        station=${station//[[:cntrl:]]/ } station=${station:0:120}
+        title=${title//[[:cntrl:]]/ } title=${title:0:240}
         SESSION_HISTORY_ROWS+=("$timestamp"$'\t'"$station"$'\t'"$title")
     done < "$file"
 }
@@ -71,138 +73,76 @@ session_history_clamp_scroll() {
     ((SESSION_HISTORY_SCROLL > max_scroll)) && SESSION_HISTORY_SCROLL=$max_scroll
 }
 
+session_history_refresh() {
+    ((EPOCHSECONDS >= SESSION_HISTORY_CHECK_AT)) || return 1
+    SESSION_HISTORY_CHECK_AT=$((EPOCHSECONDS + 1))
+    local signature old_count=${#SESSION_HISTORY_ROWS[@]} follow=0
+    ((SESSION_HISTORY_SELECTED >= old_count - 1)) && follow=1
+    signature=$(session_history_signature)
+    [[ "$signature" != "$SESSION_HISTORY_SIGNATURE" ]] || return 1
+    SESSION_HISTORY_SIGNATURE=$signature
+    session_history_load >/dev/null 2>&1 || true
+    ((follow == 0)) || SESSION_HISTORY_SELECTED=$((${#SESSION_HISTORY_ROWS[@]} > 0 ? ${#SESSION_HISTORY_ROWS[@]} - 1 : 0))
+    return 0
+}
+
+session_history_build_panel() {
+    local row timestamp station title label count=${#SESSION_HISTORY_ROWS[@]}
+    PANEL_ROWS=()
+    for row in "${SESSION_HISTORY_ROWS[@]}"; do
+        IFS=$'\t' read -r timestamp station title <<< "$row"
+        label="${timestamp##* } $station"
+        if ((UI_COLS < 70)); then label="${timestamp##* } $title"; fi
+        panel_add_row '' "$label" "Hora: $timestamp. Emisora: $station. Canción / evento: $title. Archivo: ${SESSION_LOG_FILE:-no iniciado}." "$title"
+    done
+    ((count > 0)) || panel_add_row '' 'Sin canciones registradas' "El registro se actualiza al recibir títulos de la emisora. Archivo: ${SESSION_LOG_FILE:-todavía no iniciado}."
+}
+
 session_history_draw() {
     ui_refresh_size
-    session_history_load >/dev/null 2>&1 || true
-
-    local width=$((UI_COLS - 1)) visible row index count path line header
-    ((width < 1)) && width=1
-    visible=$((UI_LINES - 6))
-    ((visible < 1)) && visible=1
-    count=${#SESSION_HISTORY_ROWS[@]}
-    session_history_clamp_scroll "$visible"
-    path=$(session_history_file)
-    if [[ -z "$path" ]]; then path='registro no iniciado'; fi
-
-    tput cup 0 0 2>/dev/null || true
-    ui_print_styled_padded "$width" 'KEILA · HISTORIAL DE SESIÓN' title
-    printf '\n'
-    ui_print_padded "$width" "Archivo: $(session_log_truncate_left "$path" "$((width - 9))")"
-    printf '\n'
-
-    if ((width >= 90)); then
-        header=$(printf '%-8s  %-30s  %s' HORA EMISORA 'CANCIÓN / EVENTO')
-    else
-        header='HORA      EMISORA — CANCIÓN / EVENTO'
-    fi
-    ui_print_styled_padded "$width" "$header" accent
-    printf '\n'
-
-    if ((count == 0)); then
-        ui_print_padded "$width" 'Aún no hay canciones registradas en esta sesión.'
-        printf '\n'
-        for ((row = 1; row < visible; row++)); do ui_print_padded "$width" ''; printf '\n'; done
-    else
-        for ((row = 0; row < visible; row++)); do
-            index=$((SESSION_HISTORY_SCROLL + row))
-            if ((index < count)); then
-                line=$(session_history_row_text "$width" "${SESSION_HISTORY_ROWS[index]}")
-                ui_print_padded "$width" "$line"
-            else
-                ui_print_padded "$width" ''
-            fi
-            printf '\n'
-        done
-    fi
-
-    ui_print_padded "$width" "↑↓ mover · PgUp/PgDn saltar · Home/End extremos · S/Esc volver · $count entradas"
-    printf '\n'
-    ui_print_padded "$width" "${UI_MESSAGE:-}"
-    tput ed 2>/dev/null || true
+    session_history_refresh || true
+    local -a PANEL_ROWS=()
+    session_history_build_panel
+    panel_draw 'HISTORIAL DE SESIÓN' "$SESSION_HISTORY_SELECTED" "$SESSION_HISTORY_SCROLL" 'Flechas mover | Enter detalle | Esc volver' "${UI_MESSAGE:-}" "${#SESSION_HISTORY_ROWS[@]} entradas | Archivo: ${SESSION_LOG_FILE:-registro no iniciado}"
+    SESSION_HISTORY_SELECTED=$PANEL_SELECTED SESSION_HISTORY_SCROLL=$PANEL_SCROLL
 }
 
 app_session_history_screen() {
-    local event key redraw=1 previous_signature current_signature visible at_bottom=1 max_scroll=0
-    local previous_preferences=$PREFERENCES_ACTIVE
-
-    SESSION_HISTORY_ACTIVE=1
-    PREFERENCES_ACTIVE=1
-    session_history_load >/dev/null 2>&1 || true
-    visible=$((UI_LINES - 6))
-    ((visible < 1)) && visible=1
-    max_scroll=$((${#SESSION_HISTORY_ROWS[@]} - visible))
-    ((max_scroll < 0)) && max_scroll=0
-    SESSION_HISTORY_SCROLL=$max_scroll
-    SESSION_HISTORY_SIGNATURE=$(session_history_signature)
-
+    local event key redraw=1 result=0 previous_preferences=$PREFERENCES_ACTIVE
+    local PANEL_SELECTED=0 PANEL_SCROLL=0 PANEL_VISIBLE=1
+    SESSION_HISTORY_ACTIVE=1 PREFERENCES_ACTIVE=1 SESSION_HISTORY_CHECK_AT=0
+    session_history_refresh || true
+    SESSION_HISTORY_SELECTED=$((${#SESSION_HISTORY_ROWS[@]} > 0 ? ${#SESSION_HISTORY_ROWS[@]} - 1 : 0))
     while true; do
         ((redraw)) && session_history_draw
-        previous_signature=$SESSION_HISTORY_SIGNATURE
         input_read || break
-        event=$INPUT_EVENT
-        key=$INPUT_KEY
-        redraw=1
-
+        event=$INPUT_EVENT key=$INPUT_KEY redraw=1
         case "$event" in
             TICK)
-                redraw=0
-                visible=$((UI_LINES - 6))
-                ((visible < 1)) && visible=1
-                session_history_load >/dev/null 2>&1 || true
-                max_scroll=$((${#SESSION_HISTORY_ROWS[@]} - visible))
-                ((max_scroll < 0)) && max_scroll=0
-                if ((SESSION_HISTORY_SCROLL >= max_scroll)); then at_bottom=1; else at_bottom=0; fi
-                app_poll_player && redraw=1
-                catalog_poll && redraw=1
-                pending_scan_poll && redraw=1
-                ui_message_tick && redraw=1
-                current_signature=$(session_history_signature)
-                if [[ "$current_signature" != "$previous_signature" ]]; then
-                    SESSION_HISTORY_SIGNATURE=$current_signature
-                    session_history_load >/dev/null 2>&1 || true
-                    max_scroll=$((${#SESSION_HISTORY_ROWS[@]} - visible))
-                    ((max_scroll < 0)) && max_scroll=0
-                    ((at_bottom)) && SESSION_HISTORY_SCROLL=$max_scroll
-                    redraw=1
-                fi
-                ;;
-            RESIZE)
-                redraw=1
-                ;;
-            ESC)
-                break
-                ;;
-            UP)
-                ((SESSION_HISTORY_SCROLL > 0)) && ((SESSION_HISTORY_SCROLL -= 1))
-                ;;
-            DOWN)
-                ((SESSION_HISTORY_SCROLL += 1))
-                ;;
-            PAGE_UP)
-                SESSION_HISTORY_SCROLL=$((SESSION_HISTORY_SCROLL - visible))
-                ;;
-            PAGE_DOWN)
-                SESSION_HISTORY_SCROLL=$((SESSION_HISTORY_SCROLL + visible))
-                ;;
-            HOME)
-                SESSION_HISTORY_SCROLL=0
-                ;;
-            END)
-                SESSION_HISTORY_SCROLL=999999
-                ;;
+                redraw=0; panel_poll && redraw=1
+                session_history_refresh && redraw=1 ;;
+            RESIZE) ;;
+            ESC|LEFT) break ;;
+            UP|DOWN|HOME|END|PAGE_UP|PAGE_DOWN)
+                panel_move "$event" "$SESSION_HISTORY_SELECTED" "${#SESSION_HISTORY_ROWS[@]}" "$PANEL_VISIBLE"
+                SESSION_HISTORY_SELECTED=$PANEL_SELECTED ;;
+            ENTER)
+                local -a PANEL_ROWS=()
+                session_history_build_panel
+                panel_detail 'HISTORIAL DE SESIÓN' "$SESSION_HISTORY_SELECTED" ;;
             KEY)
                 case "$key" in
                     s|S) break ;;
-                    q|Q) SESSION_HISTORY_ACTIVE=0; PREFERENCES_ACTIVE=$previous_preferences; return 2 ;;
+                    '?')
+                        local -a PANEL_ROWS=()
+                        session_history_build_panel
+                        panel_detail 'HISTORIAL DE SESIÓN' "$SESSION_HISTORY_SELECTED" ;;
+                    q|Q) result=2; break ;;
                     *) redraw=0 ;;
-                esac
-                ;;
+                esac ;;
         esac
-        session_history_load >/dev/null 2>&1 || true
-        session_history_clamp_scroll "$visible"
     done
-
-    SESSION_HISTORY_ACTIVE=0
-    PREFERENCES_ACTIVE=$previous_preferences
-    ((${OPTIONS_ACTIVE:-0})) || ui_draw
+    SESSION_HISTORY_ACTIVE=0 PREFERENCES_ACTIVE=$previous_preferences
+    if ((!previous_preferences && result != 2)); then ui_draw; fi
+    return "$result"
 }

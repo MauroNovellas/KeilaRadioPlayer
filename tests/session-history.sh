@@ -10,6 +10,8 @@ export HOME="$task_tmp/home" XDG_CONFIG_HOME="$task_tmp/config" XDG_STATE_HOME="
 source "$ROOT_DIR/lib/version.sh"
 source "$ROOT_DIR/lib/config.sh"
 source "$ROOT_DIR/lib/ui.sh"
+source "$ROOT_DIR/lib/options.sh"
+source "$ROOT_DIR/lib/panels.sh"
 source "$ROOT_DIR/lib/session-log.sh"
 source "$ROOT_DIR/lib/session-history.sh"
 
@@ -46,8 +48,8 @@ row=$(session_history_row_text 50 "${SESSION_HISTORY_ROWS[1]}")
 [[ "$row" == *'Rock FM'* && "$row" == *'Tema Uno'* ]] || fail 'fila estrecha incompleta'
 
 output=$(session_history_draw)
-[[ "$output" == *'KEILA · HISTORIAL DE SESIÓN'* ]] || fail 'título de pantalla'
-[[ "$output" == *'Archivo:'* && "$output" == *'keila-session-'* ]] || fail 'ruta visible'
+[[ "$output" == *'HISTORIAL DE SESIÓN'* && "$output" == *'KEILA'* ]] || fail 'título de pantalla'
+[[ "$output" == *'Archivo:'* ]] || fail 'ruta visible'
 [[ "$output" == *'Tema Dos'* && "$output" == *'3 entradas'* ]] || fail 'contenido visible'
 
 SESSION_HISTORY_SCROLL=999

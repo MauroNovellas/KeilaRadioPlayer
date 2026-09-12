@@ -24,50 +24,60 @@ app_edit_label() {
             url="${RECENT_URLS[recent]}" name="${RECENT_NAMES[recent]}"
         fi
     fi
-    local text="${FAVORITE_LABELS[$url]:-}" previous_help=$UI_HELP_VISIBLE
-    UI_HELP_VISIBLE=0
-    LABEL_EDITOR_ACTIVE=1
-    local redraw=1
+    local text="${FAVORITE_LABELS[$url]:-}" previous_help=$UI_HELP_VISIBLE previous_preferences=$PREFERENCES_ACTIVE
+    local redraw=1 result=0 notice=''
+    UI_HELP_VISIBLE=0 LABEL_EDITOR_ACTIVE=1 PREFERENCES_ACTIVE=1
     while true; do
-        local visible=$((UI_COLS - 15))
-        ((visible < 1)) && visible=1
-        local preview="$text"
-        ((${#preview} > visible)) && preview="${preview: -visible}"
-        app_message "Comentario: ${preview}_" 0
-        if ((redraw)); then
-            if ((${SEARCH_ACTIVE:-0})); then search_draw_view; else ui_draw; fi
-        fi
-        if ! input_read; then LABEL_EDITOR_ACTIVE=0; UI_HELP_VISIBLE=$previous_help; ui_clear_message; return 1; fi
+        ((redraw)) && label_editor_draw "$name" "$text" "$notice"
+        input_read || { result=1; break; }
         redraw=1
         case "$INPUT_EVENT" in
             ENTER)
-                LABEL_EDITOR_ACTIVE=0
-                UI_HELP_VISIBLE=$previous_help
                 if labels_set "$url" "$text"; then
-                    # Aplicar el filtro de nuevo: el comentario puede ser la consulta.
                     search_filter
                     app_message "Comentario guardado: $name" 4
-                    return 0
+                    break
                 fi
-                app_message 'No se pudo guardar el comentario.' 6
-                return 1
+                notice='No se pudo guardar. El texto sigue aquí; reintenta o Esc cancela.'
                 ;;
-            ESC) LABEL_EDITOR_ACTIVE=0; UI_HELP_VISIBLE=$previous_help; ui_clear_message; return 0 ;;
-            TICK)
-                redraw=0
-                app_poll_player && redraw=1
-                catalog_poll && redraw=1
-                ui_message_tick && redraw=1
-                ;;
+            ESC) break ;;
+            TICK) redraw=0; panel_poll && redraw=1 ;;
+            RESIZE) ;;
+            DELETE) text='' notice='' ;;
             KEY)
+                notice=''
                 case "$INPUT_KEY" in
                     $'\x7f'|$'\x08') text="${text%?}" ;;
                     $'\x15') text='' ;;
                     *)
-                        if [[ "$INPUT_KEY" == [[:print:]] ]] && ((${#text} < 80)); then text+="$INPUT_KEY"; fi
-                        ;;
-                esac
-                ;;
+                        if [[ "$INPUT_KEY" == [[:print:]] ]] && ((${#text} < 80)); then text+="$INPUT_KEY"; fi ;;
+                esac ;;
         esac
     done
+    LABEL_EDITOR_ACTIVE=0 UI_HELP_VISIBLE=$previous_help PREFERENCES_ACTIVE=$previous_preferences
+    if ((!previous_preferences)); then
+        if ((${SEARCH_ACTIVE:-0})); then search_draw_view; else ui_draw; fi
+    fi
+    return "$result"
+}
+
+label_editor_draw() {
+    local name=$1 text=$2 notice=${3:-} visible preview
+    local PANEL_FORM=1
+    local -a PANEL_ROWS=()
+    ui_refresh_size
+    visible=$((UI_COLS - 1))
+    if ((visible >= 96 && UI_LINES >= 16)); then
+        visible=$((visible * 48 / 100)); ((visible <= 60)) || visible=60
+    fi
+    if ((visible >= 46)); then visible=$((visible - 13)); else visible=$((visible - 6)); fi
+    ((visible < 1)) && visible=1
+    preview="$text"
+    options_fit_text "${preview}_" "$visible"
+    while [[ "$OPTIONS_FITTED" != "${preview}_" && -n "$preview" ]]; do
+        preview=${preview:1}
+        options_fit_text "${preview}_" "$visible"
+    done
+    panel_add_row '' "${preview}_" "Emisora: $name. Comentario completo: ${text:-vacío}. Escribe hasta 80 caracteres; Retroceso borra, Supr o Ctrl+U vacían. Enter guarda y Esc cancela." "${#text}/80"
+    panel_draw COMENTARIOS 0 0 'Enter guardar | Esc cancelar' "$notice" "Emisora: $name"
 }

@@ -4,6 +4,26 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - rama v2.1
 
+- Unificada la presentación de todos los submenús y pantallas internas con
+  `lib/panels.sh`: Preferencias, Ayuda, Alarma, Ecualizador, Comentarios,
+  Grabaciones, Historial de sesión y Diagnóstico reutilizan el render de
+  Opciones, con rutas, selección, estados, detalle y controles consistentes.
+  La misma presentación se usa desde Opciones y desde los atajos directos.
+- Alarma, comentarios y ecualizador tienen editores propios adaptados a
+  terminales pequeñas. Se mantiene el texto al redimensionar y, en comentarios,
+  al fallar el guardado. Los fallos al guardar preferencias o atajos restauran
+  el estado anterior. Las confirmaciones sobreviven al cambio de tamaño.
+- Diagnóstico permite recorrer todas sus filas y abrir sus valores completos.
+  Historial y grabaciones incorporan detalle de lectura y navegación por
+  páginas. Las pantallas conservan el foco del menú padre al volver.
+- Menos trabajo de fondo: el historial consulta cambios como máximo una vez
+  por segundo y solo recarga cuando cambia el archivo; no crea procesos por
+  campo. Conserva la posición del lector y sigue al final solo si ya estaba
+  allí. Diagnóstico reutiliza sus datos durante dos segundos; el gestor de
+  grabaciones reutiliza los metadatos de archivos visibles.
+- Pruebas de las ocho pantallas en 13 tamaños y dos modos de símbolos, además
+  de navegación, edición, foco, confirmaciones, errores y refresco de sesión.
+  El nuevo módulo está incluido en la validación del actualizador.
 - Pulido de `[O] Opciones`: ruta visible, memoria de selección y desplazamiento
   por categoría, flechas para entrar/volver y páginas ajustadas a la terminal.
   Explicación lateral en escritorio, filas compactas y detalle fijo en Termux;

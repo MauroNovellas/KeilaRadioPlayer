@@ -70,6 +70,7 @@ make_release() {
         alarm.sh
         preferences.sh
         options.sh
+        panels.sh
         recording-manager.sh
         status-screen.sh
         backup.sh

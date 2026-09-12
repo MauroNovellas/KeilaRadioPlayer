@@ -40,6 +40,7 @@ update_validate_tree() {
         lib/alarm.sh
         lib/preferences.sh
         lib/options.sh
+        lib/panels.sh
         lib/recording-manager.sh
         lib/status-screen.sh
         lib/backup.sh
