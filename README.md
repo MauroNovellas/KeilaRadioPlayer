@@ -45,7 +45,7 @@ Los encabezados de la pantalla principal reflejan las letras asignadas.
 Pulsa `O` para abrir **Opciones**, un menú jerárquico pensado para no memorizar
 todos los atajos. Desde ahí puedes entrar en `Reproducción`, `Emisoras`,
 `Visualización`, `Temporizador`, `Grabaciones`, `Sesión`, `Configuración`,
-`Diagnóstico` y `Ayuda`. Muchos controles cotidianos —pausa, silencio, volumen,
+`Datos y almacenamiento`, `Diagnóstico` y `Ayuda`. Muchos controles cotidianos —pausa, silencio, volumen,
 búsqueda, catálogo, favoritos, comentarios, grabación, alarma, ecualizador y
 espectrograma— también pueden ejecutarse navegando por ese árbol. Los atajos
 directos siguen disponibles para usuarios habituales.
@@ -75,7 +75,7 @@ La alarma, reconexión y detección de grabaciones siguen atendidas con el menú
 abierto; los estados se reutilizan sin analizar el catálogo por cada tecla.
 
 Preferencias, Ayuda, Alarma, Ecualizador, Comentarios, Grabaciones, Historial
-de sesión y Diagnóstico comparten esa misma presentación, tanto al abrirlos
+de sesión, Diagnóstico y Copias de seguridad comparten esa misma presentación, tanto al abrirlos
 desde Opciones como mediante su atajo directo: cabecera con ruta, cursor
 estable, estados alineados, explicación y controles al pie. El formato se
 adapta al tamaño y al modo ASCII/Unicode desde un único renderizador.
@@ -203,7 +203,40 @@ Para diagnosticar el catálogo de Radio Browser sin abrir la TUI:
 ./keila-radio --catalog-update   # descarga Radio Browser y regenera el índice
 ```
 
-Para mover tus datos personales entre equipos o teléfonos:
+## Datos y almacenamiento: copias de seguridad
+
+Pulsa `O` → `A` para abrir **Datos y almacenamiento**. Desde este menú:
+
+- `C` crea una copia privada de favoritas, comentarios, recientes y ajustes.
+- `R` abre las copias disponibles, ordenadas por fecha de modificación, con
+  nombre y tamaño. Dentro del gestor, `Enter` o `?` abre el detalle; `C` crea,
+  `U` actualiza la lista y `R` comprueba la copia seleccionada para restaurarla.
+- Tras la comprobación aparece una pantalla con el archivo y los datos
+  incluidos. Solo `Enter` confirma; `Esc` cancela sin cambiar nada. Redimensionar
+  o recorrer los datos no confirma. Se conserva la selección al volver.
+
+Las nuevas copias se guardan en `$XDG_STATE_HOME/keila-radio/backups` (por
+defecto, `~/.local/state/keila-radio/backups`). También se muestran los respaldos
+`pre-restore-*.tar.gz` de configuración y las antiguas `keila-backup-*.tar.gz`
+que estén junto al programa. No se recorre el teléfono ni se siguen enlaces.
+Para importar desde otro equipo, coloca su `.tar.gz` en esa carpeta de copias
+y pulsa `U`. La ruta también aparece en Diagnóstico.
+
+Las operaciones se ejecutan en segundo plano mientras se atienden audio,
+reconexión y alarma. Restaurar requiere detener cualquier grabación o escucha
+del gestor de grabaciones. Antes de cambiar datos se crea un respaldo previo;
+si falla, no se restaura. Durante la publicación, `Esc` espera a que termine,
+para no interrumpir a mitad del conjunto. Un cierre forzado puede dejar una
+restauración parcial: se conserva el respaldo previo completo.
+
+La restauración recarga favoritas, comentarios, recientes, preferencias y
+ecualizador. **No cambia la emisora actual, el volumen, el silencio ni la alarma**.
+El volumen/última emisora guardados y la carpeta importada de grabaciones se usan
+al reiniciar. Las acciones posteriores del usuario vuelven a guardarse normalmente.
+Una copia no contiene grabaciones, catálogo ni registros de canciones de sesión.
+No se borran copias automáticamente ni se sobrescribe una existente.
+
+También siguen disponibles los comandos para mover datos entre equipos:
 
 ```bash
 ./keila-radio --backup [archivo.tar.gz]
@@ -215,6 +248,11 @@ historial y ecualizador. No incluye grabaciones, registros de sesión ni caché
 de Radio Browser. Al restaurar se valida el archivo completo antes de tocar nada
 y se crea una copia previa automática en
 `~/.config/keila-radio/pre-restore-*.tar.gz`.
+El comando `--restore` es explícito y no muestra una segunda confirmación;
+desde la TUI siempre se pide confirmar. Límites y garantías en
+[Protección de datos](DATA-SAFETY.md).
+
+## Rutas de datos
 
 Los datos personales se guardan fuera del repositorio:
 
@@ -611,36 +649,31 @@ La carpeta está ignorada por Git. Al detener una grabación Keila espera a que 
 
 ## Comprobaciones
 
-Keila 2.1.0 incluye regresiones para configuración, estado, favoritos, grabación, tema, responsive, geometría desktop, protección contra autowrap/scroll, búsqueda integrada, Favoritos desde búsqueda, persistencia fallida, protección del terminal, autorepeat, actualización, validación de paquetes, rollback, reconexión automática, registro y visor de sesión, analizador de espectro, empaquetado Linux y aviso de actualización en la TUI.
+Las regresiones cubren datos personales, recuperación, grabaciones, reproducción,
+reconexión, metadatos, catálogo, búsqueda, navegación, pantallas pequeñas,
+Opciones, submenús, sesiones y actualización.
 
 Ejecutar la batería local principal:
 
 ```bash
-./tests/run.sh
-bash ./tests/recording-formats.sh
-bash ./tests/pre-rc.sh
-bash ./tests/ui-theme.sh
-bash ./tests/ui-responsive.sh
-bash ./tests/ui-desktop.sh
-bash ./tests/ui-update-status.sh
-bash ./tests/search-integrated.sh
-bash ./tests/equalizer.sh
-bash ./tests/spectrum.sh
-bash ./tests/search-favorites.sh
-bash ./tests/session-history.sh
-bash ./tests/session-log.sh
-bash ./tests/options-menu.sh
-bash ./tests/options-layout.sh
-bash ./tests/options-safety.sh
-bash ./tests/panels-layout.sh
-bash ./tests/panels-navigation.sh
-bash ./tests/ui-desktop-search-pane.sh
-bash ./tests/ui-terminal-guard.sh
-bash ./tests/input-repeat.sh
-bash ./tests/update-check.sh
+bash tests/check.sh
 ```
 
-El workflow `.github/workflows/checks.yml` instala ShellCheck y ejecuta automáticamente la batería completa en GitHub Actions.
+GitHub Actions ejecuta ese mismo comando. Incluye los grupos `fast`,
+`integration` y `performance`; el empaquetado Debian y las sesiones interactivas
+quedan fuera. El runner detecta pruebas sin clasificar, exige las dependencias,
+aísla los datos y conserva registros de cada ejecución.
+
+Para revisar un grupo o consultar el inventario:
+
+```bash
+bash tests/check.sh fast
+bash tests/check.sh integration
+bash tests/check.sh performance
+bash tests/check.sh --list
+```
+
+Dependencias, límites y cómo incorporar regresiones en [Guía de pruebas](TESTING.md).
 
 ## Estructura
 

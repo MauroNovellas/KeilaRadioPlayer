@@ -19,7 +19,10 @@ labels_set https://original.invalid 'Comentario original'
 STATE_VOLUME=37 STATE_LAST_NAME=Original STATE_LAST_URL=https://original.invalid
 state_save
 preferences_save
-files=("$KEILA_FAVORITES_FILE" "$KEILA_CONFIG_DIR/labels" "$KEILA_STATE_FILE" "$KEILA_CONFIG_DIR/preferences")
+history_record Original https://original.invalid
+EQUALIZER_GAINS=(1 2 3 4 5)
+equalizer_save
+files=("$KEILA_FAVORITES_FILE" "$KEILA_CONFIG_DIR/labels" "$KEILA_STATE_FILE" "$KEILA_CONFIG_DIR/preferences" "$KEILA_STATE_DIR/history" "$KEILA_EQUALIZER_FILE")
 for i in "${!files[@]}"; do cp "${files[i]}" "$task_tmp/original.$i"; done
 
 # Fallo de publicación: el original debe seguir intacto y el error propagarse.
@@ -30,6 +33,9 @@ STATE_VOLUME=88
 if state_save; then fail estado; fi
 PREF_COLOR=0
 if preferences_save; then fail preferencias; fi
+if history_record Nuevo https://nuevo.invalid; then fail recientes; fi
+EQUALIZER_GAINS=(5 4 3 2 1)
+if equalizer_save; then fail ecualizador; fi
 unset -f mv
 for i in "${!files[@]}"; do cmp "${files[i]}" "$task_tmp/original.$i" || fail 'original modificado'; done
 # Los locks no liberados por el fallo simulado se recuperan al morir su dueño.
@@ -49,6 +55,7 @@ if state_save; then fail 'escritura de estado'; fi
 if preferences_save; then fail 'escritura de preferencias'; fi
 if favorites_add Nuevo https://nuevo.invalid; then fail 'escritura de favoritos'; fi
 if labels_set https://original.invalid Cambiado; then fail 'escritura de comentario'; fi
+if history_record Nuevo https://nuevo.invalid; then fail 'escritura de recientes'; fi
 unset -f printf
 for i in "${!files[@]}"; do cmp "${files[i]}" "$task_tmp/original.$i" || fail 'escritura parcial publicada'; done
 
@@ -63,7 +70,7 @@ config_write_default
 cmp "$KEILA_CONFIG_FILE" "$task_tmp/config.original"
 
 # Matar el escritor justo antes del rename, cuando el temporal ya está completo.
-for action in favorites labels state preferences; do
+for action in favorites labels state preferences history equalizer; do
     (
         trap - EXIT
         mv() { kill -KILL "$BASHPID"; }
@@ -72,6 +79,8 @@ for action in favorites labels state preferences; do
             labels) labels_set https://original.invalid Cambiado ;;
             state) state_save ;;
             preferences) preferences_save ;;
+            history) history_record Nuevo https://nuevo.invalid ;;
+            equalizer) equalizer_save ;;
         esac
     ) >/dev/null 2>&1 &
     writer=$!
@@ -82,8 +91,10 @@ favorites_add Después https://despues.invalid
 labels_set https://original.invalid Recuperado
 state_save
 preferences_save
+history_record Después https://despues.invalid
+equalizer_save
 # Lectura en otra sesión, sin depender de las variables de la sesión anterior.
-bash -c 'launcher=$1; set -- --version; source "$launcher" >/dev/null; trap - EXIT; favorites_load; labels_load; state_load; preferences_load; [[ ${#FAVORITE_URLS[@]} == 2 && ${FAVORITE_LABELS[https://original.invalid]} == Recuperado && $STATE_VOLUME == 88 && $PREF_COLOR == 0 ]]' bash "$ROOT_DIR/keila-radio" || fail 'reinicio'
+bash -c 'launcher=$1; set -- --version; source "$launcher" >/dev/null; trap - EXIT; favorites_load; labels_load; state_load; preferences_load; history_load; equalizer_load; [[ ${#FAVORITE_URLS[@]} == 2 && ${FAVORITE_LABELS[https://original.invalid]} == Recuperado && $STATE_VOLUME == 88 && $PREF_COLOR == 0 && ${#HISTORY_URLS[@]} == 2 && ${EQUALIZER_GAINS[*]} == "5 4 3 2 1" ]]' bash "$ROOT_DIR/keila-radio" || fail 'reinicio'
 
 # Reserva concurrente, nombre y segundo idénticos; tampoco seguir enlaces rotos.
 recording_init "$task_tmp/recordings"

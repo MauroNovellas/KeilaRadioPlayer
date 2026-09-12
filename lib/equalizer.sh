@@ -7,6 +7,7 @@ EQUALIZER_LABELS=(60Hz 250Hz 1kHz 4kHz 12kHz)
 EQUALIZER_GAINS=(0 0 0 0 0)
 EQUALIZER_SELECTED=0
 EQUALIZER_EDITOR_ACTIVE=0
+EQUALIZER_LAST_ERROR=''
 KEILA_EQUALIZER_FILE="${KEILA_CONFIG_DIR}/equalizer"
 EQUALIZER_PRESET_NAMES=(Plano Rock Pop Jazz Voz)
 EQUALIZER_PRESET_GAINS=(
@@ -18,7 +19,7 @@ EQUALIZER_PRESET_GAINS=(
 )
 
 equalizer_gain_valid() {
-    [[ "$1" =~ ^-?[0-9]+$ ]] && (($1 >= -12 && $1 <= 12))
+    [[ "$1" =~ ^-?(0|[1-9]|1[0-2])$ ]]
 }
 
 equalizer_is_flat() {
@@ -38,15 +39,18 @@ equalizer_filter() {
 }
 
 equalizer_load() {
-    EQUALIZER_GAINS=(0 0 0 0 0)
-    [[ -f "$KEILA_EQUALIZER_FILE" ]] || return 0
+    if [[ ! -e "$KEILA_EQUALIZER_FILE" && ! -L "$KEILA_EQUALIZER_FILE" ]]; then
+        EQUALIZER_GAINS=(0 0 0 0 0)
+        return 0
+    fi
+    data_validate "$KEILA_EQUALIZER_FILE" equalizer || return 1
 
     local raw gains i
-    IFS= read -r raw < "$KEILA_EQUALIZER_FILE" || return 0
+    IFS= read -r raw < "$KEILA_EQUALIZER_FILE" || [[ -n "$raw" ]] || return 1
     IFS=',' read -r -a gains <<< "$raw"
-    ((${#gains[@]} == 5)) || return 0
+    ((${#gains[@]} == 5)) || return 1
     for ((i = 0; i < 5; i++)); do
-        equalizer_gain_valid "${gains[i]}" || return 0
+        equalizer_gain_valid "${gains[i]}" || return 1
     done
     EQUALIZER_GAINS=("${gains[@]}")
 }
@@ -60,7 +64,7 @@ equalizer_save() {
         lock_release "${file}.lock"
         return 1
     }
-    if ! mv -f "$tmp" "$file"; then
+    if ! data_publish "$tmp" "$file" equalizer; then
         rm -f "$tmp"
         lock_release "${file}.lock"
         return 1
@@ -91,13 +95,28 @@ equalizer_set_gain() {
     [[ "$index" =~ ^[0-4]$ ]] || return 1
     equalizer_gain_valid "$gain" || return 1
 
-    local previous="${EQUALIZER_GAINS[index]}"
+    local -a previous=("${EQUALIZER_GAINS[@]}")
     EQUALIZER_GAINS[index]="$gain"
+    equalizer_commit "${previous[@]}"
+}
+
+# Audio y disco no forman una transacción conjunta. Ante cualquier fallo,
+# restaurar memoria e intentar restaurar mpv, sin anunciar un guardado ficticio.
+equalizer_commit() {
+    local -a previous=("$@")
+    EQUALIZER_LAST_ERROR=''
     if ! equalizer_apply; then
-        EQUALIZER_GAINS[index]="$previous"
-        return 1
+        EQUALIZER_LAST_ERROR='No se pudo aplicar el ecualizador; no se guarda el cambio.'
+    elif ! equalizer_save; then
+        EQUALIZER_LAST_ERROR='No se pudo guardar el ecualizador; se recupera el ajuste anterior.'
+    else
+        return 0
     fi
-    equalizer_save || return 1
+    EQUALIZER_GAINS=("${previous[@]}")
+    if ! equalizer_apply; then
+        EQUALIZER_LAST_ERROR+=' No se pudo confirmar la restauración del audio; vuelve a abrir la emisora.'
+    fi
+    return 1
 }
 
 equalizer_change_selected() {
@@ -115,11 +134,7 @@ equalizer_center_selected() {
 equalizer_reset() {
     local previous=("${EQUALIZER_GAINS[@]}")
     EQUALIZER_GAINS=(0 0 0 0 0)
-    if ! equalizer_apply; then
-        EQUALIZER_GAINS=("${previous[@]}")
-        return 1
-    fi
-    equalizer_save
+    equalizer_commit "${previous[@]}"
 }
 
 equalizer_preset_name() {
@@ -152,13 +167,5 @@ equalizer_apply_preset() {
     for gain in "${gains[@]}"; do equalizer_gain_valid "$gain" || return 1; done
 
     EQUALIZER_GAINS=("${gains[@]}")
-    if ! equalizer_apply; then
-        EQUALIZER_GAINS=("${previous[@]}")
-        return 1
-    fi
-    if ! equalizer_save; then
-        EQUALIZER_GAINS=("${previous[@]}")
-        equalizer_apply || true
-        return 1
-    fi
+    equalizer_commit "${previous[@]}"
 }

@@ -49,6 +49,7 @@ make_release() {
         deps.sh
         config.sh
         lock.sh
+        data-safety.sh
         state.sh
         personal.sh
         session-log.sh
@@ -74,6 +75,9 @@ make_release() {
         recording-manager.sh
         status-screen.sh
         backup.sh
+        backup-archive.sh
+        backup-manager.sh
+        backup-worker.sh
         input.sh
         ui.sh
         ui-responsive.sh
@@ -127,6 +131,14 @@ EOF
 
 tmp=$(mktemp -d) || fail 'no se pudo crear temporal'
 trap 'rm -rf "$tmp"' EXIT
+
+# La recuperación es parte obligatoria del runtime, no un módulo optativo.
+make_release "$tmp/data-safety-release" '2.0.1' '2.0.1'
+safety_tree="$tmp/data-safety-release/KeilaRadioPlayer-2.0.1"
+rm -- "$safety_tree/lib/data-safety.sh"
+if update_validate_tree "$safety_tree" '2.0.1' >/dev/null 2>&1; then
+    fail 'acepta actualización sin protección de datos'
+fi
 
 # Paquete incompleto: debe rechazarse durante la validación, antes de mover
 # ningún componente de la instalación actual. El cliente persistente de eventos

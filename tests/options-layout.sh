@@ -29,7 +29,7 @@ for geometry in '160 45' '100 24' '97 16' '96 16' '80 24' '62 16' '50 13' '42 11
     for unicode in 0 1; do
         UI_UNICODE=$unicode
         ui_configure_glyphs
-        for menu in main playback stations visual timer recordings session config; do
+        for menu in main playback stations visual timer recordings session config data; do
             options_build_rows "$menu"
             for selected in 0 "$((${#OPTIONS_ROWS[@]} - 1))"; do
                 OPTIONS_SELECTED=$selected OPTIONS_SCROLL=0

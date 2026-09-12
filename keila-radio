@@ -74,8 +74,11 @@ source "$BASE_DIR/lib/recording-manager.sh"
 source "$BASE_DIR/lib/status-screen.sh"
 # shellcheck source=lib/backup.sh
 source "$BASE_DIR/lib/backup.sh"
+# shellcheck source=lib/backup-manager.sh
+source "$BASE_DIR/lib/backup-manager.sh"
 
 cleanup() {
+    backup_manager_cleanup >/dev/null 2>&1 || true
     session_log_close >/dev/null 2>&1 || true
     pending_cleanup >/dev/null 2>&1 || true
     spectrum_stop >/dev/null 2>&1 || true
@@ -93,12 +96,17 @@ die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 app_message() { ui_set_message "$1" "${2:-5}"; }
 
 save_player_state() {
+    ((${BACKUP_DATA_BUSY:-0} == 0)) || return 1
+    local old_volume=$STATE_VOLUME old_name=$STATE_LAST_NAME old_url=$STATE_LAST_URL
     STATE_VOLUME="$PLAYER_VOLUME"
     if [[ -n "${PLAYER_URL:-}" ]] && ((${PLAYER_STREAM_READY:-0})); then
         STATE_LAST_NAME="$PLAYER_NAME"
         STATE_LAST_URL="$PLAYER_URL"
     fi
-    state_save
+    if ! state_save; then
+        STATE_VOLUME=$old_volume STATE_LAST_NAME=$old_name STATE_LAST_URL=$old_url
+        return 1
+    fi
 }
 
 app_init_data() {
@@ -107,6 +115,8 @@ app_init_data() {
     data_recover "$KEILA_CONFIG_DIR/labels" labels || return 1
     data_recover "$KEILA_STATE_FILE" state || return 1
     data_recover "$KEILA_CONFIG_DIR/preferences" preferences || return 1
+    data_recover "$KEILA_STATE_DIR/history" history || return 1
+    data_recover "$KEILA_EQUALIZER_FILE" equalizer || return 1
     if ! config_load "$BASE_DIR/grabaciones"; then
         printf 'No se pudo cargar la configuración: %s\n' "$KEILA_CONFIG_FILE" >&2
         return 1
@@ -192,11 +202,12 @@ app_play() {
 
     track_history_start_station "$name" "$url"
     HISTORY_PENDING_URL="$url"
-    save_player_state >/dev/null 2>&1 || true
+    local state_notice=''
+    save_player_state >/dev/null 2>&1 || state_notice=' · No se pudo guardar el estado.'
     if [[ -n "$recording_notice" ]]; then
-        app_message "$recording_notice · Conectando: $name" 8
+        app_message "$recording_notice · Conectando: $name$state_notice" 8
     else
-        app_message "Conectando: $name" 5
+        app_message "Conectando: $name$state_notice" 5
     fi
 }
 
@@ -265,7 +276,13 @@ app_change_volume() {
 }
 
 app_toggle_spectrum() {
-    local status=0
+    local status=0 old_preference=$PREF_SPECTRUM
+    PREF_SPECTRUM=$((1-SPECTRUM_ENABLED))
+    if ! preferences_save; then
+        PREF_SPECTRUM=$old_preference
+        app_message 'No se pudo guardar el espectrograma. Se conserva el valor anterior.' 7
+        return 1
+    fi
     spectrum_toggle || status=$?
     PREF_SPECTRUM=$SPECTRUM_ENABLED
     case "$status" in
@@ -275,7 +292,6 @@ app_toggle_spectrum() {
         2) app_message "Analizador no disponible: ${SPECTRUM_ERROR:-comprueba PulseAudio/PipeWire}" 7 ;;
         *) app_message 'No se pudo cambiar el analizador de espectro.' 6 ;;
     esac
-    preferences_save || app_message "${UI_MESSAGE:-Espectrograma actualizado.} · No se pudo guardar la preferencia." 9
 }
 
 app_toggle_pause() {
@@ -470,6 +486,8 @@ app_search_catalog() {
         fi
         return 0
     fi
+    # SELECTED_URL lo publica stations_select_fzf en lib/stations.sh.
+    # shellcheck disable=SC2153
     app_play "$SELECTED_NAME" "$SELECTED_URL"
 }
 

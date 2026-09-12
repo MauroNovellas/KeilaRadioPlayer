@@ -17,6 +17,9 @@ STATUS_ROWS=('Versión|Keila 2.1' 'Volumen|50%' 'Config|/una/ruta/muy/larga/para
 STATUS_REFRESH_AT=$((EPOCHSECONDS + 3600))
 PENDING_FILES=('/grabaciones/Radio con un nombre muy largo.mp3')
 PENDING_NOTICE=''
+BACKUP_FILES=('/copias/keila-backup-con-nombre-muy-largo.tar.gz')
+BACKUP_SIZES=(8192) BACKUP_DATES=('2026-09-12 10:00:00')
+BACKUP_TARGET=${BACKUP_FILES[0]} BACKUP_NOTICE='Copia privada de datos personales'
 declare -A PENDING_METADATA=([/grabaciones/Radio\ con\ un\ nombre\ muy\ largo.mp3]='4096|2026-09-12 10:00:00')
 PANEL_PARENT_PATH='OPCIONES > PRUEBA'
 OPTIONS_TITLE='PADRE' OPTIONS_SELECTED=7 OPTIONS_SCROLL=2 OPTIONS_ROWS=('P|Padre|Se conserva|menu:main||')
@@ -44,7 +47,8 @@ for geometry in '160 45' '110 24' '97 16' '96 16' '80 24' '62 16' '50 13' '42 11
     read -r UI_COLS UI_LINES <<< "$geometry"
     for unicode in 0 1; do
         UI_UNICODE=$unicode; ui_configure_glyphs
-        for screen in preferencias ayuda alarma ecualizador comentarios historial grabaciones diagnostico; do
+        for screen in preferencias ayuda alarma ecualizador comentarios historial grabaciones diagnostico copias confirmacion; do
+            BACKUP_PREPARED_DIR=''
             case "$screen" in
                 preferencias) preferences_build_rows settings; frame=$(panel_draw PREFERENCIAS 0 0 'Enter cambiar | Esc volver' '') ;;
                 ayuda) preferences_build_rows help; frame=$(panel_draw AYUDA 0 0 'Enter detalle | Esc volver' '') ;;
@@ -54,6 +58,8 @@ for geometry in '160 45' '110 24' '97 16' '96 16' '80 24' '62 16' '50 13' '42 11
                 historial) frame=$(session_history_draw) ;;
                 grabaciones) frame=$(pending_draw 0 0) ;;
                 diagnostico) frame=$(status_draw) ;;
+                copias) frame=$(backup_manager_draw) ;;
+                confirmacion) BACKUP_PREPARED_DIR='/copias/preparada'; frame=$(backup_manager_draw) ;;
             esac
             check_frame "$frame" "$screen $geometry"
             # Comprobar el cursor con el nombre simple para habilitar su aserto.
@@ -69,4 +75,4 @@ panel_draw PREFERENCIAS 3 0 'Enter cambiar | Esc volver' '' >/dev/null
 [[ "$OPTIONS_TITLE:$OPTIONS_SELECTED:$OPTIONS_SCROLL" == PADRE:7:2 ]] || fail 'el hijo altera selección o título del padre'
 [[ "${OPTIONS_ROWS[0]}" == 'P|Padre|Se conserva|menu:main||' ]] || fail 'el hijo reemplaza las filas del padre'
 
-printf 'ok   ocho pantallas: 13 geometrías, dos modos, cursor de edición y aislamiento del padre\n'
+printf 'ok   diez pantallas: 13 geometrías, dos modos, cursor de edición y aislamiento del padre\n'

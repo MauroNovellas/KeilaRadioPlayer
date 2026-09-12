@@ -19,6 +19,7 @@ update_validate_tree() {
         lib/deps.sh
         lib/config.sh
         lib/lock.sh
+        lib/data-safety.sh
         lib/state.sh
         lib/personal.sh
         lib/session-log.sh
@@ -44,6 +45,9 @@ update_validate_tree() {
         lib/recording-manager.sh
         lib/status-screen.sh
         lib/backup.sh
+        lib/backup-archive.sh
+        lib/backup-manager.sh
+        lib/backup-worker.sh
         lib/input.sh
         lib/ui.sh
         lib/ui-responsive.sh

@@ -27,15 +27,15 @@ app_edit_equalizer() {
             RIGHT) EQUALIZER_SELECTED=$(((EQUALIZER_SELECTED + 1) % 5)) ;;
             HOME) EQUALIZER_SELECTED=0 ;;
             END) EQUALIZER_SELECTED=4 ;;
-            UP) equalizer_change_selected 1 || app_message 'No se pudo aplicar o guardar el ecualizador.' 5 ;;
-            DOWN) equalizer_change_selected -1 || app_message 'No se pudo aplicar o guardar el ecualizador.' 5 ;;
+            UP) equalizer_change_selected 1 || app_message "${EQUALIZER_LAST_ERROR:-No se pudo aplicar o guardar el ecualizador.}" 8 ;;
+            DOWN) equalizer_change_selected -1 || app_message "${EQUALIZER_LAST_ERROR:-No se pudo aplicar o guardar el ecualizador.}" 8 ;;
             KEY)
                 case "$INPUT_KEY" in
-                    r|R) equalizer_reset || app_message 'No se pudo restablecer el ecualizador.' 5 ;;
-                    c|C) equalizer_center_selected || app_message 'No se pudo centrar la banda.' 5 ;;
+                    r|R) equalizer_reset || app_message "${EQUALIZER_LAST_ERROR:-No se pudo restablecer el ecualizador.}" 8 ;;
+                    c|C) equalizer_center_selected || app_message "${EQUALIZER_LAST_ERROR:-No se pudo centrar la banda.}" 8 ;;
                     [1-5])
                         if equalizer_apply_preset "$INPUT_KEY"; then app_message "Preset: $(equalizer_preset_name "$INPUT_KEY")" 4
-                        else app_message 'No se pudo aplicar el preset.' 5; fi ;;
+                        else app_message "${EQUALIZER_LAST_ERROR:-No se pudo aplicar el preset.}" 8; fi ;;
                     '?')
                         local -a PANEL_ROWS=()
                         local i

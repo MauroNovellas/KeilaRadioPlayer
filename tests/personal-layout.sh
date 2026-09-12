@@ -4,6 +4,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 set -- --version
 source "$ROOT_DIR/keila-radio" >/dev/null
 trap - EXIT
+declare -A FAVORITE_LABELS
 fail() { printf 'FAIL %s\n' "$*" >&2; exit 1; }
 player_is_running() { return 1; }
 tput() { :; }

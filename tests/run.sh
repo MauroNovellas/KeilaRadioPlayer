@@ -24,32 +24,24 @@ run_test() {
 
 test_bash_syntax() {
     local file
-    while IFS= read -r file; do bash -n "$file" || return 1; done < <(
-        {
-            printf '%s\n' "$ROOT_DIR/keila-radio"
-            find "$ROOT_DIR/lib" -maxdepth 1 -type f -name '*.sh' -print
-            find "$ROOT_DIR/tests" -maxdepth 1 -type f -name '*.sh' -print
-        } | sort -u
-    )
+    for file in "$ROOT_DIR/keila-radio" "$ROOT_DIR"/{lib,tests,scripts}/*.sh; do
+        bash -n "$file" || return 1
+    done
 }
 
 test_shellcheck() {
     command -v shellcheck >/dev/null 2>&1 || { printf 'skip shellcheck no está instalado\n'; return 0; }
-    shellcheck -x -e SC1090,SC1091,SC2030,SC2031,SC2034,SC2016 \
-        "$ROOT_DIR/keila-radio" \
-        "$ROOT_DIR/lib/config.sh" \
-        "$ROOT_DIR/lib/lock.sh" \
-        "$ROOT_DIR/lib/state.sh" \
-        "$ROOT_DIR/lib/favorites.sh" \
-        "$ROOT_DIR/lib/recording.sh" \
-        "$ROOT_DIR/lib/session-log.sh" \
-        "$ROOT_DIR/lib/session-history.sh" \
-        "$ROOT_DIR/lib/options.sh" \
-        "$ROOT_DIR/lib/panels.sh" \
-        "$ROOT_DIR/lib/ui.sh" \
-        "$ROOT_DIR/tests/run.sh" \
-        "$ROOT_DIR/tests/recording-formats.sh" \
-        "$ROOT_DIR/tests/pre-rc.sh"
+    # Analizar cada archivo directamente, sin expandir de nuevo el launcher
+    # completo por cada test: consume tiempo y memoria sin añadir cobertura.
+    local file status=0 excludes
+    for file in "$ROOT_DIR/keila-radio" "$ROOT_DIR"/{lib,tests,scripts}/*.sh; do
+        excludes=SC1090,SC1091,SC2030,SC2031,SC2034,SC2016
+        # Los dobles de prueba se invocan desde módulos externos; el análisis
+        # individual no puede inferir esas llamadas. No silenciarlo en producción.
+        [[ "$file" != "$ROOT_DIR/tests/"* ]] || excludes+=,SC2317
+        shellcheck -e "$excludes" "$file" || status=1
+    done
+    return "$status"
 }
 
 test_config_parser() (
@@ -59,6 +51,7 @@ test_config_parser() (
     export HOME="$tmp/home" XDG_CONFIG_HOME="$tmp/config" XDG_STATE_HOME="$tmp/state" XDG_CACHE_HOME="$tmp/cache"
     mkdir -p "$HOME"
     source "$ROOT_DIR/lib/config.sh"
+    source "$ROOT_DIR/lib/lock.sh"
     local default_recordings="$tmp/default recordings"
     config_load "$default_recordings" || return 1
     assert_eq '5' "$KEILA_VOLUME_STEP" 'volume_step por defecto' || return 1

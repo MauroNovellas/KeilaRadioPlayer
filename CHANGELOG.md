@@ -4,6 +4,40 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - rama v2.1
 
+- Nuevo `O` → `A`, Datos y almacenamiento: crear copias privadas y consultar
+  las disponibles con nombre, fecha y tamaño. `R` verifica y abre una pantalla
+  con los datos incluidos; solo Enter confirma la restauración. Esc cancela,
+  se conserva selección y se reutiliza el estilo responsive de Opciones.
+- Trabajos de copias en segundo plano y grupo de procesos privado. Se mantiene
+  la escucha, volumen, silencio y alarma. Restaurar exige detener grabaciones,
+  crea un respaldo previo y recarga datos y preferencias sin reiniciar la radio.
+  La carpeta de grabaciones importada se usa en el próximo arranque.
+- Motor de copias sin reinicialización del reproductor, instantáneas bajo
+  bloqueo y publicación exclusiva sin sobrescribir copias. Validación de TAR
+  antes de extraer: tipos, rutas, duplicados, tamaños y tiempos acotados.
+  Se conserva compatibilidad con el formato v1 y los comandos de terminal.
+- Regresiones de archivo, trabajador y menú: no sobrescritura, respaldo previo,
+  importaciones peligrosas, confirmación y cancelación, polling de audio y
+  diez pantallas internas en 13 geometrías y ambos modos de símbolos.
+- Batería unificada `bash tests/check.sh` en local y GitHub, con grupos de
+  lógica/interfaz, integración y rendimiento. Inventario validado de tests,
+  dependencias obligatorias, perfiles XDG aislados, registros individuales y
+  límite por prueba. Se incorporan a CI las regresiones de datos, grabaciones,
+  sesiones, títulos y procesos que antes no se ejecutaban allí. Sintaxis y
+  ShellCheck revisan todos los módulos, tests y scripts Bash. Guía en TESTING.md.
+- Copia privada y recuperación también para recientes, ecualizador y
+  configuración manual. Migración de archivos válidos antiguos sin reescritura;
+  se conservan comentarios y claves desconocidas de config. Validación completa
+  de los cinco valores del ecualizador, rechazo de NUL y destinos no regulares.
+- Reversión uniforme de bandas, centrado y presets ante errores de audio o
+  guardado; aviso explícito si no se puede confirmar la restauración del audio.
+  El espectrograma no cambia ante un fallo de persistencia y los errores al
+  guardar la última emisora se notifican. Restore publica cada archivo mediante
+  bloqueo y sustitución atómica, conservando el respaldo previo del conjunto.
+  El actualizador rechaza paquetes sin el módulo de protección de datos.
+- Pruebas de recuperación de los siete archivos, conservación de ediciones
+  manuales, fallos de publicación final, cierres forzados, datos antiguos sin
+  salto final, reversión y arranque completo. Límites actualizados en DATA-SAFETY.md.
 - Unificada la presentación de todos los submenús y pantallas internas con
   `lib/panels.sh`: Preferencias, Ayuda, Alarma, Ecualizador, Comentarios,
   Grabaciones, Historial de sesión y Diagnóstico reutilizan el render de

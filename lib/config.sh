@@ -51,10 +51,16 @@ config_reset_defaults() {
 }
 
 config_write_default() {
-    [[ -e "$KEILA_CONFIG_FILE" ]] && return 0
+    [[ -e "$KEILA_CONFIG_FILE" || -L "$KEILA_CONFIG_FILE" ]] && { data_validate "$KEILA_CONFIG_FILE" config; return; }
 
     local tmp status=0
-    tmp=$(mktemp "${KEILA_CONFIG_FILE}.tmp.XXXXXX") || return 1
+    lock_acquire "$KEILA_CONFIG_FILE.lock" || return 1
+    if [[ -e "$KEILA_CONFIG_FILE" || -L "$KEILA_CONFIG_FILE" ]]; then
+        data_validate "$KEILA_CONFIG_FILE" config || status=1
+        lock_release "$KEILA_CONFIG_FILE.lock" || status=1
+        return "$status"
+    fi
+    tmp=$(mktemp "${KEILA_CONFIG_FILE}.tmp.XXXXXX") || { lock_release "$KEILA_CONFIG_FILE.lock"; return 1; }
     umask 077
 
     cat > "$tmp" <<'EOF' || status=1
@@ -90,7 +96,11 @@ EOF
             [[ -f "$KEILA_CONFIG_FILE" ]] || status=1
         }
     fi
+    if ((status == 0)); then
+        data_validate "$KEILA_CONFIG_FILE" config && data_copy_atomic "$KEILA_CONFIG_FILE" "$KEILA_CONFIG_FILE.bak" || status=1
+    fi
     rm -f -- "$tmp"
+    lock_release "$KEILA_CONFIG_FILE.lock" || status=1
     return "$status"
 }
 
@@ -120,11 +130,20 @@ config_expand_path() {
 config_load() {
     local default_recordings_dir="$1"
 
-    config_reset_defaults "$default_recordings_dir"
     keila_init_paths || return 1
+    data_recover "$KEILA_CONFIG_FILE" config || return 1
     config_write_default || return 1
 
-    [[ -f "$KEILA_CONFIG_FILE" ]] || return 0
+    # Al ser manual, la copia representa la última configuración que se pudo
+    # cargar. No reescribir el original ni perder comentarios/claves futuras.
+    lock_acquire "$KEILA_CONFIG_FILE.lock" || return 1
+    local status=0
+    data_validate "$KEILA_CONFIG_FILE" config || status=1
+    if ((status == 0)) && { ! data_validate "$KEILA_CONFIG_FILE.bak" config || ! cmp -s -- "$KEILA_CONFIG_FILE" "$KEILA_CONFIG_FILE.bak"; }; then
+        data_copy_atomic "$KEILA_CONFIG_FILE" "$KEILA_CONFIG_FILE.bak" || status=1
+    fi
+    if ((status)); then lock_release "$KEILA_CONFIG_FILE.lock"; return 1; fi
+    config_reset_defaults "$default_recordings_dir"
 
     local raw key value number
     while IFS= read -r raw || [[ -n "$raw" ]]; do
@@ -189,4 +208,5 @@ config_load() {
                 ;;
         esac
     done < "$KEILA_CONFIG_FILE"
+    lock_release "$KEILA_CONFIG_FILE.lock"
 }

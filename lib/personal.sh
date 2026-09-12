@@ -45,11 +45,12 @@ labels_set() {
 }
 
 history_load() {
+    local name url file="${KEILA_STATE_DIR}/history"
+    if [[ -e "$file" || -L "$file" ]]; then data_validate "$file" history || return 1; fi
     HISTORY_NAMES=()
     HISTORY_URLS=()
-    local name url file="${KEILA_STATE_DIR}/history"
     [[ -f "$file" ]] || return 0
-    while IFS='|' read -r name url; do
+    while IFS='|' read -r name url || [[ -n "$name" ]]; do
         [[ -n "$name" && -n "$url" && "$url" != *[[:cntrl:]\|]* ]] || continue
         HISTORY_NAMES+=("$(personal_text "$name")")
         HISTORY_URLS+=("$url")
@@ -62,8 +63,9 @@ history_record() {
     local name url="$2" file="${KEILA_STATE_DIR}/history" tmp i status=0
     [[ -n "$url" && "$url" != *[[:cntrl:]\|]* ]] || return 1
     name=$(personal_text "$1")
+    [[ -n "$name" ]] || return 1
     lock_acquire "$file.lock" || return 1
-    history_load
+    history_load || { lock_release "$file.lock"; return 1; }
     local -a names=("$name") urls=("$url")
     for ((i=0; i<${#HISTORY_URLS[@]}; i++)); do
         [[ "${HISTORY_URLS[i]}" == "$url" ]] && continue
@@ -75,10 +77,10 @@ history_record() {
     for ((i=0; i<${#urls[@]}; i++)); do
         printf '%s|%s\n' "${names[i]}" "${urls[i]}" >> "$tmp" || status=1
     done
-    if ((status == 0)); then mv -f "$tmp" "$file" || status=1; fi
+    if ((status == 0)); then data_publish "$tmp" "$file" history || status=1; fi
     rm -f "$tmp"
     lock_release "$file.lock" || status=1
-    history_load
+    history_load || status=1
     return "$status"
 }
 
@@ -89,20 +91,23 @@ history_recent_refresh() {
 }
 
 history_observe() {
+    ((${BACKUP_DATA_BUSY:-0} == 0)) || return 1
     [[ -n "$HISTORY_PENDING_URL" && "$HISTORY_PENDING_URL" == "${PLAYER_URL:-}" ]] || return 1
     ((${PLAYER_STREAM_READY:-0})) || return 1
-    local selected_url='' recent_index
+    local selected_url='' recent_index state_failed=0
     if ((${UI_SELECTED_INDEX:-0} >= ${#FAVORITE_URLS[@]})); then
         recent_index=$((${UI_SELECTED_INDEX:-0} - ${#FAVORITE_URLS[@]}))
         selected_url="${RECENT_URLS[recent_index]:-}"
     fi
     HISTORY_PENDING_URL=''
-    if declare -F save_player_state >/dev/null; then save_player_state >/dev/null 2>&1 || true; fi
+    if declare -F save_player_state >/dev/null; then save_player_state >/dev/null 2>&1 || state_failed=1; fi
     history_record "$PLAYER_NAME" "$PLAYER_URL" || {
-        app_message 'No se pudo guardar el historial.' 5
+        if ((state_failed)); then app_message 'No se pudieron guardar el historial ni la última emisora.' 7
+        else app_message 'No se pudo guardar el historial.' 5; fi
         return 0
     }
     history_recent_refresh
+    if ((state_failed)); then app_message 'No se pudo guardar la última emisora para el próximo inicio.' 7; fi
     if [[ -n "$selected_url" ]]; then
         for recent_index in "${!RECENT_URLS[@]}"; do
             if [[ "${RECENT_URLS[recent_index]}" == "$selected_url" ]]; then

@@ -84,6 +84,7 @@ status_build_rows() {
     STATUS_ROWS+=("Favoritos|${#FAVORITE_NAMES[@]} · $KEILA_FAVORITES_FILE")
     STATUS_ROWS+=("Comentarios|${#FAVORITE_LABELS[@]} · $KEILA_CONFIG_DIR/labels")
     STATUS_ROWS+=("Estado|$KEILA_STATE_FILE")
+    STATUS_ROWS+=("Copias de seguridad|$KEILA_STATE_DIR/backups")
     STATUS_ROWS+=("Registro sesión|${SESSION_LOG_FILE:-no iniciado}")
     STATUS_ROWS+=("Caché|$KEILA_CACHE_DIR")
     STATUS_ROWS+=("Grabaciones|$KEILA_RECORDINGS_DIR")

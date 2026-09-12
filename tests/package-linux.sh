@@ -24,6 +24,7 @@ sha256sum -c "$checksum" >/dev/null || fail 'la suma SHA-256 no coincide'
 tar_listing=$(tar -tzf "$archive") || fail 'no se pudo leer el paquete'
 [[ "$tar_listing" == *'keila-radio'* ]] || fail 'falta el launcher en el paquete'
 [[ "$tar_listing" == *'/lib/player.sh'* && "$tar_listing" == *'/lib/spectrum.sh'* ]] || fail 'faltan módulos del runtime'
+[[ "$tar_listing" == *'/lib/data-safety.sh'* && "$tar_listing" == *'/TESTING.md'* ]] || fail 'falta protección de datos o guía de pruebas'
 [[ "$tar_listing" != *'/.git/'* && "$tar_listing" != *'/grabaciones/'* ]] || fail 'el paquete contiene datos de desarrollo o grabaciones'
 
 extract_dir="$task_tmp/extracted"

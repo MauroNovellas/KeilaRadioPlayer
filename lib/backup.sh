@@ -2,6 +2,8 @@
 # Exportación/restauración conservadora de datos personales.
 
 BACKUP_RESTORE_NOTICE=''
+# shellcheck source=lib/backup-archive.sh
+source "$(dirname "${BASH_SOURCE[0]}")/backup-archive.sh"
 
 backup_timestamp() {
     date '+%Y%m%d-%H%M%S'
@@ -24,7 +26,8 @@ backup_resolve_output() {
 
 backup_copy_if_regular() {
     local source="$1" target="$2"
-    [[ -f "$source" && ! -L "$source" ]] || return 0
+    [[ -e "$source" || -L "$source" ]] || return 0
+    [[ -f "$source" && ! -L "$source" ]] || return 1
     mkdir -p "$(dirname "$target")" || return 1
     cp -- "$source" "$target" || return 1
     chmod 600 "$target" 2>/dev/null || true
@@ -35,154 +38,99 @@ backup_create() {
     output=$(backup_resolve_output "${1:-}") || return 1
     [[ "$output" == *.tar.gz ]] || output="${output}.tar.gz"
 
-    app_init_data || return 1
-
-    local output_dir staging root archive_name status=0
-    output_dir=$(dirname "$output")
-    mkdir -p "$output_dir" || return 1
+    [[ ! -e "$output" && ! -L "$output" ]] || { printf 'La copia ya existe; no se sobrescribe: %s\n' "$output" >&2; return 1; }
+    local staging status=0
     staging=$(mktemp -d "${TMPDIR:-/tmp}/keila-backup.XXXXXX") || return 1
-    root="$staging/keila-backup"
-    archive_name=$(basename "$output")
-    mkdir -p "$root/config" "$root/state" || { rm -rf "$staging"; return 1; }
-
-    {
-        printf 'format=keila-backup-v1\n'
-        printf 'version=%s\n' "${KEILA_VERSION:-desconocida}"
-        printf 'created_at=%s\n' "$(date -Iseconds)"
-    } > "$root/manifest" || status=1
-
-    backup_copy_if_regular "$KEILA_CONFIG_FILE" "$root/config/config" || status=1
-    backup_copy_if_regular "$KEILA_FAVORITES_FILE" "$root/config/favorites" || status=1
-    backup_copy_if_regular "$KEILA_CONFIG_DIR/labels" "$root/config/labels" || status=1
-    backup_copy_if_regular "$KEILA_CONFIG_DIR/preferences" "$root/config/preferences" || status=1
-    backup_copy_if_regular "$KEILA_CONFIG_DIR/equalizer" "$root/config/equalizer" || status=1
-    backup_copy_if_regular "$KEILA_STATE_FILE" "$root/state/state" || status=1
-    backup_copy_if_regular "$KEILA_STATE_DIR/history" "$root/state/history" || status=1
-
+    if backup_lock_all; then
+        backup_snapshot "$staging/keila-backup" || status=1
+        backup_unlock_all
+    else status=1; fi
+    if ((status == 0)); then backup_publish_archive "$staging/keila-backup" "$output" || status=1; fi
     if ((status == 0)); then
-        tar -C "$staging" -czf "$output" keila-backup || status=1
-    fi
-    if ((status == 0)); then
-        chmod 600 "$output" 2>/dev/null || true
         printf 'Copia de seguridad creada: %s\n' "$output"
-    else
-        rm -f -- "$output"
     fi
-    rm -rf "$staging"
+    rm -rf -- "$staging"
     return "$status"
 }
 
-backup_tar_list_safe() {
-    local archive="$1" entry
-    tar -tzf "$archive" | while IFS= read -r entry; do
-        case "$entry" in
-            keila-backup|keila-backup/|keila-backup/config|keila-backup/config/|keila-backup/state|keila-backup/state/) ;;
-            keila-backup/manifest|\
-            keila-backup/config/config|\
-            keila-backup/config/favorites|\
-            keila-backup/config/labels|\
-            keila-backup/config/preferences|\
-            keila-backup/config/equalizer|\
-            keila-backup/state/state|\
-            keila-backup/state/history) ;;
-            */../*|../*|/*|*'//'*) return 1 ;;
-            *) return 1 ;;
-        esac
-    done
-}
-
 backup_validate_equalizer() {
-    local file="$1" raw gains i
-    [[ -f "$file" && ! -L "$file" ]] || return 1
-    IFS= read -r raw < "$file" || raw=''
-    IFS=',' read -r -a gains <<< "$raw"
-    ((${#gains[@]} == 5)) || return 1
-    for ((i=0; i<5; i++)); do equalizer_gain_valid "${gains[i]}" || return 1; done
+    data_validate "$1" equalizer
 }
 
 backup_validate_config() {
-    local file="$1" raw
-    [[ -f "$file" && ! -L "$file" ]] || return 1
-    while IFS= read -r raw || [[ -n "$raw" ]]; do
-        [[ "$raw" != *[[:cntrl:]]* ]] || return 1
-    done < "$file"
+    data_validate "$1" config
 }
 
 backup_validate_history() {
-    data_validate "$1" favorites
+    data_validate "$1" history
 }
 
 backup_validate_staging() {
     local root="$1"
-    [[ -f "$root/manifest" ]] || return 1
+    [[ -d "$root" && ! -L "$root" && -f "$root/manifest" && ! -L "$root/manifest" ]] || return 1
     grep -qx 'format=keila-backup-v1' "$root/manifest" || return 1
+    local i count=0
+    for i in config state; do [[ ! -L "$root/$i" ]] || return 1; done
+    for i in "${!BACKUP_MEMBERS[@]}"; do
+        [[ -e "$root/${BACKUP_MEMBERS[i]}" || -L "$root/${BACKUP_MEMBERS[i]}" ]] || continue
+        data_validate "$root/${BACKUP_MEMBERS[i]}" "${BACKUP_KINDS[i]}" || return 1
+        ((count+=1))
+    done
+    ((count > 0))
+}
 
-    [[ ! -e "$root/config/config" ]] || backup_validate_config "$root/config/config" || return 1
-    [[ ! -e "$root/config/favorites" ]] || data_validate "$root/config/favorites" favorites || return 1
-    [[ ! -e "$root/config/labels" ]] || data_validate "$root/config/labels" labels || return 1
-    [[ ! -e "$root/config/preferences" ]] || data_validate "$root/config/preferences" preferences || return 1
-    [[ ! -e "$root/config/equalizer" ]] || backup_validate_equalizer "$root/config/equalizer" || return 1
-    [[ ! -e "$root/state/state" ]] || data_validate "$root/state/state" state || return 1
-    [[ ! -e "$root/state/history" ]] || backup_validate_history "$root/state/history" || return 1
+backup_install_locked() {
+    local source="$1" destination="$2" kind="$3" tmp status=0
+    [[ -e "$source" || -L "$source" ]] || return 0
+    [[ -f "$source" && ! -L "$source" ]] || return 1
+    mkdir -p "$(dirname "$destination")" || return 1
+    tmp=$(mktemp "$destination.tmp.XXXXXX") || return 1
+    cp -- "$source" "$tmp" && chmod 600 "$tmp" || status=1
+    if ((status == 0)); then data_publish "$tmp" "$destination" "$kind" || status=1; fi
+    rm -f -- "$tmp"
+    return "$status"
 }
 
 backup_install_file() {
-    local source="$1" destination="$2"
-    [[ -f "$source" && ! -L "$source" ]] || return 0
-    mkdir -p "$(dirname "$destination")" || return 1
-    cp -- "$source" "$destination" || return 1
-    chmod 600 "$destination" 2>/dev/null || true
+    local status=0
+    lock_acquire "$2.lock" || return 1
+    backup_install_locked "$@" || status=1
+    lock_release "$2.lock" || status=1
+    return "$status"
+}
+
+backup_restore_prepared() {
+    local root=$1 work=$2 status=0 i pre_restore
+    backup_validate_staging "$root" || return 1
+    backup_lock_all || return 1
+    pre_restore=$(backup_next_file "$KEILA_CONFIG_DIR" "pre-restore-$(backup_timestamp)") || status=1
+    if ((status == 0)); then backup_snapshot "$work/keila-backup" || status=1; fi
+    if ((status == 0)); then backup_publish_archive "$work/keila-backup" "$pre_restore" || status=1; fi
+    if ((status)); then
+        backup_unlock_all
+        printf 'No se pudo crear la copia previa; no se restaura nada.\n' >&2
+        return 1
+    fi
+    if ! printf '%s\n' "$pre_restore" > "$work/pre-restore"; then backup_unlock_all; return 1; fi
+    for i in "${!BACKUP_MEMBERS[@]}"; do
+        backup_install_locked "$root/${BACKUP_MEMBERS[i]}" "${BACKUP_PATHS[i]}" "${BACKUP_KINDS[i]}" || { status=1; break; }
+    done
+    backup_unlock_all
+    if ((status == 0)); then printf 'Copia restaurada.\n'
+    else printf 'Restauración incompleta; conserva la copia previa para recuperarte.\n' >&2; fi
+    printf 'Respaldo previo: %s\n' "$pre_restore"
+    return "$status"
 }
 
 backup_restore() {
-    local archive="$1"
-    [[ -n "$archive" && -f "$archive" && ! -L "$archive" ]] || {
-        printf 'Archivo de copia no válido: %s\n' "${archive:-vacío}" >&2
-        return 1
-    }
-
-    app_init_data || return 1
-    backup_tar_list_safe "$archive" || {
-        printf 'La copia contiene rutas no válidas o inesperadas.\n' >&2
-        return 1
-    }
-
-    local staging root pre_restore status=0
-    staging=$(mktemp -d "${TMPDIR:-/tmp}/keila-restore.XXXXXX") || return 1
-    tar -C "$staging" -xzf "$archive" || { rm -rf "$staging"; return 1; }
-    root="$staging/keila-backup"
-    backup_validate_staging "$root" || {
-        rm -rf "$staging"
+    local archive=$1 work status=0
+    work=$(mktemp -d "${TMPDIR:-/tmp}/keila-restore.XXXXXX") || return 1
+    if backup_prepare "$archive" "$work"; then
+        backup_restore_prepared "$work/tree/keila-backup" "$work" || status=1
+    else
         printf 'La copia no supera la validación; no se restaura nada.\n' >&2
-        return 1
-    }
-
-    pre_restore="$KEILA_CONFIG_DIR/pre-restore-$(backup_timestamp).tar.gz"
-    backup_create "$pre_restore" >/dev/null || {
-        rm -rf "$staging"
-        printf 'No se pudo crear la copia previa; no se restaura nada.\n' >&2
-        return 1
-    }
-
-    backup_install_file "$root/config/config" "$KEILA_CONFIG_FILE" || status=1
-    backup_install_file "$root/config/favorites" "$KEILA_FAVORITES_FILE" || status=1
-    backup_install_file "$root/config/labels" "$KEILA_CONFIG_DIR/labels" || status=1
-    backup_install_file "$root/config/preferences" "$KEILA_CONFIG_DIR/preferences" || status=1
-    backup_install_file "$root/config/equalizer" "$KEILA_CONFIG_DIR/equalizer" || status=1
-    backup_install_file "$root/state/state" "$KEILA_STATE_FILE" || status=1
-    backup_install_file "$root/state/history" "$KEILA_STATE_DIR/history" || status=1
-
-    if ((status == 0)); then
-        favorites_load || true
-        labels_load || true
-        history_load || true
-        history_recent_refresh || true
-        state_load || true
-        preferences_load || true
-        equalizer_load || true
-        printf 'Copia restaurada: %s\n' "$archive"
-        printf 'Respaldo previo: %s\n' "$pre_restore"
+        status=1
     fi
-    rm -rf "$staging"
+    rm -rf -- "$work"
     return "$status"
 }

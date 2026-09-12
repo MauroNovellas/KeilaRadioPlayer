@@ -15,6 +15,10 @@ labels_set https://original.invalid Original || fail comentarios
 STATE_VOLUME=37 STATE_LAST_NAME=Original STATE_LAST_URL=https://original.invalid
 state_save || fail estado
 preferences_save || fail preferencias
+history_record Original https://original.invalid || fail recientes
+EQUALIZER_GAINS=(1 2 3 4 5)
+equalizer_save || fail ecualizador
+config_load "$task_tmp/recordings" || fail configuración
 # Segundo guardado deja la primera versión como respaldo.
 favorites_add Nuevo https://nuevo.invalid || fail favoritos
 labels_set https://original.invalid Nuevo || fail comentarios
@@ -22,8 +26,11 @@ STATE_VOLUME=88
 state_save || fail estado
 PREF_COLOR=0
 preferences_save || fail preferencias
-files=("$KEILA_FAVORITES_FILE" "$KEILA_CONFIG_DIR/labels" "$KEILA_STATE_FILE" "$KEILA_CONFIG_DIR/preferences")
-kinds=(favorites labels state preferences)
+history_record Nuevo https://nuevo.invalid || fail recientes
+EQUALIZER_GAINS=(5 4 3 2 1)
+equalizer_save || fail ecualizador
+files=("$KEILA_FAVORITES_FILE" "$KEILA_CONFIG_DIR/labels" "$KEILA_STATE_FILE" "$KEILA_CONFIG_DIR/preferences" "$KEILA_STATE_DIR/history" "$KEILA_EQUALIZER_FILE" "$KEILA_CONFIG_FILE")
+kinds=(favorites labels state preferences history equalizer config)
 shopt -s nullglob
 for i in "${!files[@]}"; do
     file=${files[i]} kind=${kinds[i]}
@@ -57,6 +64,8 @@ for i in "${!files[@]}"; do
     cmp "$file" "$task_tmp/expected.$i" || fail 'ausente incorrecto'
 done
 favorites_load; labels_load; state_load; preferences_load
+history_load; equalizer_load; config_load "$task_tmp/recordings"
 [[ ${#FAVORITE_URLS[@]} == 1 && ${FAVORITE_LABELS[https://original.invalid]} == Original && $STATE_VOLUME == 37 && $PREF_COLOR == 1 ]] || fail lectura
+[[ ${#HISTORY_URLS[@]} == 1 && ${HISTORY_URLS[0]} == https://original.invalid && ${EQUALIZER_GAINS[*]} == '1 2 3 4 5' && $KEILA_VOLUME_STEP == 5 ]] || fail 'lectura de nuevos formatos'
 [[ -n ${DATA_RECOVERY_NOTICE:-} ]] || fail aviso
 printf 'ok   recuperación: respaldo, corrupción conservada, copia inválida, fallos y ausencia\n'
