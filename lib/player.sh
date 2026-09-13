@@ -4,20 +4,41 @@
 # Este archivo está pensado para ser cargado con `source`.
 
 PLAYER_PID=""
+PLAYER_PGID=""
 PLAYER_NAME=""
 PLAYER_URL=""
 PLAYER_VOLUME="${KEILA_VOLUME:-50}"
 PLAYER_PAUSED=0
 PLAYER_LAST_EXIT_STATUS=""
+PLAYER_IPC_REQUEST_ID=1000
 
 # Información real del stream obtenida desde mpv por JSON IPC.
 PLAYER_STREAM_TITLE=""
+PLAYER_STREAM_TITLE_LAST_SEEN=""
+PLAYER_STREAM_TITLE_UPDATED_AT=0
+PLAYER_STREAM_TITLE_MAX_AGE="${KEILA_TITLE_MAX_AGE:-300}"
+PLAYER_STREAM_TITLE_PROBE_INTERVAL="${KEILA_TITLE_PROBE_INTERVAL:-20}"
+PLAYER_STREAM_TITLE_PROBE_PID=""
+PLAYER_STREAM_TITLE_PROBE_DIR=""
+PLAYER_STREAM_TITLE_PROBE_LAST_AT=0
+PLAYER_STREAM_TITLE_PROBE_VALUE=""
 PLAYER_CODEC=""
 PLAYER_BITRATE_KBPS=""
 PLAYER_SAMPLE_RATE=""
 PLAYER_CHANNELS=""
 PLAYER_BUFFERING=0
+
+# PLAYER_INFO_READY se conserva por compatibilidad con la TUI, pero desde 2.1
+# representa que el stream ha alcanzado reproducción real, no solo que mpv ya
+# conoce el códec. PLAYER_STREAM_READY es el nombre semántico de ese estado.
+PLAYER_STREAM_READY=0
 PLAYER_INFO_READY=0
+PLAYER_STREAM_CORE_IDLE=1
+PLAYER_STREAM_AUDIO_PTS=""
+PLAYER_STREAM_PLAYBACK_TIME=""
+PLAYER_STREAM_LAST_POSITION=""
+PLAYER_STREAM_STARTED_AT=0
+PLAYER_STREAM_LAST_PROGRESS_AT=0
 PLAYER_INFO_LAST_REFRESH=0
 PLAYER_INFO_INTERVAL="${KEILA_PLAYER_INFO_INTERVAL:-1}"
 
@@ -32,11 +53,112 @@ fi
 PLAYER_INSTANCE_ID="${KEILA_INSTANCE_ID:-${UID:-$(id -u)}-$$}"
 PLAYER_SOCKET="$PLAYER_RUNTIME_DIR/mpv-${PLAYER_INSTANCE_ID}.sock"
 
+player_now() {
+    printf '%s\n' "${KEILA_PLAYER_NOW:-${EPOCHSECONDS:-$(date +%s)}}"
+}
+
+player_title_probe_cleanup() {
+    local pid="${PLAYER_STREAM_TITLE_PROBE_PID:-}"
+
+    if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+        kill "$pid" 2>/dev/null || true
+        wait "$pid" 2>/dev/null || true
+    fi
+    if [[ -n "${PLAYER_STREAM_TITLE_PROBE_DIR:-}" &&
+          "$PLAYER_STREAM_TITLE_PROBE_DIR" == "${TMPDIR:-/tmp}"/keila-title-probe.* ]]; then
+        rm -rf "$PLAYER_STREAM_TITLE_PROBE_DIR"
+    fi
+    PLAYER_STREAM_TITLE_PROBE_PID=""
+    PLAYER_STREAM_TITLE_PROBE_DIR=""
+}
+
+player_title_probe_extract() {
+    jq -r '
+        def clean:
+            (if . == null then "" elif type == "string" then . else tostring end)
+            | gsub("[\r\n\t]+"; " ")
+            | gsub("^ +| +$"; "");
+        [
+            .format.tags["icy-title"]?,
+            .format.tags["StreamTitle"]?,
+            .format.tags["streamtitle"]?,
+            .format.tags["now-playing"]?,
+            .format.tags["now_playing"]?,
+            .format.tags.title?,
+            (.streams[]?.tags["icy-title"]?),
+            (.streams[]?.tags["StreamTitle"]?),
+            (.streams[]?.tags["streamtitle"]?),
+            (.streams[]?.tags["now-playing"]?),
+            (.streams[]?.tags["now_playing"]?),
+            (.streams[]?.tags.title?)
+        ]
+        | map(clean | select(length > 0))
+        | .[0] // ""
+    '
+}
+
+player_title_probe_should_run() {
+    [[ "${PLAYER_URL:-}" == http://* || "${PLAYER_URL:-}" == https://* ]] || return 1
+    [[ "${PLAYER_URL,,}" == *.m3u8* ]] || return 1
+    command -v ffprobe >/dev/null 2>&1 || return 1
+    command -v timeout >/dev/null 2>&1 || return 1
+    command -v jq >/dev/null 2>&1 || return 1
+}
+
+player_title_probe_poll() {
+    local pid="${PLAYER_STREAM_TITLE_PROBE_PID:-}" dir="${PLAYER_STREAM_TITLE_PROBE_DIR:-}" value_file value=''
+
+    [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+    if kill -0 "$pid" 2>/dev/null; then
+        return 1
+    fi
+    wait "$pid" 2>/dev/null || true
+    PLAYER_STREAM_TITLE_PROBE_PID=""
+
+    value_file="$dir/title"
+    if [[ -r "$value_file" ]]; then
+        IFS= read -r value < "$value_file" || value=''
+    fi
+    player_title_probe_cleanup >/dev/null 2>&1 || true
+
+    case "$value" in
+        ""|"${PLAYER_NAME:-}"|"${PLAYER_URL:-}"|http://*|https://*)
+            return 1
+            ;;
+    esac
+
+    PLAYER_STREAM_TITLE_PROBE_VALUE="$value"
+    return 0
+}
+
+player_title_probe_start() {
+    local now="$1" dir url
+
+    player_title_probe_should_run || return 1
+    [[ -z "${PLAYER_STREAM_TITLE_PROBE_PID:-}" ]] || return 1
+    [[ "$PLAYER_STREAM_TITLE_PROBE_INTERVAL" =~ ^[0-9]+$ ]] || PLAYER_STREAM_TITLE_PROBE_INTERVAL=20
+    ((PLAYER_STREAM_TITLE_PROBE_INTERVAL < 10)) && PLAYER_STREAM_TITLE_PROBE_INTERVAL=10
+    if ((PLAYER_STREAM_TITLE_PROBE_LAST_AT > 0 && now - PLAYER_STREAM_TITLE_PROBE_LAST_AT < PLAYER_STREAM_TITLE_PROBE_INTERVAL)); then
+        return 1
+    fi
+
+    dir=$(mktemp -d "${TMPDIR:-/tmp}/keila-title-probe.XXXXXX") || return 1
+    url="$PLAYER_URL"
+    PLAYER_STREAM_TITLE_PROBE_DIR="$dir"
+    PLAYER_STREAM_TITLE_PROBE_LAST_AT=$now
+
+    (
+        timeout 8 ffprobe -v quiet -show_entries format_tags:stream_tags -of json "$url" 2>/dev/null |
+            player_title_probe_extract > "$dir/title" 2>/dev/null || :
+    ) &
+    PLAYER_STREAM_TITLE_PROBE_PID=$!
+}
+
 player_require_dependencies() {
     local missing=0
     local dep
 
-    for dep in mpv socat jq; do
+    for dep in mpv socat jq setsid; do
         if ! command -v "$dep" >/dev/null 2>&1; then
             printf 'Falta la dependencia: %s\n' "$dep" >&2
             missing=1
@@ -44,7 +166,7 @@ player_require_dependencies() {
     done
 
     if ((missing)); then
-        printf 'En Debian puedes instalarlas con: sudo apt install mpv socat jq\n' >&2
+        printf 'En Debian puedes instalarlas con: sudo apt install mpv socat jq coreutils\n' >&2
         return 1
     fi
 }
@@ -53,21 +175,105 @@ player_is_running() {
     [[ -n "$PLAYER_PID" ]] && kill -0 "$PLAYER_PID" 2>/dev/null
 }
 
-player_ipc() {
+# Termina un proceso de reproducción sin dejar un wait potencialmente infinito.
+# Da una breve oportunidad a SIGTERM y escala a SIGKILL si el proceso no sale.
+player_terminate_pid_bounded() {
+    local pid="$1"
+    local attempt
+
+    [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+    kill -0 "$pid" 2>/dev/null || return 0
+
+    kill "$pid" 2>/dev/null || true
+    for ((attempt = 0; attempt < 10; attempt++)); do
+        kill -0 "$pid" 2>/dev/null || return 0
+        sleep 0.05
+    done
+
+    kill -KILL "$pid" 2>/dev/null || true
+}
+
+# Termina el grupo privado de mpv solo cuando su líder coincide con el PID que
+# acabamos de lanzar. La comprobación evita convertir un PID antiguo o un dato
+# corrupto en una señal a un grupo ajeno.
+player_terminate_group_bounded() {
+    local pid="$1" pgid="$2" attempt
+    [[ "$pid" =~ ^[0-9]+$ && "$pgid" =~ ^[0-9]+$ && "$pid" == "$pgid" ]] || {
+        player_terminate_pid_bounded "$pid"
+        return
+    }
+    # Un grupo ausente (por ejemplo, un stub o un mpv que ya lo abandonó)
+    # vuelve al cierre por PID para no dejar un wait bloqueado.
+    kill -0 -- "-$pgid" 2>/dev/null || {
+        player_terminate_pid_bounded "$pid"
+        return
+    }
+    kill -TERM -- "-$pgid" 2>/dev/null || true
+    for ((attempt = 0; attempt < 10; attempt++)); do
+        kill -0 -- "-$pgid" 2>/dev/null || return 0
+        sleep 0.05
+    done
+    kill -KILL -- "-$pgid" 2>/dev/null || true
+}
+
+# Intercambio de bajo nivel con el socket. Se mantiene separado de player_ipc
+# para poder probar la validación de respuestas sin necesitar un mpv real.
+player_ipc_exchange() {
     local payload="$1"
 
     [[ -S "$PLAYER_SOCKET" ]] || return 1
-    printf '%s\n' "$payload" | socat -t 1 - UNIX-CONNECT:"$PLAYER_SOCKET" >/dev/null 2>&1
+    printf '%s\n' "$payload" | socat -t 1 - UNIX-CONNECT:"$PLAYER_SOCKET" 2>/dev/null
+}
+
+# Una conexión IPC correcta no implica que mpv haya aceptado el comando. Exige
+# la respuesta del request_id enviado y un error explícito "success".
+player_ipc_response_success() {
+    local response="$1"
+    local request_id="$2"
+
+    [[ -n "$response" ]] || return 1
+    [[ "$request_id" =~ ^[0-9]+$ ]] || return 1
+
+    jq -s -e --argjson request_id "$request_id" '
+        any(.[];
+            type == "object"
+            and .request_id? == $request_id
+            and .error? == "success"
+        )
+    ' <<< "$response" >/dev/null 2>&1
+}
+
+player_ipc() {
+    local payload="$1"
+    local request_id response
+
+    PLAYER_IPC_REQUEST_ID=$((PLAYER_IPC_REQUEST_ID + 1))
+    request_id="$PLAYER_IPC_REQUEST_ID"
+
+    payload=$(jq -c --argjson request_id "$request_id" '.request_id = $request_id' <<< "$payload" 2>/dev/null) || return 1
+    response=$(player_ipc_exchange "$payload") || return 1
+    player_ipc_response_success "$response" "$request_id"
 }
 
 player_reset_info() {
     PLAYER_STREAM_TITLE=""
+    PLAYER_STREAM_TITLE_LAST_SEEN=""
+    PLAYER_STREAM_TITLE_UPDATED_AT=0
+    PLAYER_STREAM_TITLE_PROBE_VALUE=""
+    player_title_probe_cleanup >/dev/null 2>&1 || true
     PLAYER_CODEC=""
     PLAYER_BITRATE_KBPS=""
     PLAYER_SAMPLE_RATE=""
     PLAYER_CHANNELS=""
     PLAYER_BUFFERING=0
+    PLAYER_STREAM_READY=0
     PLAYER_INFO_READY=0
+    PLAYER_STREAM_CORE_IDLE=1
+    PLAYER_STREAM_AUDIO_PTS=""
+    PLAYER_STREAM_PLAYBACK_TIME=""
+    PLAYER_STREAM_LAST_POSITION=""
+    PLAYER_STREAM_STARTED_AT=0
+    PLAYER_STREAM_LAST_PROGRESS_AT=0
     PLAYER_INFO_LAST_REFRESH=0
 }
 
@@ -84,6 +290,7 @@ player_collect_exit_status() {
 
     PLAYER_LAST_EXIT_STATUS="$status"
     PLAYER_PID=""
+    PLAYER_PGID=""
     PLAYER_PAUSED=0
     player_reset_info
     rm -f "$PLAYER_SOCKET"
@@ -95,6 +302,10 @@ player_collect_exit_status() {
 # metadata pedimos directamente campos ICY y media-title porque algunos streams
 # actualizan esos valores durante la reproducción sin reflejarlos igual en todos
 # los demuxers/versiones de mpv.
+#
+# Las propiedades 10..12 separan "mpv conoce el stream" de "el audio ya está
+# reproduciéndose": core-idle debe ser false y debe existir un reloj real de
+# audio/reproducción antes de declarar PLAYER_STREAM_READY.
 player_query_snapshot() {
     [[ -S "$PLAYER_SOCKET" ]] || return 1
 
@@ -108,6 +319,9 @@ player_query_snapshot() {
         printf '%s\n' '{"command":["get_property","metadata/by-key/StreamTitle"],"request_id":7}'
         printf '%s\n' '{"command":["get_property","metadata/by-key/title"],"request_id":8}'
         printf '%s\n' '{"command":["get_property","media-title"],"request_id":9}'
+        printf '%s\n' '{"command":["get_property","core-idle"],"request_id":10}'
+        printf '%s\n' '{"command":["get_property","audio-pts"],"request_id":11}'
+        printf '%s\n' '{"command":["get_property","playback-time"],"request_id":12}'
     } | socat -t 1 - UNIX-CONNECT:"$PLAYER_SOCKET" 2>/dev/null |
         jq -cs '
             reduce .[] as $response ({};
@@ -125,7 +339,8 @@ player_query_snapshot() {
 player_refresh_info() {
     player_is_running || return 1
 
-    local now="${EPOCHSECONDS:-$(date +%s)}"
+    local now
+    now=$(player_now)
     [[ "$PLAYER_INFO_INTERVAL" =~ ^[0-9]+$ ]] || PLAYER_INFO_INTERVAL=1
     ((PLAYER_INFO_INTERVAL < 1)) && PLAYER_INFO_INTERVAL=1
 
@@ -148,6 +363,9 @@ player_refresh_info() {
                  end)
                 | gsub("[\\r\\n\\t]+"; " ")
                 | gsub("^ +| +$"; "");
+
+            def number_text:
+                if type == "number" then tostring else "" end;
 
             def metadata_value($names):
                 (. ["1"] // {}) as $metadata
@@ -179,7 +397,10 @@ player_refresh_info() {
             ((.["3"] // 0) | if type == "number" and . > 0 then ((. / 1000) | round | tostring) else "" end),
             ((.["4"].samplerate // "") | if type == "number" then tostring else . end),
             ((.["4"]["hr-channels"] // .["4"].channels // "") | clean),
-            ((.["5"] // false) | if . == true then "1" else "0" end)
+            ((.["5"] // false) | if . == true then "1" else "0" end),
+            (if .["10"] == false then "0" else "1" end),
+            ((.["11"] // null) | number_text),
+            ((.["12"] // null) | number_text)
         ' <<< "$snapshot"
     )
 
@@ -189,10 +410,38 @@ player_refresh_info() {
     local new_samplerate="${fields[3]:-}"
     local new_channels="${fields[4]:-}"
     local new_buffering="${fields[5]:-0}"
-    local new_ready=0
+    local new_core_idle="${fields[6]:-1}"
+    local new_audio_pts="${fields[7]:-}"
+    local new_playback_time="${fields[8]:-}"
+    local new_ready=$PLAYER_STREAM_READY
+    local new_position=""
 
-    if [[ -n "$new_codec" || -n "$new_bitrate" || "$new_samplerate" =~ ^[1-9][0-9]*$ ]]; then
+    if player_title_probe_poll; then
+        new_title="$PLAYER_STREAM_TITLE_PROBE_VALUE"
+    fi
+    player_title_probe_start "$now" >/dev/null 2>&1 || true
+
+    if [[ "$new_audio_pts" =~ ^-?[0-9]+([.][0-9]+)?$ ]]; then
+        new_position="$new_audio_pts"
+    elif [[ "$new_playback_time" =~ ^-?[0-9]+([.][0-9]+)?$ ]]; then
+        new_position="$new_playback_time"
+    fi
+
+    # core-idle=false es la señal de mpv de que el núcleo está reproduciendo de
+    # verdad. Exigimos además un reloj de audio/playback disponible para no
+    # confundir la mera apertura del stream con reproducción efectiva.
+    if [[ "$new_core_idle" == '0' && -n "$new_position" ]]; then
         new_ready=1
+    fi
+
+    # Una vez que un stream ha reproducido audio real, conserva el estado ready
+    # durante pausas o buffering. PLAYER_BUFFERING describe esos estados aparte.
+    if ((PLAYER_STREAM_READY == 0 && new_ready == 1)); then
+        PLAYER_STREAM_STARTED_AT=$now
+    fi
+    if [[ -n "$new_position" && "$new_position" != "$PLAYER_STREAM_LAST_POSITION" ]]; then
+        PLAYER_STREAM_LAST_POSITION="$new_position"
+        PLAYER_STREAM_LAST_PROGRESS_AT=$now
     fi
 
     # media-title puede caer al nombre/URL del stream si no hay metadatos de la
@@ -203,8 +452,20 @@ player_refresh_info() {
             ;;
     esac
 
+    # Algunas radios entregan el primer título, pero no propagan los cambios
+    # ID3 posteriores. No mantener una canción antigua indefinidamente.
+    [[ "$PLAYER_STREAM_TITLE_MAX_AGE" =~ ^[0-9]+$ ]] || PLAYER_STREAM_TITLE_MAX_AGE=300
+    if [[ -n "$new_title" ]]; then
+        if [[ "$new_title" != "$PLAYER_STREAM_TITLE_LAST_SEEN" ]]; then
+            PLAYER_STREAM_TITLE_LAST_SEEN="$new_title"
+            PLAYER_STREAM_TITLE_UPDATED_AT=$now
+        elif ((PLAYER_STREAM_TITLE_UPDATED_AT > 0 && now - PLAYER_STREAM_TITLE_UPDATED_AT >= PLAYER_STREAM_TITLE_MAX_AGE)); then
+            new_title=''
+        fi
+    fi
+
     local old_state
-    old_state="$PLAYER_STREAM_TITLE|$PLAYER_CODEC|$PLAYER_BITRATE_KBPS|$PLAYER_SAMPLE_RATE|$PLAYER_CHANNELS|$PLAYER_BUFFERING|$PLAYER_INFO_READY"
+    old_state="$PLAYER_STREAM_TITLE|$PLAYER_CODEC|$PLAYER_BITRATE_KBPS|$PLAYER_SAMPLE_RATE|$PLAYER_CHANNELS|$PLAYER_BUFFERING|$PLAYER_STREAM_READY"
     local new_state
     new_state="$new_title|$new_codec|$new_bitrate|$new_samplerate|$new_channels|$new_buffering|$new_ready"
 
@@ -214,6 +475,10 @@ player_refresh_info() {
     PLAYER_SAMPLE_RATE="$new_samplerate"
     PLAYER_CHANNELS="$new_channels"
     PLAYER_BUFFERING="$new_buffering"
+    PLAYER_STREAM_CORE_IDLE="$new_core_idle"
+    PLAYER_STREAM_AUDIO_PTS="$new_audio_pts"
+    PLAYER_STREAM_PLAYBACK_TIME="$new_playback_time"
+    PLAYER_STREAM_READY="$new_ready"
     PLAYER_INFO_READY="$new_ready"
 
     [[ "$old_state" != "$new_state" ]]
@@ -234,6 +499,7 @@ player_wait_for_socket() {
 player_start() {
     local name="$1"
     local url="$2"
+    local equalizer_filter=''
 
     [[ -n "$url" ]] || {
         printf 'La URL de la emisora está vacía.\n' >&2
@@ -248,34 +514,48 @@ player_start() {
 
     PLAYER_NAME="$name"
     PLAYER_URL="$url"
+    # Una reconexión conserva silencio; una selección manual comienza con sonido.
+    if ((!${APP_RECONNECT_AUTOMATIC_START:-0})); then PLAYER_MUTED=0; fi
     PLAYER_PAUSED=0
     PLAYER_LAST_EXIT_STATUS=""
     player_reset_info
 
-    mpv \
-        --really-quiet \
-        --no-video \
-        --no-terminal \
-        --audio-display=no \
-        --input-ipc-server="$PLAYER_SOCKET" \
-        --volume="$PLAYER_VOLUME" \
-        "$PLAYER_URL" \
-        >/dev/null 2>&1 &
+    if declare -F equalizer_filter >/dev/null 2>&1; then
+        equalizer_filter=$(equalizer_filter) || equalizer_filter=''
+    fi
+
+    # En producción setsid crea una sesión independiente; los stubs de las
+    # pruebas se ejecutan directamente para conservar su comportamiento.
+    local -a player_args=(
+        --really-quiet --no-video --no-terminal --audio-display=no
+        --input-ipc-server="$PLAYER_SOCKET" --volume="$PLAYER_VOLUME"
+    )
+    if ((${PLAYER_MUTED:-0})); then player_args+=(--mute=yes); else player_args+=(--mute=no); fi
+    [[ -n "$equalizer_filter" ]] && player_args+=("--af=$equalizer_filter")
+    player_args+=("$PLAYER_URL")
+    if declare -F mpv >/dev/null 2>&1; then
+        mpv "${player_args[@]}" >/dev/null 2>&1 &
+    else
+        setsid -- mpv "${player_args[@]}" >/dev/null 2>&1 &
+    fi
 
     PLAYER_PID=$!
+    PLAYER_PGID="$PLAYER_PID"
 
     if ! player_wait_for_socket; then
         local failed_pid="$PLAYER_PID"
         local failed_status=0
 
+        player_terminate_pid_bounded "$failed_pid" || true
         wait "$failed_pid" 2>/dev/null || failed_status=$?
         PLAYER_LAST_EXIT_STATUS="$failed_status"
         PLAYER_PID=""
+        PLAYER_PGID=""
         PLAYER_PAUSED=0
         player_reset_info
         rm -f "$PLAYER_SOCKET"
 
-        printf 'mpv terminó antes de crear el socket IPC.\n' >&2
+        printf 'mpv no pudo inicializar el socket IPC.\n' >&2
         return 1
     fi
 }
@@ -301,11 +581,11 @@ player_set_volume() {
     ((volume < 0)) && volume=0
     ((volume > 100)) && volume=100
 
-    PLAYER_VOLUME="$volume"
-
     if player_is_running; then
-        player_ipc "{\"command\":[\"set_property\",\"volume\",$PLAYER_VOLUME]}" || return 1
+        player_ipc "{\"command\":[\"set_property\",\"volume\",$volume]}" || return 1
     fi
+
+    PLAYER_VOLUME="$volume"
 }
 
 player_change_volume() {
@@ -321,6 +601,7 @@ player_change_volume() {
 player_stop() {
     if [[ -n "$PLAYER_PID" ]]; then
         local pid="$PLAYER_PID"
+        local pgid="${PLAYER_PGID:-}"
 
         if player_is_running; then
             player_ipc '{"command":["quit"]}' >/dev/null 2>&1 || true
@@ -332,7 +613,7 @@ player_stop() {
             done
 
             if kill -0 "$pid" 2>/dev/null; then
-                kill "$pid" 2>/dev/null || true
+                player_terminate_group_bounded "$pid" "$pgid" || true
             fi
         fi
 
@@ -340,6 +621,7 @@ player_stop() {
     fi
 
     PLAYER_PID=""
+    PLAYER_PGID=""
     PLAYER_PAUSED=0
     player_reset_info
     rm -f "$PLAYER_SOCKET"

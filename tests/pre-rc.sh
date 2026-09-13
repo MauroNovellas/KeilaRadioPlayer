@@ -46,15 +46,20 @@ cat > "$XDG_CONFIG_HOME/keila-radio/config" <<EOF
 recordings_dir=$TMP_ROOT/recordings
 EOF
 
-output=$("$ROOT_DIR/keila-radio" --check) || {
+# El smoke de inicialización prueba app_init_data directamente. --check tiene
+# desde 2.1 semántica de diagnóstico completo y puede fallar correctamente si
+# el runner no dispone de mpv/socat, algo ajeno a esta prueba de datos/XDG.
+if ! (
+    set -- --version
+    # shellcheck source=../keila-radio
+    source "$ROOT_DIR/keila-radio" >/dev/null
+    trap - EXIT
+    app_init_data
+); then
     printf 'FAIL smoke de inicialización\n' >&2
     exit 1
-}
+fi
 
-grep -q "Keila Radio Player $KEILA_VERSION: inicialización OK" <<< "$output" || {
-    printf 'FAIL --check no confirmó versión/inicialización\n' >&2
-    exit 1
-}
 [[ -d "$TMP_ROOT/recordings" ]] || { printf 'FAIL no creó recordings_dir\n' >&2; exit 1; }
 [[ -f "$XDG_CONFIG_HOME/keila-radio/favorites" ]] || { printf 'FAIL no inicializó favoritos\n' >&2; exit 1; }
 printf 'ok   smoke de inicialización\n'

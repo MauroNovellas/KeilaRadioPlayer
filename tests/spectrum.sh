@@ -1,0 +1,190 @@
+#!/usr/bin/env bash
+
+set -uo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+task_tmp=$(mktemp -d)
+trap 'rm -rf "$task_tmp"' EXIT
+
+fail() { printf 'FAIL %s\n' "$*" >&2; exit 1; }
+assert_eq() { [[ "$1" == "$2" ]] || fail "$3: esperado '$1', obtenido '$2'"; }
+
+PLAYER_RUNTIME_DIR="$task_tmp/runtime"
+PLAYER_STREAM_READY=1
+PLAYER_PAUSED=0
+PLAYER_PID='test'
+player_is_running() { return 0; }
+
+source "$ROOT_DIR/lib/spectrum.sh"
+source "$ROOT_DIR/lib/ui.sh"
+SPECTRUM_SMOOTHING=0
+
+# Selección compatible sin depender de la versión instalada en el equipo.
+(
+    # timeout ejecuta programas externos: sustituirlo solo dentro de este test.
+    timeout() { shift 2; "$@"; }
+    ffmpeg() { printf '%s\n' '-fps_mode[:<stream_spec>] set framerate mode' '   rate <video_rate> set video rate'; }
+    spectrum_configure_sync
+    assert_eq '-fps_mode passthrough' "${SPECTRUM_SYNC_ARGS[*]}" 'sincronización moderna'
+    [[ "$SPECTRUM_FILTER" == *':rate=20:'* ]] || fail 'filtro moderno'
+    ffmpeg() { printf '%s\n' '-vsync set video sync method'; }
+    spectrum_configure_sync
+    assert_eq '-vsync 0' "${SPECTRUM_SYNC_ARGS[*]}" 'sincronización FFmpeg 4'
+    [[ "$SPECTRUM_FILTER" != *':rate='* && "$SPECTRUM_FILTER" == *'win_size=2048:overlap=0:colors=white,fps=20' ]] || fail 'filtro FFmpeg 4'
+) || fail 'selección de sincronización'
+
+# Reproduce el reloj localizado, incluidas fracciones que fallaban al leerse
+# como octales. El unset se limita al subshell para preservar el reloj real.
+for timestamp in 1788726347.038054 1788726347,038054; do
+    actual=$(unset EPOCHREALTIME; EPOCHREALTIME=$timestamp; spectrum_now_ms)
+    assert_eq '1788726347038' "$actual" 'reloj con punto o coma decimal'
+done
+
+# Prueba de la tubería completa con PCM continuo, sin esperar EOF. Las pruebas
+# con archivos finitos ocultaban el buffering que dejaba inmóvil el espectro.
+if command -v ffmpeg >/dev/null 2>&1; then
+    (
+        trap 'spectrum_stop' EXIT
+        SPECTRUM_SOURCE='test'
+        # shellcheck disable=SC2317
+        parec() {
+            [[ " $* " == *' --latency-msec=40 '* && " $* " == *' --process-time-msec=20 '* ]] || fail 'captura sin límite de latencia'
+            command ffmpeg -v error -re -f lavfi \
+                -i anoisesrc=color=pink:sample_rate=44100 -t 6 -f s16le -ac 1 -
+        }
+        spectrum_start || fail 'arranque de la captura continua'
+        for ((attempt=0; attempt<20; attempt++)); do
+            [[ -s "$SPECTRUM_DIR/levels" ]] && break
+            sleep 0.1
+        done
+        [[ -s "$SPECTRUM_DIR/levels" ]] || fail 'no llegaron frames antes de cerrar el audio'
+        kill -0 "$SPECTRUM_PID" || fail 'la captura terminó antes del primer frame'
+        spectrum_tick || fail 'el frame continuo no llegó al estado de la TUI'
+[[ "${SPECTRUM_LEVELS[*]}" != '0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0' ]] || fail 'audio recibido sin niveles'
+        [[ "$(ui_spectrum_bars)" != '▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁' ]] || fail 'audio sin representación'
+    ) || fail 'regresión de audio continuo'
+fi
+
+# La lectura acepta solamente un frame completo de 16 bandas y comunica si
+# cambió para que el bucle principal redibuje la TUI.
+SPECTRUM_DIR="$task_tmp/frame"
+mkdir -p "$SPECTRUM_DIR"
+SPECTRUM_PID=$$
+printf '0 1 2 3 4 5 6 7 8 7 6 5 4 3 2 1\n' > "$SPECTRUM_DIR/levels"
+spectrum_tick || fail 'el frame nuevo no solicitó redibujado'
+assert_eq '8' "${SPECTRUM_LEVELS[8]}" 'pico central leído'
+if spectrum_tick; then fail 'un frame idéntico solicitó otro redibujado'; fi
+
+printf '0 1 2\n' > "$SPECTRUM_DIR/levels"
+if spectrum_tick; then fail 'un frame incompleto fue aceptado'; fi
+assert_eq '8' "${SPECTRUM_LEVELS[8]}" 'frame inválido conservó el anterior'
+
+assert_eq '8' "$SPECTRUM_DISPLAY_ROWS" 'altura vertical del analizador'
+assert_eq '66' "$SPECTRUM_DISPLAY_INTERVAL_MS" 'límite de quince cuadros por segundo'
+assert_eq '17' "$SPECTRUM_CAPTURE_COLUMNS" 'columna de guarda del renderizador'
+UI_UNICODE=1
+ui_configure_glyphs
+SPECTRUM_LEVELS=(16 14 12 10 8 6 4 2 0 0 0 0 0 0 0 0)
+assert_eq '█               ' "$(ui_spectrum_editor_row 0)" 'techo vertical del analizador'
+assert_eq '████████        ' "$(ui_spectrum_editor_row 7)" 'base vertical del analizador'
+SPECTRUM_LEVELS=(16 16 16 16 16 16 16 16 16 16 16 16 16 16 16 16)
+assert_eq '█ █ █' "$(ui_spectrum_editor_row 0 3 1)" 'separación entre barras del analizador'
+
+SPECTRUM_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+printf '1 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n' > "$SPECTRUM_DIR/levels"
+SPECTRUM_LAST_DISPLAY_MS=''
+SPECTRUM_TEST_NOW_MS=1000
+spectrum_tick || fail 'primer frame del intervalo de refresco'
+assert_eq '1000' "$SPECTRUM_LAST_DISPLAY_MS" 'marca temporal del frame'
+printf '2 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n' > "$SPECTRUM_DIR/levels"
+SPECTRUM_TEST_NOW_MS=1049
+if spectrum_tick; then fail 'frame dentro del intervalo solicitó redibujado'; fi
+assert_eq '1' "${SPECTRUM_LEVELS[0]}" 'frame prematuro conservó el anterior'
+SPECTRUM_TEST_NOW_MS=1066
+spectrum_tick || fail 'frame tras 50 ms solicitó redibujado'
+assert_eq '2' "${SPECTRUM_LEVELS[0]}" 'frame tras el intervalo actualizado'
+unset SPECTRUM_TEST_NOW_MS
+
+# La columna 16 publicada debe ser una banda útil, no el borde que deja
+# showfreqs al final de una imagen de 16 columnas.
+SPECTRUM_DIR="$task_tmp/published"
+mkdir -p "$SPECTRUM_DIR"
+pixels=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 255 0)
+for ((row=0; row<SPECTRUM_FRAME_ROWS; row++)); do printf '%s\n' "${pixels[*]}"; done | spectrum_publish_frames || fail 'publicación de la última banda'
+assert_eq '16' "$(awk '{print $16}' "$SPECTRUM_DIR/levels")" 'última banda publicada'
+
+# El ataque responde con rapidez, mientras que el pico se conserva unos
+# cuadros y cae de forma gradual cuando la señal ya ha bajado.
+SPECTRUM_SMOOTHING=1
+SPECTRUM_PEAK_HOLD_FRAMES=2
+SPECTRUM_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+SPECTRUM_PEAK_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+SPECTRUM_PEAK_AGES=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+SPECTRUM_LAST_DISPLAY_MS=''
+SPECTRUM_TEST_NOW_MS=2000
+printf '0 0 0 0 12 0 0 0 0 0 0 0 0 0 0 0\n' > "$SPECTRUM_DIR/levels"
+spectrum_tick || fail 'primer frame de pico'
+assert_eq '12' "${SPECTRUM_LEVELS[4]}" 'ataque inicial del espectro'
+assert_eq '12' "${SPECTRUM_PEAK_LEVELS[4]}" 'pico inicial conservado'
+SPECTRUM_TEST_NOW_MS=2066
+printf '0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n' > "$SPECTRUM_DIR/levels"
+spectrum_tick || fail 'caída suavizada del espectro'
+assert_eq '9' "${SPECTRUM_LEVELS[4]}" 'caída lenta de la barra'
+assert_eq '12' "${SPECTRUM_PEAK_LEVELS[4]}" 'pico retenido durante el primer cuadro'
+SPECTRUM_TEST_NOW_MS=2132
+spectrum_tick || fail 'segundo cuadro de caída'
+assert_eq '7' "${SPECTRUM_LEVELS[4]}" 'segunda caída lenta de la barra'
+assert_eq '12' "${SPECTRUM_PEAK_LEVELS[4]}" 'pico retenido durante el segundo cuadro'
+SPECTRUM_TEST_NOW_MS=2198
+spectrum_tick || fail 'caída progresiva del pico'
+assert_eq '11' "${SPECTRUM_PEAK_LEVELS[4]}" 'pico descendente tras la retención'
+SPECTRUM_SMOOTHING=0
+SPECTRUM_TEST_NOW_MS=2264
+SPECTRUM_LEVELS=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+SPECTRUM_PEAK_AGES[4]=0
+printf '0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n' > "$SPECTRUM_DIR/levels"
+if spectrum_tick; then fail 'la edad interna del pico solicitó redibujado'; fi
+unset SPECTRUM_TEST_NOW_MS
+SPECTRUM_SMOOTHING=0
+
+UI_UNICODE=1
+ui_configure_glyphs
+SPECTRUM_LEVELS=(0 1 2 3 4 5 6 7 8 7 6 5 4 3 2 1)
+assert_eq '     ███████    ' "$(ui_spectrum_row 5)" 'fila gráfica del espectro'
+SPECTRUM_LEVELS=(0 2 4 6 8 10 12 14 16 14 12 10 8 6 4 2)
+assert_eq '▁▁▂▃▄▅▆▇█▇▆▅▄▃▂▁' "$(ui_spectrum_bars)" 'barras de altura variable'
+
+SPECTRUM_LEVELS=(0 0 0 0 4 0 0 0 0 0 0 0 0 0 0 0)
+SPECTRUM_PEAK_LEVELS=(0 0 0 0 12 0 0 0 0 0 0 0 0 0 0 0)
+wide_peak_row=$(ui_spectrum_editor_row_wide 2 16)
+[[ "$wide_peak_row" == *'▔'* ]] || fail 'el pico retenido no se dibujó'
+
+# Incluso un proceso que ignore SIGTERM queda cerrado en un tiempo acotado.
+bash -c 'trap "" TERM; while :; do :; done' &
+stubborn_pid=$!
+SPECTRUM_PID=$stubborn_pid
+started_at=$SECONDS
+spectrum_stop
+((SECONDS - started_at <= 2)) || fail 'la detención del analizador bloqueó la TUI'
+if kill -0 "$stubborn_pid" 2>/dev/null; then fail 'el proceso auxiliar sobrevivió al cierre'; fi
+
+# Mostrarlo sin una emisora activa solo cambia la preferencia; la captura se
+# iniciará en el primer tick que confirme reproducción real.
+SPECTRUM_PID=''
+SPECTRUM_ENABLED=1
+spectrum_toggle || fail 'ocultar analizador'
+assert_eq '0' "$SPECTRUM_ENABLED" 'analizador oculto'
+player_is_running() { return 1; }
+spectrum_start() { fail 'intentó capturar sin reproducción'; }
+spectrum_toggle || fail 'mostrar analizador sin reproducción'
+assert_eq '1' "$SPECTRUM_ENABLED" 'analizador preparado'
+
+# El motivo concreto sobrevive a la detección para poder mostrarlo en la TUI y
+# en --check; no queda encerrado en una sustitución de comandos.
+# shellcheck disable=SC2317
+timeout() { return 1; }
+if spectrum_find_source; then fail 'aceptó un servidor de audio inaccesible'; fi
+[[ -n "$SPECTRUM_ERROR" ]] || fail 'la detección no conservó el motivo del fallo'
+unset -f timeout
+
+printf 'ok   analizador: frames, representación y activación diferida\n'

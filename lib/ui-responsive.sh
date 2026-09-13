@@ -5,6 +5,13 @@
 
 UI_LAYOUT_MODE='standard'
 
+ui_small_screen() {
+    case "${UI_LAYOUT_MODE:-standard}" in
+        compact|minimal|tiny) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 ui_layout_mode() {
     local cols="${1:-$UI_COLS}"
     local lines="${2:-$UI_LINES}"
@@ -55,10 +62,14 @@ ui_control_line_count() {
 ui_stream_info_line_count() {
     player_is_running || { printf '0\n'; return 0; }
 
-    local count=0
+    local count=0 track_count=0
     case "${UI_LAYOUT_MODE:-standard}" in
         wide|standard)
-            [[ -n "${PLAYER_STREAM_TITLE:-}" ]] && ((count += 1))
+            ((count += 1))
+            if ((${UI_LINES:-0} >= 25)) && declare -F track_history_display_limit >/dev/null 2>&1; then
+                track_count=$(track_history_display_limit)
+                ((count += 2 + track_count))
+            fi
             ui_has_audio_info && ((count += 1))
             ;;
         compact)
@@ -103,7 +114,7 @@ ui_responsive_section_title() {
         compact:favorites) printf 'FAV (%s)' "${#FAVORITE_NAMES[@]}" ;;
         minimal:favorites) printf 'FAV %s' "${#FAVORITE_NAMES[@]}" ;;
         *:now) printf 'AHORA SUENA' ;;
-        *:favorites) printf 'FAVORITOS (%s)' "${#FAVORITE_NAMES[@]}" ;;
+        *:favorites) printf 'EMISORAS FAVORITAS (%s)' "${#FAVORITE_NAMES[@]}" ;;
     esac
 }
 
@@ -118,7 +129,7 @@ ui_responsive_badges() {
 
     case "$UI_LAYOUT_MODE" in
         compact)
-            [[ -n "$UI_RESP_RECORDING" ]] && UI_RESP_RECORDING="[$UI_RECORD $(recording_elapsed_display)]"
+            [[ -n "$UI_RESP_RECORDING" ]] && UI_RESP_RECORDING="[$UI_RECORD $(ui_recording_status_display)]"
             [[ -n "$UI_RESP_FAVORITE" ]] && UI_RESP_FAVORITE="[$UI_FAVORITE]"
             ;;
         minimal)
@@ -172,16 +183,16 @@ ui_draw_responsive_controls() {
         case "$UI_LAYOUT_MODE" in
             wide|standard)
                 ui_box_line "$width" 'W/S o ↑/↓ mover   Home/End extremos   PgUp/PgDn saltar' muted
-                ui_box_line "$width" 'Enter reproducir   A/D o ←/→ volumen   P pausa' muted
-                ui_box_line "$width" 'F favorito actual   J/K reordenar   X quitar seleccionado' muted
-                ui_box_line "$width" 'B buscar   R grabar   U actualizar   Q salir   H cerrar ayuda' muted
+                ui_box_line "$width" 'Enter reproducir   1-9/0 directo   A/D o ←/→ volumen   P pausa' muted
+                ui_box_line "$width" 'F Favoritas X favorito J/K ordenar M silencio L alarma' muted
+                ui_box_line "$width" 'F favoritas C comentario R recientes G grabar O opciones Z ecualizador V espectrograma D diagnóstico H cerrar Q salir' muted
                 ;;
             compact)
-                ui_box_line "$width" '↑↓ mover  Enter play  ←→ volumen  P pausa  F favorito' muted
-                ui_box_line "$width" 'B buscar  R grabar  J/K ordenar  X quitar  H cerrar  Q salir' muted
+                ui_box_line "$width" '↑↓ mover  Enter play  ←→ volumen  P pausa  F Favoritas X favorito' muted
+                ui_box_line "$width" 'F favoritas C comentario R recientes G grabar O opciones Z/V audio D diagnóstico H cerrar Q salir' muted
                 ;;
             minimal)
-                ui_box_line "$width" '↑↓ mover  Enter play  ←→ vol  B buscar  R rec  H cerrar  Q salir' muted
+                ui_box_line "$width" '↑↓ Enter B F C R G O D H Q' muted
                 ;;
         esac
         return 0
@@ -189,16 +200,16 @@ ui_draw_responsive_controls() {
 
     case "$UI_LAYOUT_MODE" in
         wide)
-            ui_box_line "$width" "↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  B buscar  $UI_SEP  R grabar  $UI_SEP  H ayuda  $UI_SEP  Q salir" muted
+            ui_box_line "$width" "↑↓ Enter $UI_SEP F fav. C com. R rec. G grab. $UI_SEP D diag. H ayuda Q salir" muted
             ;;
         standard)
-            ui_box_line "$width" "↑↓ mover  $UI_SEP  Enter play  $UI_SEP  B buscar  $UI_SEP  R grabar  $UI_SEP  H ayuda  $UI_SEP  Q salir" muted
+            ui_box_line "$width" "↑↓ Enter $UI_SEP F fav. C com. R rec. G grab. $UI_SEP D diag. H ayuda Q salir" muted
             ;;
         compact)
-            ui_box_line "$width" "↑↓ mover  $UI_SEP  Enter play  $UI_SEP  ←→ vol  $UI_SEP  H ayuda  $UI_SEP  Q salir" muted
+            ui_box_line "$width" "F fav C coment R rec G grab $UI_SEP B D H Q" muted
             ;;
         minimal)
-            ui_box_line "$width" '↑↓  Enter  ←→  B  R  H  Q' muted
+            ui_box_line "$width" '↑↓ Enter B F C R G D H Q' muted
             ;;
     esac
 }
@@ -258,7 +269,7 @@ ui_draw() {
     fi
 
     if ((RECORDING_ACTIVE)); then
-        recording_badge="[$UI_RECORD REC $(recording_elapsed_display)]"
+        recording_badge="[$UI_RECORD $(ui_recording_status_display)]"
     else
         recording_badge=''
     fi
@@ -276,7 +287,24 @@ ui_draw() {
     if player_is_running; then
         case "$UI_LAYOUT_MODE" in
             wide|standard)
-                [[ -n "${PLAYER_STREAM_TITLE:-}" ]] && ui_box_line "$width" "$UI_NOTE $PLAYER_STREAM_TITLE" accent
+                if [[ -n "${PLAYER_STREAM_TITLE:-}" ]]; then
+                    ui_box_line "$width" "$UI_NOTE $PLAYER_STREAM_TITLE" accent
+                else
+                    ui_box_line "$width" 'Sin título de emisión disponible' muted
+                fi
+                local track_history_count=0 track_history_index track_history_info=''
+                if ((${UI_LINES:-0} >= 25)) && declare -F track_history_display_limit >/dev/null 2>&1; then
+                    track_history_count=$(track_history_display_limit)
+                fi
+                if ((track_history_count > 0)); then
+                    ui_box_line "$width" '  Canciones anteriores' accent
+                    for ((track_history_index = 0; track_history_index < track_history_count; track_history_index++)); do
+                        track_history_info=$(track_history_line "$track_history_index" "$((width - 4))" 2>/dev/null || true)
+                        ui_box_line "$width" "$track_history_info" muted
+                    done
+                    track_history_info=$(track_history_session_line "$((width - 4))" 2>/dev/null || true)
+                    ui_box_line "$width" "$track_history_info" muted
+                fi
                 local audio_info
                 audio_info=$(ui_audio_info)
                 [[ -n "$audio_info" ]] && ui_box_line "$width" "  $audio_info" muted
@@ -288,53 +316,27 @@ ui_draw() {
     fi
 
     ui_responsive_volume_line "$width"
+    if ! ui_small_screen; then
+        UI_RESP_VOLUME_HINT="$(ui_equalizer_mini_graph compact)"
+    fi
     ui_box_split_line "$width" "$UI_RESP_VOLUME_LEFT" "$UI_RESP_VOLUME_HINT" 0 accent muted
     ui_box_rule "$width" "$UI_ML" "$UI_MR" "$favorites_label" accent
 
     local height
     height=$(ui_list_height)
-    if ((${#FAVORITE_NAMES[@]} == 0)); then
-        local empty_text='(sin favoritos; B para buscar)'
-        [[ "$UI_LAYOUT_MODE" == 'minimal' ]] && empty_text='(sin favoritos)'
-        ui_box_line "$width" "$empty_text" muted
-        local blank
-        for ((blank = 1; blank < height; blank++)); do ui_box_line "$width" ''; done
-    else
-        local row index marker_prefix right_badge name_line selected left_style right_style
-        for ((row = 0; row < height; row++)); do
-            index=$((UI_SCROLL_OFFSET + row))
-            if ((index >= ${#FAVORITE_NAMES[@]})); then
-                ui_box_line "$width" ''
-                continue
-            fi
-
-            marker_prefix='  '
-            ((index == UI_SELECTED_INDEX)) && marker_prefix="$UI_SELECT "
-            right_badge=''
-            left_style=''
-            right_style=''
-
-            if player_is_running && [[ "${FAVORITE_URLS[$index]}" == "$PLAYER_URL" ]]; then
-                left_style='playing'
-                right_style='playing'
-                [[ "$marker_prefix" == '  ' ]] && marker_prefix="$UI_PLAY "
-                case "$UI_LAYOUT_MODE" in
-                    wide|standard) right_badge='[PLAY]' ;;
-                    compact) right_badge='PLAY' ;;
-                esac
-            elif [[ -n "${STATE_LAST_URL:-}" && "${FAVORITE_URLS[$index]}" == "$STATE_LAST_URL" ]]; then
-                right_style='muted'
-                case "$UI_LAYOUT_MODE" in
-                    wide|standard) right_badge='[ÚLTIMA]' ;;
-                esac
-            fi
-
-            name_line="$marker_prefix${FAVORITE_NAMES[$index]}"
-            selected=0
-            ((index == UI_SELECTED_INDEX)) && selected=1
-            ui_box_split_line "$width" "$name_line" "$right_badge" "$selected" "$left_style" "$right_style"
-        done
+    ui_navigation_refresh
+    if ((height >= 3)); then
+        local comments_header=''
+        if ! ui_small_screen; then comments_header=$(ui_labels_header "$((width - 4))"); fi
+        ui_box_split_line "$width" '  EMISORAS' "$comments_header" 0 accent accent
+        ((height -= 1))
     fi
+    ui_navigation_sync "$height"
+    local row
+    for ((row = 0; row < height; row++)); do
+        ui_navigation_row "$row"
+        ui_box_split_line "$width" "$UI_NAV_TEXT" "$UI_NAV_BADGE" "$UI_NAV_SELECTED" "$UI_NAV_STYLE" "$UI_NAV_BADGE_STYLE"
+    done
 
     ui_box_rule "$width" "$UI_ML" "$UI_MR"
     ui_draw_responsive_controls "$width"

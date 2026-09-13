@@ -19,12 +19,41 @@ update_validate_tree() {
         lib/deps.sh
         lib/config.sh
         lib/lock.sh
+        lib/data-safety.sh
         lib/state.sh
+        lib/personal.sh
+        lib/session-log.sh
+        lib/session-history.sh
+        lib/navigation.sh
+        lib/catalog-startup.sh
+        lib/label-editor.sh
+        lib/equalizer.sh
+        lib/equalizer-editor.sh
+        lib/spectrum.sh
         lib/favorites.sh
         lib/stations.sh
         lib/search.sh
+        lib/search-filters.sh
+        lib/station-options.sh
         lib/player.sh
+        lib/player-failure.sh
+        lib/player-events.sh
         lib/recording.sh
+        lib/diagnostics.sh
+        lib/alarm.sh
+        lib/preferences.sh
+        lib/options.sh
+        lib/panels.sh
+        lib/recording-manager.sh
+        lib/recording-preview.sh
+        lib/recording-preview-clock.sh
+        lib/recording-files.sh
+        lib/recording-file-editor.sh
+        lib/status-screen.sh
+        lib/backup.sh
+        lib/backup-archive.sh
+        lib/backup-manager.sh
+        lib/backup-worker.sh
         lib/input.sh
         lib/ui.sh
         lib/ui-responsive.sh
@@ -35,6 +64,8 @@ update_validate_tree() {
         lib/ui-update-status.sh
         lib/ui-search.sh
         lib/app-search.sh
+        lib/app-reconnect.sh
+        lib/app-reconnect-failure.sh
         lib/ui-desktop-search-pane.sh
         lib/ui-terminal-guard.sh
     )

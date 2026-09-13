@@ -1,0 +1,15 @@
+Source: keila-radio
+Section: sound
+Priority: optional
+Maintainer: Mauro Novellas <mauro@novellas.es>
+Standards-Version: 4.6.2
+Build-Depends: debhelper-compat (= 13)
+Rules-Requires-Root: no
+
+Package: keila-radio
+Architecture: all
+Depends: bash, coreutils, curl, fzf, jq, mpv, ncurses-bin, socat
+Description: reproductor de radio por Internet para terminal
+ Keila Radio Player es un reproductor de emisoras de radio para terminales
+ Linux, con favoritos, recientes, búsqueda, comentarios, grabación,
+ ecualizador, espectrograma y reconexión automática.

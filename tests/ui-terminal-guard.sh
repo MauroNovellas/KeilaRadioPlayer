@@ -56,7 +56,10 @@ printf '__KEILA_TERMINAL_GUARD_OK__\n'
 EOF
 chmod +x "$probe"
 
-output=$(ROOT_DIR="$ROOT_DIR" script -qec "bash '$probe'" /dev/null 2>&1) || {
+# El pseudo-terminal interior sigue siendo real, pero script no debe intentar
+# leer el teclado de quien lanzó la batería (puede estar en segundo plano).
+output=$(ROOT_DIR="$ROOT_DIR" KEILA_GUARD_PROBE="$probe" timeout --kill-after=1s 10s \
+    script -qec 'bash "$KEILA_GUARD_PROBE"' /dev/null </dev/null 2>&1) || {
     printf '%s\n' "$output" >&2
     fail 'el guard no conservó/restauró correctamente el estado del pseudo-terminal'
 }

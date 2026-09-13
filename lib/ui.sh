@@ -23,6 +23,12 @@ UI_RED=''
 UI_YELLOW=''
 UI_CYAN=''
 
+ui_shortcut() {
+    local key=$1
+    if declare -p PREF_KEYS >/dev/null 2>&1; then key=${PREF_KEYS[$key]:-$key}; fi
+    printf '%s' "${key^^}"
+}
+
 ui_locale_supports_unicode() {
     [[ "${KEILA_ASCII_UI:-0}" != '1' ]] || return 1
     local locale="${LC_ALL:-${LC_CTYPE:-${LANG:-}}}"
@@ -49,6 +55,7 @@ ui_configure_glyphs() {
 }
 
 ui_color_supported() {
+    ((${PREF_COLOR:-1})) || return 1
     [[ "${KEILA_NO_COLOR:-0}" != '1' ]] || return 1
     [[ -z "${NO_COLOR:-}" ]] || return 1
     [[ "${TERM:-}" != 'dumb' ]] || return 1
@@ -91,6 +98,7 @@ ui_style_begin() {
         playing) printf '%s%s' "$UI_BOLD" "$UI_GREEN" ;;
         record) printf '%s%s' "$UI_BOLD" "$UI_RED" ;;
         favorite|warning) printf '%s' "$UI_YELLOW" ;;
+        comment) printf '%s%s' "$UI_DIM" "$UI_GREEN" ;;
         accent) printf '%s' "$UI_CYAN" ;;
         muted) printf '%s' "$UI_DIM" ;;
     esac
@@ -225,28 +233,36 @@ ui_leave() {
 ui_truncate() {
     local text="$1"
     local max="$2"
-    if ((max <= 0)); then return 0; fi
-    if ((${#text} <= max)); then printf '%s' "$text"; return 0; fi
-    if ((max <= 3)); then printf '%s' "${text:0:max}"; return 0; fi
-    local cut=$((max - 3))
-    printf '%s...' "${text:0:cut}"
+    if ((max <= 0)); then
+        UI_TRUNCATED_TEXT=''
+    elif ((${#text} <= max)); then
+        UI_TRUNCATED_TEXT=$text
+    elif ((max <= 3)); then
+        UI_TRUNCATED_TEXT=${text:0:max}
+    else
+        UI_TRUNCATED_TEXT="${text:0:max-3}..."
+    fi
+    # Los helpers de dibujo reutilizan el resultado sin crear un subshell
+    # por cada celda. El modo predeterminado conserva la salida pública.
+    [[ "${3:-}" == state ]] || printf '%s' "$UI_TRUNCATED_TEXT"
+    return 0
 }
 
 ui_repeat_char() {
     local char="$1"
     local count="$2"
     local output=''
-    while ((count > 0)); do
-        output+="$char"
-        ((count -= 1))
-    done
+    ((count > 0)) || return 0
+    printf -v output '%*s' "$count" ''
+    output=${output// /"$char"}
     printf '%s' "$output"
 }
 
 ui_print_padded() {
     local width="$1"
     local text="${2:-}"
-    text=$(ui_truncate "$text" "$width")
+    ui_truncate "$text" "$width" state
+    text=$UI_TRUNCATED_TEXT
     local padding=$((width - ${#text}))
     printf '%s' "$text"
     if ((padding > 0)); then ui_repeat_char ' ' "$padding"; fi
@@ -257,7 +273,8 @@ ui_print_styled_padded() {
     local width="$1"
     local text="${2:-}"
     local style="${3:-}"
-    text=$(ui_truncate "$text" "$width")
+    ui_truncate "$text" "$width" state
+    text=$UI_TRUNCATED_TEXT
     local padding=$((width - ${#text}))
 
     ui_style_begin "$style"
@@ -285,7 +302,8 @@ ui_print_split_styled() {
     fi
 
     local left_max=$((width - right_len - 1))
-    left=$(ui_truncate "$left" "$left_max")
+    ui_truncate "$left" "$left_max" state
+    left=$UI_TRUNCATED_TEXT
     local gap=$((width - ${#left} - right_len))
     ((gap < 1)) && gap=1
 
@@ -296,6 +314,71 @@ ui_print_split_styled() {
     ui_style_begin "$right_style"
     printf '%s' "$right"
     ui_style_end
+}
+
+# Dos listas paralelas dentro de un mismo panel. Cada mitad conserva su propio
+# estilo para que el foco no pinte la fila de la otra sección.
+ui_print_columns_styled() {
+    local width="$1"
+    local left="${2:-}"
+    local right="${3:-}"
+    local left_style="${4:-}"
+    local right_style="${5:-}"
+    local left_width=$((width / 2))
+    local right_width=$((width - left_width - 1))
+
+    ui_print_styled_padded "$left_width" "$left" "$left_style"
+    ui_style_begin muted
+    printf '%s' "$UI_V"
+    ui_style_end
+    ui_print_styled_padded "$right_width" "$right" "$right_style"
+}
+
+ui_print_navigation_columns() {
+    local width="$1" left_name="$2" left_comment="$3" left_style="$4"
+    local right_name="$5" right_comment="$6" right_style="$7"
+    local left_comment_style="${8:-comment}" right_comment_style="${9:-comment}"
+    local left_width right_width left_name_width right_name_width
+    left_width=$((width / 2))
+    right_width=$((width - left_width - 1))
+    left_name_width=$((left_width / 2))
+    right_name_width=$((right_width / 2))
+    # Conservar el nombre de sección completo antes que el contador opcional.
+    if [[ "$left_name" == *' FAVORITAS ('* ]] && ((${#left_name} > left_name_width)); then left_name=${left_name% (*}; fi
+    if [[ "$right_name" == *' RECIENTES ('* ]] && ((${#right_name} > right_name_width)); then right_name=${right_name% (*}; fi
+    ui_print_styled_padded "$left_name_width" "$left_name" "$left_style"
+    ui_print_styled_padded "$((left_width - left_name_width))" "$left_comment" "$left_comment_style"
+    ui_style_begin muted; printf '%s' "$UI_V"; ui_style_end
+    ui_print_styled_padded "$right_name_width" "$right_name" "$right_style"
+    ui_print_styled_padded "$((right_width - right_name_width))" "$right_comment" "$right_comment_style"
+}
+
+# Cabecera y filas de resultados de búsqueda: cada dato ocupa su propia
+# columna, evitando que el texto de metadatos parezca un badge sin título.
+ui_print_search_columns() {
+    local width="$1" name="$2" ambit="$3" country="$4" format="$5" comment="$6" style="${7:-}"
+    local usable=$((width - 8))
+    local name_width=$((usable * 40 / 100))
+    local ambit_width=$((usable * 15 / 100))
+    local country_width=$((usable * 15 / 100))
+    local format_width=$((usable * 15 / 100))
+    local comment_width=$((usable - name_width - ambit_width - country_width - format_width))
+    ((name_width < 10)) && name_width=10
+    ((ambit_width < 5)) && ambit_width=5
+    ((country_width < 5)) && country_width=5
+    ((format_width < 5)) && format_width=5
+    ((comment_width < 5)) && comment_width=5
+    ui_print_styled_padded "$name_width" "$name" "$style"
+    ui_repeat_char ' ' 2
+    ui_print_styled_padded "$ambit_width" "$ambit" "$style"
+    ui_repeat_char ' ' 2
+    ui_print_styled_padded "$country_width" "$country" "$style"
+    ui_repeat_char ' ' 2
+    ui_print_styled_padded "$format_width" "$format" "$style"
+    ui_repeat_char ' ' 2
+    local comment_style=comment
+    [[ "$style" == accent ]] && comment_style=accent
+    ui_print_styled_padded "$comment_width" "$comment" "$comment_style"
 }
 
 ui_box_rule() {
@@ -349,6 +432,10 @@ ui_box_center_line() {
     local width="$1"
     local text="$2"
     local style="${3:-}"
+    if [[ "$text" == *'KEILA RADIO PLAYER'* ]]; then
+        if ((${ALARM_AT:-0} > 0)); then text+=" · ALARMA ${ALARM_LABEL:-}"; fi
+        if ((${PLAYER_MUTED:-0})); then text+=' · MUTE'; fi
+    fi
     local inner=$((width - 4))
     text=$(ui_truncate "$text" "$inner")
     local left_pad=$(((inner - ${#text}) / 2))
@@ -476,6 +563,403 @@ ui_volume_bar() {
     ui_repeat_char "$UI_BAR_EMPTY" "$empty"
 }
 
+ui_equalizer_summary() {
+    declare -F equalizer_summary >/dev/null 2>&1 || return 1
+    printf '[Z] ECUALIZADOR %s' "$(equalizer_summary)"
+}
+
+ui_recording_status_display() {
+    if declare -F recording_status_display >/dev/null 2>&1; then
+        recording_status_display
+    elif declare -F recording_elapsed_display >/dev/null 2>&1; then
+        recording_elapsed_display
+    else
+        printf 'REC'
+    fi
+}
+
+ui_equalizer_mini_graph() {
+    local mode="${1:-labels}" i gain height glyph
+    local -a bars=('▁' '▁' '▂' '▃' '▄' '▅' '▆' '▇' '█')
+
+    printf '[%s] ECUALIZADOR ' "$(ui_shortcut z)"
+    for ((i=0; i<5; i++)); do
+        gain=${EQUALIZER_GAINS[i]}
+        height=$(((gain + 12) * 8 / 24))
+        if ((UI_UNICODE)); then glyph=${bars[height]}; else glyph=$height; fi
+        printf '%s' "$glyph"
+        ((i < 4)) && printf ' '
+    done
+}
+
+ui_equalizer_bar_cells() {
+    local direction="$1" threshold="$2" gain cell='' i
+    for ((i=0; i<5; i++)); do
+        gain=${EQUALIZER_GAINS[i]}
+        cell=' '
+        if [[ "$direction" == positive ]] && ((gain >= threshold)); then cell="$UI_BAR_FULL"; fi
+        if [[ "$direction" == negative ]] && ((gain <= -threshold)); then cell="$UI_BAR_FULL"; fi
+        printf '  %s  ' "$cell"
+    done
+}
+
+ui_equalizer_editor_row() {
+    local row="$1" gain label zero_axis cross i
+    UI_EQ_TEXT=''
+    UI_EQ_BADGE=''
+    UI_EQ_STYLE='accent'
+    case "$row" in
+        0) UI_EQ_TEXT='[Z] ECUALIZADOR' ;;
+        1) UI_EQ_TEXT="$(ui_equalizer_bar_cells positive 9)" ;;
+        2) UI_EQ_TEXT="$(ui_equalizer_bar_cells positive 5)" ;;
+        3) UI_EQ_TEXT="$(ui_equalizer_bar_cells positive 1)" ;;
+        4)
+            zero_axis=''
+            ((UI_UNICODE)) && zero_axis='──' || zero_axis='--'
+            for ((i=0; i<5; i++)); do
+                if ((UI_UNICODE)); then cross='┼'; else cross='+'; fi
+                if ((${EQUALIZER_EDITOR_ACTIVE:-0} && i == EQUALIZER_SELECTED)); then
+                    if ((UI_UNICODE)); then cross='╋'; else cross='#'; fi
+                fi
+                zero_axis+="$cross"
+                if ((i < 4)); then
+                    if ((UI_UNICODE)); then zero_axis+='────'; else zero_axis+='----'; fi
+                fi
+            done
+            if ((UI_UNICODE)); then zero_axis+='──'; else zero_axis+='--'; fi
+            UI_EQ_TEXT="$zero_axis"
+            UI_EQ_STYLE='muted'
+            ;;
+        5) UI_EQ_TEXT="$(ui_equalizer_bar_cells negative 1)" ;;
+        6) UI_EQ_TEXT="$(ui_equalizer_bar_cells negative 5)" ;;
+        7) UI_EQ_TEXT="$(ui_equalizer_bar_cells negative 9)" ;;
+        8) UI_EQ_TEXT='' ;;
+        9)
+            gain=${EQUALIZER_GAINS[EQUALIZER_SELECTED]}
+            printf -v UI_EQ_TEXT '%s %+d dB' "$UI_SELECT" "$gain"
+            ;;
+        *) UI_EQ_TEXT='' ;;
+    esac
+}
+
+# Renderiza el ecualizador con cinco columnas distribuidas por todo el ancho
+# disponible. Conserva las ocho filas gráficas del editor normal, pero evita
+# que el gráfico quede encajonado a la izquierda cuando comparte panel con
+# otros datos de reproducción.
+ui_equalizer_wide_row() {
+    local row="$1" width="${2:-40}"
+    local prefix threshold direction i segment_width remainder segment extra
+    local label left right gain cell result=''
+    local -a labels=(60 250 1k 4k 12k)
+
+    [[ "$row" =~ ^[0-9]+$ && "$width" =~ ^[0-9]+$ ]] || return 1
+    ((row >= 0 && row < 8 && width > 0)) || return 1
+    local eq_key eq_shortcut=Z
+    if declare -p PREF_KEYS >/dev/null 2>&1; then eq_shortcut=${PREF_KEYS[z]^^}; fi
+    eq_key="$width|$UI_UNICODE|$UI_BAR_FULL|${EQUALIZER_GAINS[*]}|${EQUALIZER_EDITOR_ACTIVE:-0}|${EQUALIZER_SELECTED:-0}|$eq_shortcut"
+    if [[ "$eq_key" != "${UI_EQ_CACHE_KEY:-}" ]]; then
+        UI_EQ_CACHE_KEY=$eq_key
+        UI_EQ_CACHE_ROWS=()
+    fi
+    if [[ -n "${UI_EQ_CACHE_ROWS[row]+present}" ]]; then
+        UI_EQ_TEXT=${UI_EQ_CACHE_ROWS[row]}
+        UI_EQ_STYLE=accent
+        [[ "$row" == 4 ]] && UI_EQ_STYLE=muted
+        printf '%s' "$UI_EQ_TEXT"
+        return 0
+    fi
+
+    if ((row == 0)); then
+        UI_EQ_TEXT="[$eq_shortcut] ECUALIZADOR"
+        UI_EQ_STYLE='accent'
+        UI_EQ_CACHE_ROWS[row]=$(printf '%-*s' "$width" "$UI_EQ_TEXT")
+        UI_EQ_TEXT=${UI_EQ_CACHE_ROWS[row]:0:width}
+        printf '%s' "$UI_EQ_TEXT"
+        return 0
+    fi
+    prefix=''
+    case "$row" in
+        1) direction='positive'; threshold=9 ;;
+        2) direction='positive'; threshold=5 ;;
+        3) direction='positive'; threshold=1 ;;
+        4) direction='axis' ;;
+        5) direction='negative'; threshold=1 ;;
+        6) direction='negative'; threshold=5 ;;
+        7) direction='negative'; threshold=9 ;;
+    esac
+
+    # El hueco entre bandas mejora la lectura sin perder el ancho completo.
+    local graph_width=$((width - ${#prefix}))
+    ((graph_width < 5)) && graph_width=5
+    local gaps=4
+    segment_width=$(((graph_width - gaps) / 5))
+    ((segment_width < 1)) && segment_width=1
+    remainder=$((graph_width - gaps - segment_width * 5))
+    result="$prefix"
+
+    for ((i = 0; i < 5; i++)); do
+        segment=$segment_width
+        ((i < remainder)) && ((segment += 1))
+
+        case "$direction" in
+            labels)
+                label="${labels[i]}"
+                if ((${#label} >= segment)); then
+                    cell="${label:0:segment}"
+                else
+                    left=$(((segment - ${#label}) / 2))
+                    right=$((segment - ${#label} - left))
+                    printf -v cell '%*s%s%*s' "$left" '' "$label" "$right" ''
+                fi
+                ;;
+            axis)
+                if ((UI_UNICODE)); then
+                    printf -v cell '%*s' "$segment" ''
+                    cell=${cell// /─}
+                    local axis_pos=$((segment / 2))
+                    local cross='┼'
+                    if ((${EQUALIZER_EDITOR_ACTIVE:-0} && i == EQUALIZER_SELECTED)); then cross='╋'; fi
+                    cell="${cell:0:axis_pos}${cross}${cell:axis_pos+1}"
+                else
+                    printf -v cell '%*s' "$segment" ''
+                    cell=${cell// /-}
+                    local ascii_axis_pos=$((segment / 2))
+                    local ascii_cross='+'
+                    if ((${EQUALIZER_EDITOR_ACTIVE:-0} && i == EQUALIZER_SELECTED)); then ascii_cross='#'; fi
+                    cell="${cell:0:ascii_axis_pos}${ascii_cross}${cell:ascii_axis_pos+1}"
+                fi
+                ;;
+            positive|negative)
+                gain=${EQUALIZER_GAINS[i]:-0}
+                printf -v cell '%*s' "$segment" ''
+                if [[ "$direction" == positive && "$gain" =~ ^-?[0-9]+$ ]] && ((gain >= threshold)); then
+                    cell=${cell// /$UI_BAR_FULL}
+                elif [[ "$direction" == negative && "$gain" =~ ^-?[0-9]+$ ]] && ((gain <= -threshold)); then
+                    cell=${cell// /$UI_BAR_FULL}
+                fi
+                ;;
+        esac
+
+        result+="$cell"
+        if ((i < 4)); then result+=' '; fi
+    done
+
+    # El cálculo de segmentos puede dejar una o dos celdas libres por redondeo.
+    extra=$((width - ${#result}))
+    if ((extra > 0)); then printf -v cell '%*s' "$extra" ''; result+="$cell"; fi
+    UI_EQ_TEXT="${result:0:width}"
+    UI_EQ_CACHE_ROWS[row]=$UI_EQ_TEXT
+    UI_EQ_STYLE='accent'
+    [[ "$row" == 4 ]] && UI_EQ_STYLE='muted'
+    printf '%s' "$UI_EQ_TEXT"
+}
+
+ui_spectrum_row() {
+    local threshold="$1" level
+    local result=''
+    local -a levels=("${SPECTRUM_LEVELS[@]:-}")
+    ((${#levels[@]} == 16)) || levels=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+    for level in "${levels[@]}"; do
+        if ((level >= threshold)); then result+="$UI_BAR_FULL"; else result+=' '; fi
+    done
+    printf '%s' "$result"
+}
+
+ui_spectrum_bars() {
+    local level glyph
+    local result=''
+    local -a levels=("${SPECTRUM_LEVELS[@]:-}")
+    local -a bars=('▁' '▁' '▂' '▃' '▄' '▅' '▆' '▇' '█')
+    ((${#levels[@]} == 16)) || levels=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+    for level in "${levels[@]}"; do
+        if ((UI_UNICODE)); then
+            local height=$((level * 8 / 16))
+            ((height < 0)) && height=0
+            ((height > 8)) && height=8
+            glyph=${bars[height]}
+        elif ((level > 0)); then
+            glyph="$UI_BAR_FULL"
+        else
+            glyph="$UI_BAR_EMPTY"
+        fi
+        result+="$glyph"
+    done
+    printf '%s' "$result"
+}
+
+ui_spectrum_editor_row() {
+    local row="$1" max_columns="${2:-16}" spaced="${3:-0}"
+    local display_rows="${SPECTRUM_DISPLAY_ROWS:-8}" frame_rows="${SPECTRUM_FRAME_ROWS:-16}"
+    local level height units full_units remainder result='' column start end max_level i
+    local -a levels=("${SPECTRUM_LEVELS[@]:-}")
+    local -a partial=(' ' '▁' '▂' '▃' '▄' '▅' '▆' '▇' '█')
+
+    [[ "$row" =~ ^[0-9]+$ ]] || return 1
+    [[ "$max_columns" =~ ^[0-9]+$ ]] || return 1
+    [[ "$spaced" =~ ^[01]$ ]] || return 1
+    [[ "$display_rows" =~ ^[0-9]+$ && "$frame_rows" =~ ^[0-9]+$ ]] || return 1
+    ((display_rows > 0 && frame_rows > 0 && row < display_rows && max_columns > 0)) || return 1
+    ((max_columns > 16)) && max_columns=16
+    ((${#levels[@]} == 16)) || levels=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+
+    for ((column = 0; column < max_columns; column++)); do
+        start=$((column * 16 / max_columns))
+        end=$(((column + 1) * 16 / max_columns))
+        ((end <= start)) && end=$((start + 1))
+        max_level=0
+        for ((i = start; i < end && i < 16; i++)); do
+            level="${levels[i]}"
+            [[ "$level" =~ ^[0-9]+$ ]] || level=0
+            ((level > max_level)) && max_level=$level
+        done
+        units=$((max_level * display_rows * 8 / frame_rows))
+        full_units=$((units / 8))
+        remainder=$((units % 8))
+        height=$((display_rows - full_units))
+        if ((row >= height)); then
+            result+="$UI_BAR_FULL"
+        elif ((remainder > 0 && row == height - 1)); then
+            if ((UI_UNICODE)); then result+="${partial[remainder]}"; else result+="$UI_BAR_FULL"; fi
+        else
+            result+=' '
+        fi
+        if ((spaced && column < max_columns - 1)); then result+=' '; fi
+    done
+    printf '%s' "$result"
+}
+
+# Variante de ancho completo para el panel Ahora suena. Cada banda fuente se
+# agrupa en columnas visibles y cada columna ocupa varias celdas, de modo que
+# el analizador mantiene la misma anchura que el resto de la sección.
+ui_spectrum_editor_row_wide() {
+    local row="$1" width="${2:-40}"
+    local display_rows="${SPECTRUM_DISPLAY_ROWS:-8}" frame_rows="${SPECTRUM_FRAME_ROWS:-16}"
+    local columns gap cell_width segment_remainder column start end max_level level units full_units
+    local height result='' i extra partial_units cells side_padding
+    local peak_max_level peak_level peak_units peak_height current_top marker_row glyph
+    local cache_key
+    local -a levels=("${SPECTRUM_LEVELS[@]:-}")
+    local -a peak_levels=("${SPECTRUM_PEAK_LEVELS[@]:-}")
+    local -a partial=(' ' '▁' '▂' '▃' '▄' '▅' '▆' '▇' '█')
+
+    [[ "$row" =~ ^[0-9]+$ && "$width" =~ ^[0-9]+$ ]] || return 1
+    [[ "$display_rows" =~ ^[0-9]+$ && "$frame_rows" =~ ^[0-9]+$ ]] || return 1
+    ((display_rows > 0 && frame_rows > 0 && row < display_rows && width > 0)) || return 1
+    ((${#levels[@]} == 16)) || levels=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+    ((${#peak_levels[@]} == 16)) || peak_levels=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
+
+    cache_key="$width|$display_rows|$frame_rows|$UI_UNICODE|$UI_BAR_FULL|${levels[*]}|${peak_levels[*]}"
+    if [[ "$cache_key" == "${UI_SPECTRUM_WIDE_CACHE_KEY:-}" && -n "${UI_SPECTRUM_TEXT_CACHE[row]+present}" ]]; then
+        UI_SPECTRUM_ROW_TEXT=${UI_SPECTRUM_TEXT_CACHE[row]}
+        [[ "${3:-}" == state ]] || printf '%s' "$UI_SPECTRUM_ROW_TEXT"
+        return 0
+    fi
+    if [[ "$cache_key" != "${UI_SPECTRUM_WIDE_CACHE_KEY:-}" ]]; then
+        UI_SPECTRUM_TEXT_CACHE=()
+        gap=1
+        columns=$(((width + 1) / 3))
+        ((columns < 1)) && columns=1
+        ((columns > 16)) && columns=16
+        ((width < columns)) && columns=$width
+        cell_width=$(((width - columns + 1) / columns))
+        ((cell_width < 1)) && { cell_width=1; gap=0; }
+        # Preparar cada glifo una vez por cuadro; antes se construía la misma
+        # cadena para cada banda de cada fila (hasta 128 printf por cuadro).
+        printf -v cells '%*s' "$cell_width" ''
+        UI_SPECTRUM_CELLS=()
+        for ((i=0; i<9; i++)); do
+            glyph=${partial[i]}
+            if ((i > 0 && !UI_UNICODE)); then glyph=$UI_BAR_FULL; fi
+            UI_SPECTRUM_CELLS[i]=${cells// /$glyph}
+        done
+        UI_SPECTRUM_FULL_CELL=${cells// /$UI_BAR_FULL}
+        if ((UI_UNICODE)); then glyph='▔'; else glyph='^'; fi
+        UI_SPECTRUM_PEAK_CELL=${cells// /$glyph}
+        segment_remainder=$((width - columns * cell_width - gap * (columns - 1)))
+        # Las celdas extra se dejan como margen simétrico. Repartirlas desde la
+        # primera columna hacía que las barras de la izquierda parecieran más
+        # gruesas que las de la derecha.
+        side_padding=$((segment_remainder / 2))
+        UI_SPECTRUM_WIDE_LEVELS=()
+        UI_SPECTRUM_WIDE_PEAKS=()
+        for ((column = 0; column < columns; column++)); do
+            start=$((column * 16 / columns))
+            end=$(((column + 1) * 16 / columns))
+            ((end <= start)) && end=$((start + 1))
+            max_level=0
+            peak_max_level=0
+            for ((i = start; i < end && i < 16; i++)); do
+                level="${levels[i]}"
+                [[ "$level" =~ ^[0-9]+$ ]] || level=0
+                ((level > max_level)) && max_level=$level
+                peak_level="${peak_levels[i]}"
+                [[ "$peak_level" =~ ^[0-9]+$ ]] || peak_level=0
+                ((peak_level > peak_max_level)) && peak_max_level=$peak_level
+            done
+            UI_SPECTRUM_WIDE_LEVELS[column]=$max_level
+            UI_SPECTRUM_WIDE_PEAKS[column]=$peak_max_level
+            # Altura y pico dependen del cuadro, no de la fila que se dibuja.
+            units=$((max_level * display_rows * 8 / frame_rows))
+            full_units=$((units / 8))
+            partial_units=$((units % 8))
+            height=$((display_rows - full_units))
+            current_top=$height
+            ((max_level == 0)) && current_top=$display_rows
+            ((partial_units > 0)) && current_top=$((height - 1))
+            marker_row=-1
+            if ((peak_max_level > max_level)); then
+                peak_units=$((peak_max_level * display_rows * 8 / frame_rows))
+                peak_height=$(((peak_units + 7) / 8))
+                marker_row=$((display_rows - peak_height))
+                ((marker_row >= current_top)) && marker_row=$((current_top - 1))
+                ((marker_row < 0)) && marker_row=-1
+            fi
+            UI_SPECTRUM_WIDE_HEIGHTS[column]=$height
+            UI_SPECTRUM_WIDE_PARTIALS[column]=$partial_units
+            UI_SPECTRUM_WIDE_MARKERS[column]=$marker_row
+        done
+        UI_SPECTRUM_WIDE_COLUMNS=$columns
+        UI_SPECTRUM_WIDE_GAP=$gap
+        UI_SPECTRUM_WIDE_CELL_WIDTH=$cell_width
+        UI_SPECTRUM_WIDE_SIDE_PADDING=$side_padding
+        UI_SPECTRUM_WIDE_CACHE_KEY=$cache_key
+    fi
+
+    columns="${UI_SPECTRUM_WIDE_COLUMNS:-0}"
+    gap="${UI_SPECTRUM_WIDE_GAP:-0}"
+    cell_width="${UI_SPECTRUM_WIDE_CELL_WIDTH:-0}"
+    side_padding="${UI_SPECTRUM_WIDE_SIDE_PADDING:-0}"
+    ((columns > 0 && cell_width > 0)) || return 1
+    if ((side_padding > 0)); then
+        printf -v cells '%*s' "$side_padding" ''
+        result+="$cells"
+    fi
+
+    for ((column = 0; column < columns; column++)); do
+        height=${UI_SPECTRUM_WIDE_HEIGHTS[column]}
+        partial_units=${UI_SPECTRUM_WIDE_PARTIALS[column]}
+        marker_row=${UI_SPECTRUM_WIDE_MARKERS[column]}
+        cells=${UI_SPECTRUM_CELLS[0]}
+        if ((row >= height)); then
+            cells=$UI_SPECTRUM_FULL_CELL
+        elif ((partial_units > 0 && row == height - 1)); then
+            cells=${UI_SPECTRUM_CELLS[partial_units]}
+        fi
+        if ((row == marker_row)); then
+            cells=$UI_SPECTRUM_PEAK_CELL
+        fi
+        result+=$cells
+        if ((gap && column < columns - 1)); then result+=' '; fi
+    done
+
+    extra=$((width - ${#result}))
+    if ((extra > 0)); then printf -v cells '%*s' "$extra" ''; result+="$cells"; fi
+    UI_SPECTRUM_ROW_TEXT="${result:0:width}"
+    UI_SPECTRUM_TEXT_CACHE[row]=$UI_SPECTRUM_ROW_TEXT
+    [[ "${3:-}" == state ]] || printf '%s' "$UI_SPECTRUM_ROW_TEXT"
+    return 0
+}
+
 ui_audio_info() {
     local -a parts=()
     [[ -n "${PLAYER_CODEC:-}" ]] && parts+=("${PLAYER_CODEC^^}")
@@ -491,7 +975,8 @@ ui_audio_info() {
         [[ -n "$output" ]] && output+=' · '
         output+="$part"
     done
-    printf '%s' "$output"
+    UI_AUDIO_INFO=$output
+    [[ "${1:-}" == state ]] || printf '%s' "$output"
 }
 
 ui_has_audio_info() {
@@ -503,9 +988,13 @@ ui_has_audio_info() {
 }
 
 ui_stream_info_line_count() {
-    local count=0
+    local count=0 track_count=0
     if player_is_running; then
-        [[ -n "${PLAYER_STREAM_TITLE:-}" ]] && ((count += 1))
+        ((count += 1))
+        if ((${UI_LINES:-0} >= 25)) && declare -F track_history_display_limit >/dev/null 2>&1; then
+            track_count=$(track_history_display_limit)
+            ((count += 2 + track_count))
+        fi
         ui_has_audio_info && ((count += 1))
     fi
     printf '%s\n' "$count"
@@ -522,21 +1011,8 @@ ui_list_height() {
 }
 
 ui_sync_selection() {
-    local count=${#FAVORITE_NAMES[@]}
-    if ((count == 0)); then UI_SELECTED_INDEX=0; UI_SCROLL_OFFSET=0; return 0; fi
-    ((UI_SELECTED_INDEX < 0)) && UI_SELECTED_INDEX=0
-    ((UI_SELECTED_INDEX >= count)) && UI_SELECTED_INDEX=$((count - 1))
-    local height
-    height=$(ui_list_height)
-    if ((UI_SELECTED_INDEX < UI_SCROLL_OFFSET)); then
-        UI_SCROLL_OFFSET=$UI_SELECTED_INDEX
-    elif ((UI_SELECTED_INDEX >= UI_SCROLL_OFFSET + height)); then
-        UI_SCROLL_OFFSET=$((UI_SELECTED_INDEX - height + 1))
-    fi
-    local max_scroll=$((count - height))
-    ((max_scroll < 0)) && max_scroll=0
-    ((UI_SCROLL_OFFSET > max_scroll)) && UI_SCROLL_OFFSET=$max_scroll
-    ((UI_SCROLL_OFFSET < 0)) && UI_SCROLL_OFFSET=0
+    ui_navigation_refresh
+    ui_navigation_sync "$(ui_list_height)"
 }
 
 ui_select_url() {
@@ -549,20 +1025,49 @@ ui_select_url() {
             return 0
         fi
     done
+    ui_navigation_refresh
+    for ((i = 0; i < ${#RECENT_URLS[@]}; i++)); do
+        if [[ "${RECENT_URLS[$i]}" == "$url" ]]; then
+            UI_SELECTED_INDEX=$((${#FAVORITE_URLS[@]} + i))
+            ui_sync_selection
+            return 0
+        fi
+    done
     return 1
 }
 
 ui_move_selection() {
     local delta="$1"
-    local count=${#FAVORITE_NAMES[@]}
+    ui_navigation_refresh
+    local count=$UI_NAV_COUNT
     ((count > 0)) || { ui_set_message "No tienes favoritos guardados. Pulsa B para buscar una emisora." 6; return 1; }
     UI_SELECTED_INDEX=$(((UI_SELECTED_INDEX + delta) % count))
     ((UI_SELECTED_INDEX < 0)) && UI_SELECTED_INDEX=$((UI_SELECTED_INDEX + count))
     ui_sync_selection
 }
 
-ui_select_first() { ((${#FAVORITE_NAMES[@]} > 0)) || return 1; UI_SELECTED_INDEX=0; ui_sync_selection; }
-ui_select_last() { local count=${#FAVORITE_NAMES[@]}; ((count > 0)) || return 1; UI_SELECTED_INDEX=$((count - 1)); ui_sync_selection; }
+ui_select_first() { ui_navigation_refresh; ((UI_NAV_COUNT > 0)) || return 1; UI_SELECTED_INDEX=0; ui_sync_selection; }
+ui_select_last() { ui_navigation_refresh; local count=$UI_NAV_COUNT; ((count > 0)) || return 1; UI_SELECTED_INDEX=$((count - 1)); ui_sync_selection; }
+
+ui_select_emisoras() {
+    ui_navigation_refresh
+    ((${#FAVORITE_NAMES[@]} > 0)) || {
+        ui_set_message 'No tienes emisoras guardadas. Pulsa B para buscar una.' 5
+        return 1
+    }
+    UI_SELECTED_INDEX=0
+    ui_sync_selection
+}
+
+ui_select_recientes() {
+    ui_navigation_refresh
+    ((${#RECENT_NAMES[@]} > 0)) || {
+        ui_set_message 'No hay emisoras recientes todavía.' 4
+        return 1
+    }
+    UI_SELECTED_INDEX=${#FAVORITE_NAMES[@]}
+    ui_sync_selection
+}
 
 ui_player_status() {
     if player_is_running; then
@@ -630,7 +1135,7 @@ ui_draw() {
         favorite_badge=''
     fi
 
-    if ((RECORDING_ACTIVE)); then recording_badge="[$UI_RECORD REC $(recording_elapsed_display)]"; else recording_badge=''; fi
+    if ((RECORDING_ACTIVE)); then recording_badge="[$UI_RECORD $(ui_recording_status_display)]"; else recording_badge=''; fi
     state_badge=''
     if player_is_running && ((PLAYER_PAUSED)); then
         state_badge='[PAUSA]'
@@ -641,9 +1146,27 @@ ui_draw() {
     ui_box_player_line "$width" "$marker $station" "$station_style" "$recording_badge" "$favorite_badge" "$state_badge"
 
     if player_is_running; then
-        [[ -n "${PLAYER_STREAM_TITLE:-}" ]] && ui_box_line "$width" "$UI_NOTE $PLAYER_STREAM_TITLE" accent
+        if [[ -n "${PLAYER_STREAM_TITLE:-}" ]]; then
+            ui_box_line "$width" "$UI_NOTE $PLAYER_STREAM_TITLE" accent
+        else
+            ui_box_line "$width" 'Sin título de emisión disponible' muted
+        fi
+        local track_history_count=0 track_history_index track_history_info=''
+        if ((${UI_LINES:-0} >= 25)) && declare -F track_history_display_limit >/dev/null 2>&1; then
+            track_history_count=$(track_history_display_limit)
+        fi
+        if ((track_history_count > 0)); then
+            ui_box_line "$width" '  Canciones anteriores' accent
+            for ((track_history_index = 0; track_history_index < track_history_count; track_history_index++)); do
+                track_history_info=$(track_history_line "$track_history_index" "$((width - 4))" 2>/dev/null || true)
+                ui_box_line "$width" "$track_history_info" muted
+            done
+            track_history_info=$(track_history_session_line "$((width - 4))" 2>/dev/null || true)
+            ui_box_line "$width" "$track_history_info" muted
+        fi
         local audio_info
-        audio_info=$(ui_audio_info)
+        ui_audio_info state
+        audio_info=$UI_AUDIO_INFO
         [[ -n "$audio_info" ]] && ui_box_line "$width" "  $audio_info" muted
     fi
 
@@ -652,7 +1175,7 @@ ui_draw() {
     volume_left="VOL $(printf '%3s' "$PLAYER_VOLUME")%  $(ui_volume_bar "$volume_bar_width")"
     volume_hint='A/D  ←/→'
     ui_box_split_line "$width" "$volume_left" "$volume_hint" 0 accent muted
-    ui_box_rule "$width" "$UI_ML" "$UI_MR" "FAVORITOS (${#FAVORITE_NAMES[@]})" accent
+    ui_box_rule "$width" "$UI_ML" "$UI_MR" "EMISORAS FAVORITAS (${#FAVORITE_NAMES[@]})" accent
 
     local height
     height=$(ui_list_height)
@@ -692,13 +1215,16 @@ ui_draw() {
     if ((UI_HELP_VISIBLE)); then
         ui_box_line "$width" 'W/S o ↑/↓ mover   Home/End extremos   PgUp/PgDn saltar' muted
         ui_box_line "$width" 'Enter reproducir   A/D o ←/→ volumen   P pausa' muted
-        ui_box_line "$width" 'F favorito actual   J/K reordenar   X quitar seleccionado' muted
-        ui_box_line "$width" 'B buscar   R grabar   U actualizar   Q salir   H cerrar ayuda' muted
+        ui_box_line "$width" 'F ir a Favoritas   X añadir/quitar actual   J/K reordenar' muted
+        ui_box_line "$width" 'B buscar   G grabar   O opciones   U actualizar   D diagnóstico   Q salir   H cerrar ayuda' muted
     else
-        ui_box_line "$width" "↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  B buscar  $UI_SEP  R grabar  $UI_SEP  H ayuda  $UI_SEP  Q salir" muted
+        ui_box_line "$width" "↑↓ mover  $UI_SEP  Enter reproducir  $UI_SEP  B buscar  $UI_SEP  O opciones  $UI_SEP  G grabar  $UI_SEP  D diag.  $UI_SEP  Q salir" muted
     fi
 
     if [[ -n "$UI_MESSAGE" ]]; then ui_box_line "$width" "$UI_MESSAGE"; else ui_box_line "$width" ''; fi
     ui_box_rule "$width" "$UI_BL" "$UI_BR"
     tput ed 2>/dev/null || true
 }
+
+# shellcheck source=lib/navigation.sh
+source "$(dirname "${BASH_SOURCE[0]}")/navigation.sh"

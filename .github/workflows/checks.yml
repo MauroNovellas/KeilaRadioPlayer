@@ -3,27 +3,44 @@ name: checks
 on:
   push:
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   shell:
-    runs-on: ubuntu-latest
+    name: shell (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      TMPDIR: /tmp/keila-ci
     steps:
-      - uses: actions/checkout@v7
-      - name: Install ShellCheck
-        run: sudo apt-get update && sudo apt-get install -y shellcheck
-      - name: Run checks
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Install test dependencies
+        run: sudo apt-get update && sudo apt-get install -y shellcheck ffmpeg jq python3 util-linux mpv socat
+      - name: Run the same checks as local development
+        shell: bash
         run: |
-          ./tests/run.sh
-          shellcheck -x -e SC1090,SC1091,SC2030,SC2031,SC2034,SC2016 lib/input.sh lib/ui-responsive.sh lib/ui-safe-width.sh lib/ui-desktop.sh lib/ui-desktop-primary.sh lib/ui-desktop-balance.sh lib/ui-update-status.sh lib/ui-search.sh lib/ui-desktop-search-pane.sh lib/ui-terminal-guard.sh lib/search.sh lib/app-search.sh lib/update.sh lib/update-validation.sh tests/ui-responsive.sh tests/ui-desktop.sh tests/ui-update-status.sh tests/search-integrated.sh tests/search-favorites.sh tests/input-repeat.sh tests/ui-desktop-search-pane.sh tests/ui-terminal-guard.sh tests/update-check.sh
-          bash ./tests/recording-formats.sh
-          bash ./tests/pre-rc.sh
-          bash ./tests/ui-theme.sh
-          bash ./tests/ui-responsive.sh
-          bash ./tests/ui-desktop.sh
-          bash ./tests/ui-update-status.sh
-          bash ./tests/search-integrated.sh
-          bash ./tests/search-favorites.sh
-          bash ./tests/input-repeat.sh
-          bash ./tests/ui-desktop-search-pane.sh
-          bash ./tests/ui-terminal-guard.sh
-          bash ./tests/update-check.sh
+          mkdir -p "$TMPDIR"
+          bash tests/check.sh | tee "$RUNNER_TEMP/check-summary.log"
+      - name: Preserve test logs
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: checks-${{ matrix.os }}-${{ github.run_attempt }}
+          path: |
+            ${{ runner.temp }}/check-summary.log
+            /tmp/keila-ci/keila-check.*/**/output.log
+          if-no-files-found: warn
+          retention-days: 7

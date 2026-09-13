@@ -49,12 +49,41 @@ make_release() {
         deps.sh
         config.sh
         lock.sh
+        data-safety.sh
         state.sh
+        personal.sh
+        session-log.sh
+        session-history.sh
+        navigation.sh
+        catalog-startup.sh
+        label-editor.sh
+        equalizer.sh
+        equalizer-editor.sh
+        spectrum.sh
         favorites.sh
         stations.sh
         search.sh
+        search-filters.sh
+        station-options.sh
         player.sh
+        player-failure.sh
+        player-events.sh
         recording.sh
+        diagnostics.sh
+        alarm.sh
+        preferences.sh
+        options.sh
+        panels.sh
+        recording-manager.sh
+        recording-preview.sh
+        recording-preview-clock.sh
+        recording-files.sh
+        recording-file-editor.sh
+        status-screen.sh
+        backup.sh
+        backup-archive.sh
+        backup-manager.sh
+        backup-worker.sh
         input.sh
         ui.sh
         ui-responsive.sh
@@ -65,6 +94,8 @@ make_release() {
         ui-update-status.sh
         ui-search.sh
         app-search.sh
+        app-reconnect.sh
+        app-reconnect-failure.sh
         ui-desktop-search-pane.sh
         ui-terminal-guard.sh
     )
@@ -107,12 +138,21 @@ EOF
 tmp=$(mktemp -d) || fail 'no se pudo crear temporal'
 trap 'rm -rf "$tmp"' EXIT
 
+# La recuperación es parte obligatoria del runtime, no un módulo optativo.
+make_release "$tmp/data-safety-release" '2.0.1' '2.0.1'
+safety_tree="$tmp/data-safety-release/KeilaRadioPlayer-2.0.1"
+rm -- "$safety_tree/lib/data-safety.sh"
+if update_validate_tree "$safety_tree" '2.0.1' >/dev/null 2>&1; then
+    fail 'acepta actualización sin protección de datos'
+fi
+
 # Paquete incompleto: debe rechazarse durante la validación, antes de mover
-# ningún componente de la instalación actual.
+# ningún componente de la instalación actual. El cliente persistente de eventos
+# forma ya parte obligatoria del runtime de 2.1.
 incomplete_parent="$tmp/incomplete-release"
 mkdir -p "$incomplete_parent"
 make_release "$incomplete_parent" '2.0.1' '2.0.1'
-rm -f "$incomplete_parent/KeilaRadioPlayer-2.0.1/lib/ui-desktop-search-pane.sh"
+rm -f "$incomplete_parent/KeilaRadioPlayer-2.0.1/lib/player-events.sh"
 tar -czf "$tmp/incomplete.tar.gz" -C "$incomplete_parent" 'KeilaRadioPlayer-2.0.1'
 
 install_incomplete="$tmp/install-incomplete"

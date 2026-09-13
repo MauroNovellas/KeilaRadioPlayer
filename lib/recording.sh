@@ -9,8 +9,22 @@ RECORDINGS_DIR=""
 RECORDING_STARTED_EPOCH=0
 RECORDING_LAST_DISPLAY_SECOND=-1
 RECORDING_LAST_VALID=0
+RECORDING_LAST_VERIFIED=0
 RECORDING_LAST_SIZE=0
 RECORDING_LAST_ERROR=""
+RECORDING_PHASE=idle
+RECORDING_CLOSE_ACK=0
+RECORDING_CHECK_AT=0
+
+recording_writer_closed() {
+    player_is_running || return 0
+    local fd
+    [[ -n "${PLAYER_PID:-}" && -d "/proc/$PLAYER_PID/fd" && -r "/proc/$PLAYER_PID/fd" ]] || return 1
+    for fd in /proc/"$PLAYER_PID"/fd/*; do
+        [[ "$fd" -ef "$RECORDING_FILE" ]] && return 1
+    done
+    return 0
+}
 
 recording_init() {
     RECORDINGS_DIR="$1"
@@ -157,7 +171,9 @@ recording_next_file() {
 
     # No sobreescribimos una grabación si por casualidad se inicia otra en el
     # mismo segundo con el mismo nombre de emisora.
-    while [[ -e "$file" ]]; do
+    while [[ -e "$file.pending" || -L "$file.pending" ]] || ! (umask 077; set -o noclobber; : > "$file") 2>/dev/null; do
+        # Distinguir colisión (también enlaces rotos) de permisos/disco lleno.
+        [[ -e "$file" || -L "$file" || -e "$file.pending" || -L "$file.pending" ]] || return 1
         file="${base}_${counter}.${extension}"
         ((counter += 1))
     done
@@ -188,9 +204,39 @@ recording_elapsed_display() {
     printf '%02d:%02d:%02d' "$hours" "$minutes" "$seconds"
 }
 
+recording_status_display() {
+    case "${RECORDING_PHASE:-idle}" in
+        preparing) printf 'Preparando grabación' ;;
+        closing) printf 'Cierre pendiente' ;;
+        *) printf 'Grabando %s' "$(recording_elapsed_display)" ;;
+    esac
+}
+
 # Devuelve 0 solo cuando el segundo visible del contador ha cambiado.
 recording_tick_changed() {
     ((RECORDING_ACTIVE)) || return 1
+
+    local now=${EPOCHSECONDS:-$(date +%s)}
+    if ((now != RECORDING_CHECK_AT)); then
+        RECORDING_CHECK_AT=$now
+        if [[ "$RECORDING_PHASE" == preparing && -s "$RECORDING_FILE" ]]; then
+            RECORDING_PHASE=recording
+            if declare -F app_message >/dev/null; then app_message "Grabando: $(recording_filename)" 5; fi
+            return 0
+        fi
+        if [[ "$RECORDING_PHASE" == closing ]]; then
+            local close_status=0
+            recording_stop || close_status=$?
+            if ((close_status != 2)); then
+                if declare -F app_message >/dev/null; then
+                    if ((close_status == 0)); then
+                        app_message "Grabación conservada: $(recording_filename) ($(recording_size_human))." 8
+                    else app_message "Grabación cerrada: $RECORDING_LAST_ERROR" 9; fi
+                fi
+                return 0
+            fi
+        fi
+    fi
 
     local elapsed
     elapsed=$(recording_elapsed_seconds)
@@ -203,10 +249,60 @@ recording_tick_changed() {
     return 1
 }
 
+# Comprueba que mpv puede abrir y reproducir brevemente el archivo recién
+# cerrado. El probe usa salida nula y está acotado: nunca debe convertir una
+# validación de grabación en un bloqueo indefinido.
+#
+# Retornos:
+#   0  mpv confirmó que el archivo es reproducible
+#   1  mpv terminó indicando que no pudo reproducirlo
+#   2  no se pudo completar el probe de forma fiable (mpv ausente/timeout)
+recording_probe_file() {
+    local file="$1"
+    local pid attempt status=0
+
+    command -v mpv >/dev/null 2>&1 || return 2
+
+    mpv \
+        --no-config \
+        --really-quiet \
+        --no-terminal \
+        --no-video \
+        --audio-display=no \
+        --ao=null \
+        --length=0.20 \
+        -- "$file" \
+        >/dev/null 2>&1 &
+    pid=$!
+
+    # Archivo local: dos segundos son margen amplio y evitan cualquier espera
+    # patológica ante un contenedor dañado.
+    for ((attempt = 0; attempt < 40; attempt++)); do
+        if ! kill -0 "$pid" 2>/dev/null; then
+            wait "$pid" 2>/dev/null || status=$?
+            ((status == 0)) && return 0
+            return 1
+        fi
+        sleep 0.05
+    done
+
+    kill "$pid" 2>/dev/null || true
+    for ((attempt = 0; attempt < 10; attempt++)); do
+        kill -0 "$pid" 2>/dev/null || break
+        sleep 0.05
+    done
+    if kill -0 "$pid" 2>/dev/null; then
+        kill -KILL "$pid" 2>/dev/null || true
+    fi
+    wait "$pid" 2>/dev/null || true
+    return 2
+}
+
 recording_verify_file() {
     local file="${1:-$RECORDING_FILE}"
 
     RECORDING_LAST_VALID=0
+    RECORDING_LAST_VERIFIED=0
     RECORDING_LAST_SIZE=0
     RECORDING_LAST_ERROR=""
 
@@ -238,8 +334,27 @@ recording_verify_file() {
         return 1
     fi
 
+    # Un archivo con datos nunca se descarta solo porque el probe sea demasiado
+    # estricto para un formato raro. El tamaño permite conservarlo; el probe
+    # añade un segundo nivel de confianza que la UI puede comunicar al usuario.
     RECORDING_LAST_VALID=1
-    return 0
+
+    local probe_status=0
+    recording_probe_file "$file" || probe_status=$?
+    case "$probe_status" in
+        0)
+            RECORDING_LAST_VERIFIED=1
+            return 0
+            ;;
+        1)
+            RECORDING_LAST_ERROR="El archivo contiene datos, pero mpv no pudo confirmar audio reproducible."
+            return 0
+            ;;
+        *)
+            RECORDING_LAST_ERROR="El archivo contiene datos, pero no se pudo completar la verificación de reproducción."
+            return 0
+            ;;
+    esac
 }
 
 recording_size_human() {
@@ -271,15 +386,25 @@ recording_start() {
     extension=$(recording_extension_for_stream "$stream_format" "${PLAYER_CODEC:-}" "${PLAYER_URL:-}")
 
     file=$(recording_next_file "$station_name" "$extension") || return 1
-    payload=$(jq -cn --arg path "$file" '{command:["set_property","stream-record",$path]}') || return 1
+    # Marcador persistente: un cierre abrupto no debe parecer una finalización.
+    (umask 077; set -o noclobber; printf '%s\n' "${PLAYER_PID:-}" > "$file.pending") 2>/dev/null || return 1
+    payload=$(jq -cn --arg path "$file" '{command:["set_property","stream-record",$path]}') || {
+        rm -f -- "$file" "$file.pending"
+        return 1
+    }
 
-    player_ipc "$payload" || return 1
+    if ! player_ipc "$payload"; then
+        rm -f -- "$file" "$file.pending"
+        return 1
+    fi
 
     RECORDING_ACTIVE=1
+    RECORDING_PHASE=preparing RECORDING_CLOSE_ACK=0 RECORDING_CHECK_AT=0
     RECORDING_FILE="$file"
     RECORDING_STARTED_EPOCH="${EPOCHSECONDS:-$(date +%s)}"
     RECORDING_LAST_DISPLAY_SECOND=0
     RECORDING_LAST_VALID=0
+    RECORDING_LAST_VERIFIED=0
     RECORDING_LAST_SIZE=0
     RECORDING_LAST_ERROR=""
 }
@@ -291,20 +416,41 @@ recording_stop() {
     local ipc_failed=0
     local payload
 
-    if player_is_running; then
+    RECORDING_PHASE=closing
+    if player_is_running && ((RECORDING_CLOSE_ACK == 0)); then
         payload=$(jq -cn '{command:["set_property","stream-record",""]}') || ipc_failed=1
         if ((ipc_failed == 0)); then
             player_ipc "$payload" || ipc_failed=1
         fi
+        ((ipc_failed)) || RECORDING_CLOSE_ACK=1
+    fi
+
+    if ((ipc_failed)) || ! recording_writer_closed; then
+        RECORDING_LAST_ERROR='Cierre pendiente: esperando a que mpv libere el archivo.'
+        return 2
     fi
 
     RECORDING_ACTIVE=0
+    RECORDING_PHASE=idle
     RECORDING_STARTED_EPOCH=0
     RECORDING_LAST_DISPLAY_SECOND=-1
 
+    if [[ -f "$file.pending" && ! -L "$file.pending" ]]; then
+        printf 'closed\n' > "$file.pending" || true
+    fi
+
     if recording_verify_file "$file"; then
         if ((ipc_failed)); then
-            RECORDING_LAST_ERROR="mpv no confirmó el cierre, pero el archivo contiene datos."
+            if ((RECORDING_LAST_VERIFIED)); then
+                RECORDING_LAST_ERROR="mpv no confirmó el cierre, pero el archivo fue verificado y contiene audio reproducible."
+            elif [[ -z "$RECORDING_LAST_ERROR" ]]; then
+                RECORDING_LAST_ERROR="mpv no confirmó el cierre, pero el archivo contiene datos."
+            fi
+        fi
+        if ((!ipc_failed && RECORDING_LAST_VERIFIED)); then
+            rm -f -- "$file.pending" || {
+                RECORDING_LAST_ERROR='Audio verificado; no se pudo retirar el marcador pendiente.'
+            }
         fi
         return 0
     fi
@@ -319,6 +465,7 @@ recording_finalize_after_player_exit() {
 
     local file="$RECORDING_FILE"
     RECORDING_ACTIVE=0
+    RECORDING_PHASE=idle
     RECORDING_STARTED_EPOCH=0
     RECORDING_LAST_DISPLAY_SECOND=-1
 
@@ -327,8 +474,11 @@ recording_finalize_after_player_exit() {
 
 recording_reset() {
     RECORDING_ACTIVE=0
+    RECORDING_PHASE=idle RECORDING_CLOSE_ACK=0
     RECORDING_STARTED_EPOCH=0
     RECORDING_LAST_DISPLAY_SECOND=-1
+    RECORDING_LAST_VALID=0
+    RECORDING_LAST_VERIFIED=0
 }
 
 recording_filename() {

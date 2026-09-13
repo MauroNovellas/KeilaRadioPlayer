@@ -50,6 +50,15 @@ assert_eq 'q' "$INPUT_KEY" 'tecla tras cursores recuperada'
 assert_eq '1' "$INPUT_REPEAT_COUNT" 'tecla distinta tras cursores no hereda repetición'
 exec 4<&-
 
+# Supr llega como ESC [ 3 ~ en los emuladores habituales y se usa para
+# limpiar la búsqueda sin depender de Ctrl-U.
+exec 6< <(printf '\033[3~')
+input_read <&6 || fail 'no leyó Supr'
+assert_eq 'DELETE' "$INPUT_EVENT" 'Supr no se traduce a DELETE'
+assert_eq '' "$INPUT_KEY" 'Supr no debe dejar tecla textual'
+assert_eq '1' "$INPUT_REPEAT_COUNT" 'Supr no hereda autorepeat'
+exec 6<&-
+
 # Dentro del buscador las letras son contenido de la consulta, no acciones de
 # navegación/volumen, por lo que nunca deben agruparse aunque sean iguales.
 SEARCH_ACTIVE=1

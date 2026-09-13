@@ -16,10 +16,10 @@ assert_eq() {
 
 stations_emit_tsv() {
     cat <<'EOF'
-Rock FM	Madrid	España	AAC	https://example.invalid/rock
-Classic Rock	Barcelona	España	MP3	https://example.invalid/classic
-Radio Nacional	Nacional	España	AAC	https://example.invalid/rne
-Jazz World	Internacional	Francia	MP3	https://example.invalid/jazz
+Rock FM	Madrid	España	AAC	https://example.invalid/rock	ES
+Classic Rock	Barcelona	España	MP3	https://example.invalid/classic	ES
+Radio Nacional	Nacional	España	AAC	https://example.invalid/rne	ES
+Jazz World	Internacional	Francia	MP3	https://example.invalid/jazz	FR
 EOF
 }
 
@@ -90,6 +90,13 @@ SEARCH_SELECTED_INDEX=3
 search_sync_scroll 2
 assert_eq 2 "$SEARCH_SCROLL_OFFSET" 'scroll sigue la selección'
 
+search_country_filter_toggle
+search_apply_pending_filter || fail 'no aplicó filtro país'
+assert_eq 3 "${#SEARCH_MATCHES[@]}" 'filtro país ES limita resultados'
+search_country_filter_toggle
+search_apply_pending_filter || fail 'no quitó filtro país'
+assert_eq 4 "${#SEARCH_MATCHES[@]}" 'quitar filtro país restaura resultados'
+
 # Estabilización: Esc deja la consulta visible como "B editar". Reabrir debe
 # conservarla de verdad y recalcular resultados con el catálogo recién cargado.
 search_clear || true
@@ -135,6 +142,7 @@ SEARCH_AMBITS=('Madrid' 'Barcelona')
 SEARCH_COUNTRIES=('España' 'España')
 SEARCH_FORMATS=('AAC' 'MP3')
 SEARCH_URLS=('https://example.invalid/rock' 'https://example.invalid/classic')
+SEARCH_COUNTRYCODES=('ES' 'ES')
 SEARCH_MATCHES=(0 1)
 SEARCH_SELECTED_INDEX=0
 SEARCH_SCROLL_OFFSET=0
@@ -144,10 +152,47 @@ PLAYER_NAME='Radio Test'
 render=$(ui_search_desktop 119)
 first_line=${render%%$'\n'*}
 assert_eq 119 "${#first_line}" 'búsqueda desktop respeta ancho seguro'
-[[ "$render" == *'BUSCAR EMISORAS'* ]] || fail 'falta cabecera de búsqueda'
+[[ "$render" == *'BUSQUEDA EMISORAS'* ]] || fail 'falta cabecera de búsqueda'
 [[ "$render" == *'RESULTADOS (2)'* ]] || fail 'falta contador de resultados'
 [[ "$render" == *'Rock FM'* ]] || fail 'falta primer resultado'
 [[ "$render" == *'Classic Rock'* ]] || fail 'falta segundo resultado'
+
+UI_ACTIVE=1
+UI_SUSPENDED=0
+SEARCH_ACTIVE=1
+SEARCH_DETAILS_VISIBLE=0
+SEARCH_SELECTED_INDEX=0
+SEARCH_SCROLL_OFFSET=0
+UI_COLS=45
+UI_LINES=12
+ui_refresh_size() { :; }
+render=$(ui_draw_search)
+[[ "$render" == *'Rock FM'* ]] || fail 'búsqueda pequeña no muestra nombres'
+[[ "$render" != *'Madrid'* && "$render" != *'España'* && "$render" != *'AAC'* ]] || fail 'búsqueda pequeña muestra detalles por defecto'
+SEARCH_DETAILS_VISIBLE=1
+render=$(ui_draw_search)
+[[ "$render" == *'Madrid'* || "$render" == *'España'* || "$render" == *'AAC'* ]] || fail 'búsqueda pequeña no muestra detalles al activarlos'
+[[ "$render" == *'Barcelona'* || "$render" == *'MP3'* ]] || fail 'búsqueda minimal no muestra detalles de todos los resultados al activarlos'
+
+SEARCH_DETAILS_VISIBLE=0
+SEARCH_SELECTED_INDEX=0
+SEARCH_SCROLL_OFFSET=0
+UI_COLS=40
+UI_LINES=10
+render=$(ui_draw_search)
+[[ "$render" == *'Rock FM'* ]] || fail 'búsqueda tiny no muestra nombres'
+[[ "$render" != *'Madrid'* && "$render" != *'España'* && "$render" != *'AAC'* ]] || fail 'búsqueda tiny muestra detalles por defecto'
+SEARCH_DETAILS_VISIBLE=1
+render=$(ui_draw_search)
+[[ "$render" == *'Rock FM · Madrid'* || "$render" == *'Rock FM · España'* || "$render" == *'Rock FM · AAC'* ]] || fail 'búsqueda tiny no muestra detalles del resultado seleccionado'
+[[ "$render" == *'Classic Rock'* ]] || fail 'búsqueda tiny oculta otros nombres al mostrar detalles'
+[[ "$render" == *'Barcelona'* || "$render" == *'MP3'* ]] || fail 'búsqueda tiny no muestra detalles de todos los resultados al activarlos'
+
+SEARCH_DETAILS_VISIBLE=0
+UI_COLS=55
+UI_LINES=15
+render=$(ui_draw_search)
+[[ "$render" == *'Madrid'* || "$render" == *'España'* || "$render" == *'AAC'* ]] || fail 'búsqueda compact oculta detalles por defecto'
 
 declare -F stations_select_fzf_external >/dev/null || fail 'falta fallback fzf'
 declare -F stations_select_fzf >/dev/null || fail 'falta selector integrado'

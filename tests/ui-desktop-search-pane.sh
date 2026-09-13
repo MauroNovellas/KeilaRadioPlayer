@@ -19,6 +19,7 @@ assert_eq() {
 }
 
 player_is_running() { return 1; }
+history_recent_refresh() { :; }
 
 UI_UNICODE=1
 UI_COLOR=0
@@ -48,13 +49,16 @@ PLAYER_URL='none'
 
 ui_desktop_sync_selection 13
 assert_eq 6 "$UI_DESKTOP_FAVORITES_HEIGHT" 'mitad superior de favoritos'
-assert_eq 6 "$UI_DESKTOP_SEARCH_HEIGHT" 'mitad inferior de búsqueda'
-assert_eq 2 "$UI_SCROLL_OFFSET" 'favoritos hacen scroll dentro de su mitad'
-assert_eq 4 "$SEARCH_SCROLL_OFFSET" 'búsqueda hace scroll dentro de su mitad'
+assert_eq 5 "$UI_DESKTOP_SEARCH_HEIGHT" 'mitad inferior de búsqueda'
+assert_eq 3 "$UI_SCROLL_OFFSET" 'favoritos hacen scroll dentro de su mitad'
+assert_eq 5 "$SEARCH_SCROLL_OFFSET" 'búsqueda hace scroll dentro de su mitad'
+
+favorites_header=$(ui_desktop_header_rule 119 'AHORA SUENA' "FAVORITOS (${#FAVORITE_NAMES[@]})")
+[[ "$favorites_header" == *"$UI_SELECT FAVORITOS"* ]] || fail 'Favoritos activo no muestra indicador de foco'
 
 UI_UPDATE_DESKTOP_ROW=6
 separator=$(ui_desktop_row '' '' '' '' 'favorito que debe desaparecer' '' '' '' 0)
-[[ "$separator" == *'BUSCAR EMISORAS'* ]] || fail 'falta separador de búsqueda'
+[[ "$separator" == *'[B] BUSQUEDA EMISORAS'* ]] || fail 'falta cabecera de búsqueda en la línea divisoria'
 [[ "$separator" != *'favorito que debe desaparecer'* ]] || fail 'el separador no sustituyó la fila de favoritos'
 
 SEARCH_ACTIVE=1
@@ -64,12 +68,19 @@ SEARCH_MATCHES=(0 1)
 SEARCH_SELECTED_INDEX=0
 SEARCH_SCROLL_OFFSET=0
 
-UI_UPDATE_DESKTOP_ROW=7
+search_header=$(ui_desktop_header_rule 119 'AHORA SUENA' "FAVORITOS (${#FAVORITE_NAMES[@]})")
+[[ "$search_header" != *"$UI_SELECT FAVORITOS"* ]] || fail 'Favoritos conserva el indicador al entrar en búsqueda'
+
+UI_UPDATE_DESKTOP_ROW=6
+active_separator=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
+[[ "$active_separator" == *"$UI_SELECT [B] BUSQUEDA EMISORAS"* ]] || fail 'búsqueda activa no muestra indicador de foco'
+
+UI_UPDATE_DESKTOP_ROW=8
 query_line=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
 [[ "$query_line" == *'Buscar: rock_'* ]] || fail 'campo de búsqueda no aparece en la mitad inferior'
 [[ "$query_line" == *'2 resultados'* ]] || fail 'contador de resultados no aparece'
 
-UI_UPDATE_DESKTOP_ROW=8
+UI_UPDATE_DESKTOP_ROW=9
 result_line=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
 [[ "$result_line" == *'Rock FM'* ]] || fail 'primer resultado no aparece en la mitad inferior'
 [[ "$result_line" == *"$UI_SELECT Rock FM"* ]] || fail 'resultado activo no muestra foco'
@@ -78,6 +89,24 @@ UI_UPDATE_DESKTOP_ROW=0
 favorite_line=$(ui_desktop_row '' '' '' '' "$UI_SELECT F1" '' '' '' 1)
 [[ "$favorite_line" != *"$UI_SELECT F1"* ]] || fail 'favorito conserva foco mientras se escribe en búsqueda'
 
+SEARCH_ACTIVE=0
+SEARCH_QUERY=''
+RECENT_NAMES=(R1 R2 R3)
+RECENT_URLS=(r1 r2 r3)
+declare -A FAVORITE_LABELS=()
+FAVORITE_LABELS['r1']='comentario reciente'
+UI_SELECTED_INDEX=8
+UI_SCROLL_OFFSET=0
+UI_RECENT_SCROLL=0
+ui_desktop_sync_selection 13
+UI_UPDATE_DESKTOP_ROW=0
+columns_header=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
+[[ "$columns_header" == *'FAVORITAS'* && "$columns_header" == *'RECIENTES'* && "$columns_header" == *'COMENTARIOS'* ]] || fail 'desktop ancho no muestra encabezados y comentarios en paralelo'
+UI_UPDATE_DESKTOP_ROW=1
+columns_row=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
+[[ "$columns_row" == *'1. F1'* && "$columns_row" == *'1. R1'* && "$columns_row" == *'comentario re'* ]] || fail 'las columnas no muestran presets, scroll y comentarios independientes'
+
+SEARCH_ACTIVE=1
 search_controls=$(ui_draw_responsive_controls 119)
 [[ "$search_controls" == *'Esc favoritos'* ]] || fail 'el pie no anuncia cómo volver a Favoritos'
 [[ "$search_controls" != *'Q salir'* ]] || fail 'el pie muestra atajos inactivos durante la búsqueda'
@@ -86,11 +115,12 @@ SEARCH_ACTIVE=0
 SEARCH_QUERY=''
 SEARCH_MATCHES=()
 SEARCH_SCROLL_OFFSET=0
-UI_UPDATE_DESKTOP_ROW=7
+UI_UPDATE_DESKTOP_ROW=8
 idle_line=$(ui_desktop_row '' '' '' '' '' '' '' '' 0)
-[[ "$idle_line" == *'B  Buscar emisoras'* ]] || fail 'panel de búsqueda inactivo no invita a pulsar B'
+[[ "$idle_line" != *'B  Buscar emisoras'* && "$idle_line" != *'Pulsa B'* ]] || fail 'instrucciones redundantes en búsqueda'
+[[ "$idle_line" == *'Sin catálogo disponible'* ]] || fail 'falta estado sin catálogo'
 
 normal_controls=$(ui_draw_responsive_controls 119)
-[[ "$normal_controls" == *'Q salir'* ]] || fail 'el pie normal no vuelve al salir de búsqueda'
+[[ "$normal_controls" == *'Configuración'* && "$normal_controls" == *'Ayuda'* ]] || fail 'el pie no anuncia configuración y ayuda'
 
-printf 'ok   TUI desktop: favoritos arriba, búsqueda abajo y focos independientes\n'
+printf 'ok   TUI desktop: favoritos arriba, búsqueda abajo y foco visible\n'

@@ -14,7 +14,7 @@ INPUT_REPEAT_COUNT=1
 INPUT_RESIZE_PENDING=0
 INPUT_PENDING_EVENT=""
 INPUT_PENDING_KEY=""
-INPUT_POLL_INTERVAL="${KEILA_INPUT_POLL_INTERVAL:-0.25}"
+INPUT_POLL_INTERVAL="${KEILA_INPUT_POLL_INTERVAL:-0.02}"
 INPUT_REPEAT_CAP="${KEILA_INPUT_REPEAT_CAP:-3}"
 INPUT_REPEAT_DRAIN_LIMIT="${KEILA_INPUT_REPEAT_DRAIN_LIMIT:-512}"
 INPUT_REPEAT_DRAIN_TIMEOUT="${KEILA_INPUT_REPEAT_DRAIN_TIMEOUT:-0.002}"
@@ -69,10 +69,11 @@ input_read_escape_sequence() {
                 D) INPUT_EVENT="LEFT" ;;
                 H) INPUT_EVENT="HOME" ;;
                 F) INPUT_EVENT="END" ;;
-                1|4|5|6)
+                1|3|4|5|6)
                     if IFS= read -rsn1 -t 0.03 fourth && [[ "$fourth" == '~' ]]; then
                         case "$third" in
                             1) INPUT_EVENT="HOME" ;;
+                            3) INPUT_EVENT="DELETE" ;;
                             4) INPUT_EVENT="END" ;;
                             5) INPUT_EVENT="PAGE_UP" ;;
                             6) INPUT_EVENT="PAGE_DOWN" ;;

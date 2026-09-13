@@ -219,7 +219,7 @@ ui_draw_desktop() {
 
     ui_box_rule "$width" "$UI_TL" "$UI_TR"
     ui_box_center_line "$width" "$title" title
-    ui_desktop_header_rule "$width" "FAVORITOS (${#FAVORITE_NAMES[@]})" 'AHORA SUENA'
+    ui_desktop_header_rule "$width" "EMISORAS FAVORITAS (${#FAVORITE_NAMES[@]})" 'AHORA SUENA'
 
     local station station_style marker favorite_badge recording_badge state_badge
     marker=$(ui_player_marker)
@@ -242,7 +242,7 @@ ui_draw_desktop() {
     fi
 
     if ((RECORDING_ACTIVE)); then
-        recording_badge="[$UI_RECORD REC $(recording_elapsed_display)]"
+        recording_badge="[$UI_RECORD $(ui_recording_status_display)]"
     else
         recording_badge=''
     fi

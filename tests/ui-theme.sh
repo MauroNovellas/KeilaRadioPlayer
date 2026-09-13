@@ -14,6 +14,8 @@ fail() {
 KEILA_NO_COLOR=1
 unset NO_COLOR
 ui_configure_theme
+# UI_COLOR se asigna en ui_configure_theme (lib/ui.sh).
+# shellcheck disable=SC2153
 ((UI_COLOR == 0)) || fail 'KEILA_NO_COLOR=1 no desactivó colores'
 [[ -z "$(ui_style_begin playing)" ]] || fail 'el estilo emitió ANSI con KEILA_NO_COLOR=1'
 

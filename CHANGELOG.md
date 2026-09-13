@@ -2,6 +2,280 @@
 
 Todos los cambios relevantes de Keila Radio Player se documentarán en este archivo.
 
+## [Sin publicar] - próxima release
+
+- Integración de la línea v2.1 en main. El README dirige las nuevas instalaciones
+  a main; publicar una nueva etiqueta o release es un paso independiente.
+- CI completa en Ubuntu 22.04 y 24.04, ejecución manual, cancelación de trabajos
+  obsoletos de la misma rama y registros descargables durante siete días.
+  Acciones fijadas a commits y permisos de solo lectura.
+- Compatibilidad verificada por CI: las fracciones negativas de posición al
+  inicio en mpv 0.34/0.37 se muestran como 00:00, sin inventar tiempo transcurrido.
+  El espectrograma detecta fps_mode y rate; adapta sincronización y filtro a
+  FFmpeg antiguo manteniendo la salida a 20 cuadros/s. Detección fuera del
+  bucle de interfaz. Regresiones para ambos comportamientos.
+
+- README reorganizado con inicio rápido, resumen de funciones y atajos, y
+  referencia completa en desplegables. Redacción más compacta y controles,
+  dependencias y límites contrastados con la implementación actual.
+- La batería no hereda el teclado de la terminal principal. Evita bloqueos de
+  ffmpeg y script bajo timeout al ejecutar los tests desde una terminal real.
+  Audio de prueba con -nostdin y límite propio; prueba del guard con su PTY
+  privado y entrada exterior cerrada. Regresión del runner desde un TTY real.
+- Prueba del gestor de grabaciones estabilizada: espera el refresco y navega
+  explícitamente al archivo antes de confirmar la papelera. Reproduce el caso
+  de una grabación activa que pasa a la primera fila, comprueba que X la protege
+  y que solo se traslada el archivo elegido. Sin cambios en el borrado real.
+- Opciones > Emisoras: filtros combinables de país, región y temática, con
+  selectores locales y restablecimiento independiente de la consulta. Filtros
+  de sesión respetados también por comentarios y fzf externo. No añade filas
+  ni controles al reproductor; reutiliza su indicador de búsqueda.
+- Índice local con región y etiquetas separadas; conserva temáticas aunque haya
+  región. Migración en segundo plano sin retirar la lista antigua.
+- Alta manual desde Opciones: nombre y URL HTTP/HTTPS, prueba de escucha explícita
+  y guardado en Favoritas con detección de duplicados y protección existente.
+  No publica emisoras en Radio Browser ni cambia el catálogo.
+- Pruebas de filtros, migración, alta manual, cancelación, escritura fallida,
+  pantallas pequeñas y rendimiento sobre un catálogo de 50.000 emisoras.
+- Posición y duración de la grabación en escucha, con horas y datos ausentes
+  explícitos. Lectura real de mpv en segundo plano, limitada a una por segundo;
+  pausa sin reloj simulado y actualización tras saltos. No sondea la biblioteca.
+  Pruebas de formato, cadencia y tiempos con audio sintético y salida nula.
+- Renombrado desde la biblioteca con N: editor de nombre, extensión fija y
+  confirmación del origen y destino. Rechaza rutas, archivos ocupados, cambios
+  posteriores a la selección y colisiones, también durante la publicación.
+- Papelera accesible con T o desde Opciones > Grabaciones > T: listado y escucha
+  de archivos antiguos y nuevos; R prepara la recuperación. Si el nombre está
+  ocupado se propone un sufijo recuperada y se confirma ese destino exacto.
+  No se vacía la papelera ni se añade borrado definitivo.
+- Traslado conservador de audio y marcador, reserva exclusiva del destino y
+  bloqueo breve entre operaciones. No copia el audio en otro filesystem. Una
+  interrupción conserva audio y marcadores; los restos se dejan para revisión.
+  Las nuevas grabaciones evitan nombres reservados por marcadores huérfanos.
+- Pruebas de colisiones, firma obsoleta, publicación fallida, marcadores,
+  interrupciones antes/después del rename, cancelación, navegación y aislamiento
+  del listado de papelera. Catorce pantallas en 13 geometrías y ASCII/Unicode.
+- Biblioteca de grabaciones unificada, ordenada por fecha de modificación con
+  nombre, tamaño y estados explícitos, incluyendo archivos en curso de solo
+  consulta. Metadatos en segundo plano, refresco con U y selección estable
+  también cuando el listado termina de actualizarse dentro de un detalle.
+- Pantalla de escucha con pausa, saltos de diez segundos e inicio; controles
+  navegables y adaptables al terminal. mpv separado con IPC y grupo privados,
+  preparación cancelable, respuestas verificadas y retorno conservador a radio
+  ante salida, fin de archivo o error. No altera audio guardado ni historiales.
+- Pruebas de biblioteca, controles, alarmas y errores; prueba con mpv real y
+  audio sintético hacia salida nula. Once pantallas en 13 geometrías y dos modos
+  de símbolos. CI exige también mpv y socat para la prueba de escucha real.
+- Nuevo `O` → `A`, Datos y almacenamiento: crear copias privadas y consultar
+  las disponibles con nombre, fecha y tamaño. `R` verifica y abre una pantalla
+  con los datos incluidos; solo Enter confirma la restauración. Esc cancela,
+  se conserva selección y se reutiliza el estilo responsive de Opciones.
+- Trabajos de copias en segundo plano y grupo de procesos privado. Se mantiene
+  la escucha, volumen, silencio y alarma. Restaurar exige detener grabaciones,
+  crea un respaldo previo y recarga datos y preferencias sin reiniciar la radio.
+  La carpeta de grabaciones importada se usa en el próximo arranque.
+- Motor de copias sin reinicialización del reproductor, instantáneas bajo
+  bloqueo y publicación exclusiva sin sobrescribir copias. Validación de TAR
+  antes de extraer: tipos, rutas, duplicados, tamaños y tiempos acotados.
+  Se conserva compatibilidad con el formato v1 y los comandos de terminal.
+- Regresiones de archivo, trabajador y menú: no sobrescritura, respaldo previo,
+  importaciones peligrosas, confirmación y cancelación, polling de audio y
+  diez pantallas internas en 13 geometrías y ambos modos de símbolos.
+- Batería unificada `bash tests/check.sh` en local y GitHub, con grupos de
+  lógica/interfaz, integración y rendimiento. Inventario validado de tests,
+  dependencias obligatorias, perfiles XDG aislados, registros individuales y
+  límite por prueba. Se incorporan a CI las regresiones de datos, grabaciones,
+  sesiones, títulos y procesos que antes no se ejecutaban allí. Sintaxis y
+  ShellCheck revisan todos los módulos, tests y scripts Bash. Guía en TESTING.md.
+- Copia privada y recuperación también para recientes, ecualizador y
+  configuración manual. Migración de archivos válidos antiguos sin reescritura;
+  se conservan comentarios y claves desconocidas de config. Validación completa
+  de los cinco valores del ecualizador, rechazo de NUL y destinos no regulares.
+- Reversión uniforme de bandas, centrado y presets ante errores de audio o
+  guardado; aviso explícito si no se puede confirmar la restauración del audio.
+  El espectrograma no cambia ante un fallo de persistencia y los errores al
+  guardar la última emisora se notifican. Restore publica cada archivo mediante
+  bloqueo y sustitución atómica, conservando el respaldo previo del conjunto.
+  El actualizador rechaza paquetes sin el módulo de protección de datos.
+- Pruebas de recuperación de los siete archivos, conservación de ediciones
+  manuales, fallos de publicación final, cierres forzados, datos antiguos sin
+  salto final, reversión y arranque completo. Límites actualizados en DATA-SAFETY.md.
+- Unificada la presentación de todos los submenús y pantallas internas con
+  `lib/panels.sh`: Preferencias, Ayuda, Alarma, Ecualizador, Comentarios,
+  Grabaciones, Historial de sesión y Diagnóstico reutilizan el render de
+  Opciones, con rutas, selección, estados, detalle y controles consistentes.
+  La misma presentación se usa desde Opciones y desde los atajos directos.
+- Alarma, comentarios y ecualizador tienen editores propios adaptados a
+  terminales pequeñas. Se mantiene el texto al redimensionar y, en comentarios,
+  al fallar el guardado. Los fallos al guardar preferencias o atajos restauran
+  el estado anterior. Las confirmaciones sobreviven al cambio de tamaño.
+- Diagnóstico permite recorrer todas sus filas y abrir sus valores completos.
+  Historial y grabaciones incorporan detalle de lectura y navegación por
+  páginas. Las pantallas conservan el foco del menú padre al volver.
+- Menos trabajo de fondo: el historial consulta cambios como máximo una vez
+  por segundo y solo recarga cuando cambia el archivo; no crea procesos por
+  campo. Conserva la posición del lector y sigue al final solo si ya estaba
+  allí. Diagnóstico reutiliza sus datos durante dos segundos; el gestor de
+  grabaciones reutiliza los metadatos de archivos visibles.
+- Pruebas de las ocho pantallas en 13 tamaños y dos modos de símbolos, además
+  de navegación, edición, foco, confirmaciones, errores y refresco de sesión.
+  El nuevo módulo está incluido en la validación del actualizador.
+- Pulido de `[O] Opciones`: ruta visible, memoria de selección y desplazamiento
+  por categoría, flechas para entrar/volver y páginas ajustadas a la terminal.
+  Explicación lateral en escritorio, filas compactas y detalle fijo en Termux;
+  `?` abre una explicación completa desplazable y de solo lectura. Se respetan
+  ancho, altura, caracteres anchos, acentos combinantes y modo ASCII.
+- Estados de reproducción, silencio, volumen, alarma, grabación, catálogo y
+  preferencias dentro de Opciones; las acciones no disponibles explican el
+  motivo. No se reconstruye el menú por cada cuadro de audio ni se relee el
+  catálogo por cada tecla. Las pantallas hijas restauran el foco al regresar.
+- Corregida la gestión de favoritas desde Opciones para actuar sobre la emisora
+  seleccionada, no sobre otra que esté sonando. Eliminar requiere confirmar y
+  moverse cancela. Los saltos a listas y búsqueda cierran Opciones; la salida
+  desde diagnóstico o sesión se propaga correctamente al reproductor.
+- Los cambios de colores, Unicode e inicio automático desde Opciones conservan
+  el valor anterior si no pueden guardarse. Ayuda y README actualizados;
+  pruebas de navegación, seguridad y composición incorporadas a GitHub Actions.
+- Catálogo migrado de TDTChannels a Radio Browser: descubrimiento de servidor,
+  `User-Agent` descriptivo, descarga local diaria con `hidebroken=true`,
+  límite configurable de resultados, normalización de país/código/estado/tags/
+  formato y filtro rápido por país dentro de búsqueda con `P` (por defecto
+  `ES`, configurable).
+- Búsqueda optimizada para catálogos grandes: la actualización genera un TSV
+  local podado y normalizado, `B` carga solo resultados visibles, el filtro usa
+  `awk` sobre ese índice y los comentarios personales siguen siendo buscables.
+  `--catalog-status` informa ahora de estado fresco/offline, edad, próxima
+  actualización, recuento, rutas y configuración; `--catalog-rebuild` y
+  `--catalog-update` regeneran el catálogo sin abrir la TUI.
+- Si el índice local está fresco, la TUI precarga los primeros resultados al
+  arrancar sin tomar el foco; `B` queda como entrada inmediata para editar la
+  búsqueda.
+- En pantallas `tiny` y `minimal`, la búsqueda integrada muestra solo nombres
+  de emisora por defecto; dentro del buscador `→` muestra detalles en todas las
+  filas visibles y `←` vuelve a ocultarlos para recuperar legibilidad en Termux.
+- En la búsqueda integrada, `Supr` limpia la consulta completa; `Ctrl+U` queda
+  reservado para los editores de texto como comentarios.
+- `[O] Opciones` pasa de hub básico a árbol operativo: añade categorías de
+  Reproducción y Emisoras, y permite ejecutar pausa, silencio, volumen,
+  búsqueda, catálogo, favoritos, comentarios, grabación, alarma, ecualizador,
+  espectrograma, sesión, diagnóstico, configuración y ayuda sin memorizar los
+  atajos directos.
+- La pantalla de reproducción reserva ocho líneas para canciones anteriores de
+  la emisora actual y usa la novena para mostrar la ruta del TXT de sesión,
+  evitando que la TUI se desplace conforme aparecen títulos nuevos. Cada sesión
+  interactiva crea un registro privado en texto con hora, emisora y título
+  detectado. El límite visual puede ajustarse temporalmente con
+  `KEILA_TRACK_HISTORY_DISPLAY_LIMIT`.
+- Nuevo visor `O > Sesión` para consultar desde la TUI el TXT de la sesión
+  actual con scroll, ruta visible y refresco en vivo mientras continúa el audio.
+- Pantalla `D` de diagnóstico en vivo dentro de la TUI: versión, Git, terminal,
+  reproductor, título, volumen, catálogo, resultados precargados, grabaciones,
+  pendientes y rutas XDG principales, sin detener el audio.
+- `--backup` y `--restore` para mover datos personales entre equipos: exporta
+  configuración, favoritos, comentarios, preferencias, estado, historial y
+  ecualizador; excluye grabaciones y cachés. La restauración valida antes de
+  escribir y crea un respaldo previo automático.
+- Los locks de datos con PID vacío o inválido se recuperan automáticamente para
+  evitar bloqueos tras cierres bruscos o suspensiones.
+- Gestor de grabaciones pendientes con `;`: detección inicial y comprobación
+  asíncronas, nombre/fecha/tamaño, escucha sin alterar historial, finalización
+  de verificadas y eliminación confirmada a papelera recuperable `.trash`.
+  Excluye grabaciones en curso y rechaza acciones si cambia el archivo.
+- Grabación con estados visibles «Preparando grabación», «Grabando» y «Cierre
+  pendiente»; los fallos de arranque limpian la reserva vacía.
+- Metadatos HLS reforzados: cuando `mpv` conserva fijo el primer título, Keila
+  lanza un sondeo auxiliar con `ffprobe` en segundo plano para leer de nuevo el
+  stream sin reiniciar la emisora. Si tampoco aparece un título nuevo, se aplica
+  caducidad configurable para no mantener una canción antigua indefinidamente.
+- Copia privada `.bak` de favoritos, comentarios, estado y preferencias;
+  recuperación al arrancar con preservación del original dañado y aviso.
+  Sin respaldo válido se detiene el arranque sin reemplazar datos. Validación
+  previa al guardado y pruebas de restauración fallida/corrupción doble.
+- Protección de datos: temporales exclusivos, detección de escrituras fallidas,
+  preferencias bajo bloqueo y creación inicial segura. Grabaciones con reserva
+  exclusiva del nombre y marcador `.pending` hasta cierre y verificación.
+  Pruebas de interrupción y concurrencia; garantías y límites en DATA-SAFETY.md.
+- Pantallas pequeñas: se ocultan el ecualizador de la pantalla principal y
+  los comentarios de Favoritas/Recientes, incluido su encabezado. Los datos
+  y ajustes se conservan y vuelven a mostrarse al ampliar la terminal.
+- Configuración con estados legibles, explicación por opción y restauración
+  confirmada sin borrar datos personales. Ayuda adaptada a terminales estrechas.
+- Reconexión automática conserva silencio y volumen desde el inicio de `mpv`;
+  corregido el tratamiento de pausa y de fallos iniciales sin emisora válida.
+- Corregido el borrado al introducir HH:MM en la alarma; el editor sigue
+  atendiendo los reintentos de conexión.
+- El separador de búsqueda conserva el contenido del panel izquierdo y encaja
+  con sus bordes. Encabezados de comentarios con el color del resto de títulos.
+- Selector de configuración con `,`: reproducción al inicio, colores, Unicode,
+  espectrograma y atajos de la pantalla principal; guardado privado y atómico.
+- Ayuda completa desplazable con `?`/`H`, mapa de atajos vigente y explicación
+  de los controles específicos de cada editor. Conflictos de teclas resueltos
+  mediante intercambio; encabezados actualizados con las asignaciones.
+- Restauración del volumen y reproducción opcional de la última emisora que
+  alcanzó audio real. La alarma permanece temporal y no se restaura.
+
+- Alarma de sesión con `L` y hora local HH:MM: reproduce la última emisora escuchada, una sola vez, con Keila abierto. Cancelación desde el editor y hora visible en la cabecera.
+- `M` silencia/restaura el sonido mediante mpv sin cambiar volumen ni interrumpir grabaciones; indicador MUTE y control de fallos IPC.
+- Cierre funcional: `X` gestiona el resultado de búsqueda; `F` y `R` salen del buscador hacia sus listas. Ayudas actualizadas a los atajos actuales.
+- Recientes incluye favoritas y conserva su selección al actualizar el historial o modificar Favoritas; prueba de recorrido completo con confirmación, décimo preset y navegación posterior.
+- Optimización de cachés gráficas, metadatos y filtrado documentada en `PERFORMANCE.md`.
+- `mpv` se inicia en un grupo de procesos privado y se cierra de forma acotada junto con su grupo; se valida el PID líder para evitar afectar a otras sesiones y se cubre la limpieza en pruebas.
+- Recuperación tras suspensión de Termux: detecta huecos largos del ciclo, valida IPC y progreso de audio, fuerza el redibujado y reutiliza la reconexión sin duplicar `mpv`; las grabaciones quedan protegidas.
+- Reconexión automática también para fallos iniciales: distingue emisora sin conexión, fallo de `mpv`, ausencia de audio y caída posterior, con mensajes claros, reintentos limitados y backoff.
+- Declarada la licencia del proyecto como GNU GPL v3 o posterior, con copyright y contacto de mantenimiento de Mauro Novellas.
+- En pantalla completa, `Emisoras favoritas` y `Recientes` se muestran lado a lado incluso si existen comentarios; ambas listas conservan scroll propio y los presets `0–9` reproducen desde la sección activa.
+- Añadidos atajos de sección: `E` salta a Emisoras, `R` a Recientes, `C` abre el comentario de la emisora seleccionada y `G` inicia o detiene la grabación. Los rótulos y la documentación pasan de «Etiquetas» a «Comentarios».
+- En terminales desktop anchas, Emisoras y Recientes se muestran en columnas paralelas dentro del panel de navegación; en terminales estrechas se conserva la disposición apilada.
+- Recuperados región y estilo en la información secundaria de los resultados de búsqueda; el truncado los oculta en columnas estrechas y mantiene las etiquetas personales al final.
+- Reducida la sobrecarga del refresco del espectro evitando crear un subproceso para consultar la hora en cada cuadro.
+- Añadida medición opcional de CPU y memoria en Linux, con sesiones comparables de espectro activado/desactivado, desglose observado por programa, resumen local y prueba del contador de procesos descendientes.
+- Los cambios exclusivos de título y datos técnicos actualizan dos filas de Ahora suena en escritorio; los cambios de estado y los modos pequeños conservan el redibujado completo. El diagnóstico mide esta ruta por separado.
+- Reducido el coste del redibujado completo: los helpers de relleno y texto usan truncado en el mismo proceso y generan espacios/bordes con operaciones internas de Bash.
+- Corregida una lectura potencialmente bloqueante de eventos: un JSON fragmentado conserva sus datos entre ticks y cada lectura tiene tiempo máximo.
+- Optimizado el dibujo del espectro: alturas y marcadores se calculan una vez por cuadro; se eliminan subprocesos para márgenes y filas del dibujo completo. Añadido benchmark con niveles cambiantes.
+- Reducido el coste del sondeo de eventos de `mpv`: la TUI ya no espera innecesariamente cuando no hay notificaciones y cada evento se parsea con una sola invocación de `jq`.
+- Las posiciones del rectángulo del espectro se calculan una sola vez por geometría de terminal, evitando lanzar `tput` repetidamente durante los redibujados completos.
+
+## [2.1.1] - 2026-09-07
+
+Versión de mantenimiento centrada en reducir el coste del analizador de espectro y añadir medición detallada de recursos en Linux.
+
+## [2.1.0] - 2026-09-07
+
+Segunda versión estable de Keila Radio Player, centrada en completar la experiencia de reproducción de escritorio y cerrar la línea `v2.1` con pruebas de rendimiento, reconexión y distribución portable para Linux.
+
+- Añadido empaquetado Linux reproducible con suma SHA-256, runtime limpio y prueba de extracción del launcher sin configuraciones ni grabaciones personales.
+- Añadidos cinco presets de ecualizador (`1` Plano, `2` Rock, `3` Pop, `4` Jazz y `5` Voz) dentro del modo `Z`, con aplicación inmediata y persistencia.
+- Añadido pico retenido por banda en el espectro: el marcador permanece unos cuadros y cae gradualmente para dar más continuidad visual sin añadir trabajo de captura.
+- Corregida la última banda del espectro: una columna de guarda evita que el borde vacío de `showfreqs` aparezca como una banda inmóvil.
+- Activada y documentada la reconexión automática tras una caída o un stream estancado, con backoff progresivo, protección durante grabaciones y sin destellos de error genérico en la TUI.
+- Añadido suavizado ligero entre cuadros del espectro para amortiguar ráfagas y pausas irregulares sin introducir procesos ni cambiar el audio.
+- Ajustada la tubería FFmpeg del espectro para evitar reprogramar cuadros ya generados y solicitar baja latencia (`nobuffer`, `low_delay`, `avioflags direct`, `fps_mode passthrough`).
+- La captura del espectro solicita latencia de 40 ms y procesamiento de 20 ms para evitar las ráfagas observadas de unos 700 ms. El backend PulseAudio directo usa fragmentos equivalentes a 20 ms de PCM mono.
+- Diagnóstico opcional de pausas en reproducción con `bash tests/profile-live.sh`: registra tiempos por etapa y cadencia de cuadros, y presenta un resumen al salir.
+- Refresco parcial del espectro con un límite de 20 Hz: actualiza solo el rectángulo de barras, sin reconstruir las listas. Los editores de etiquetas y ecualizador evitan redibujos completos en cada tick; las posiciones se recalculan al redimensionar.
+- El espectro usa amplitud logarítmica para destacar señales suaves y aprovechar más altura, conservando el refresco a 4 Hz y el audio original.
+- Corregido el reloj del espectro con coma decimal (configuración regional española), que provocaba errores aritméticos durante el refresco. La medición de rendimiento admite también ambos separadores.
+- Eliminados subprocesos por celda al dibujar las barras ampliadas. Añadida medición aislada del dibujo con `bash tests/render-benchmark.sh`, sin audio ni red.
+- Reorganizada la vista desktop: el ecualizador y el espectro ocupan todo el ancho de `Ahora suena`, y el analizador queda apilado debajo del ecualizador en lugar de compartir sus filas.
+- El analizador de espectro pasa a un gráfico vertical de ocho filas, igualando la altura visible del ecualizador. Agrupa las 16 bandas en hasta ocho columnas separadas y usa bloques parciales para distinguir mejor cada barra; la pantalla se actualiza a cuatro cuadros por segundo sin reducir la frecuencia de captura.
+
+- Corregido el buffering del analizador: entrega cuadros durante la captura continua sin esperar a cerrar el flujo. Prueba integral con PCM generado en tiempo real.
+
+- Añadido ecualizador de cinco bandas persistente: 60 Hz, 250 Hz, 1 kHz, 4 kHz y 12 kHz, ajustable desde la TUI con `Z` y restablecible a sonido plano.
+- Las cinco barras ampliadas del ecualizador permanecen dentro del panel normal; `Z` activa la edición en el sitio, `←`/`→` seleccionan frecuencia, `↑`/`↓` ajustan el valor, `C` centra la banda y `R` restablece las cinco.
+- Añadido analizador de espectro real de 16 bandas en el panel de reproducción de escritorio, con activación mediante `V`, captura sobre el monitor PulseAudio/PipeWire y degradación limpia cuando no está disponible.
+- La detección y la detención del proceso auxiliar del espectro tienen tiempos máximos y cierre forzado para que nunca bloqueen la entrada de la TUI.
+- El espectro usa `parec` cuando está disponible para capturar de forma más compatible el monitor PulseAudio/PipeWire y muestra 16 barras de altura variable, incluida una línea base visible sin señal.
+- `--check` informa del ecualizador y explica si el analizador carece de herramientas, backend o monitor de salida; los mismos motivos aparecen en la TUI cuando falla la captura.
+- Favoritos y BUSQUEDA EMISORAS muestran una columna de etiquetas personales; el encabezado se abrevia a «ETIQUETAS» al reducir el ancho. La separación del buscador utiliza el color de los demás bordes.
+
+- El catálogo se carga al abrir la TUI. La caché se muestra de inmediato y la descarga se realiza en segundo plano; un fallo de red conserva el catálogo anterior.
+- El panel Emisoras elimina las instrucciones duplicadas y aprovecha esa fila para mostrar resultados. `B` activa el filtro.
+- `E` edita una etiqueta personal de la emisora seleccionada en Favoritos, Recientes o búsqueda; Enter guarda, Esc cancela y Ctrl-U vacía. El filtro también encuentra etiquetas.
+- Recientes aparece bajo Favoritos, dentro del mismo recuadro, con navegación y reproducción mediante las teclas habituales. Conserva las últimas 20 emisoras distintas que alcanzaron audio y oculta las favoritas.
+- Etiquetas e historial se guardan de forma local y atómica en archivos XDG separados, sin cambiar el formato existente de favoritos.
+
 ## [2.0.0] - 2026-09-06
 
 Primera versión estable de Keila Radio Player 2.0. Promociona el código validado como `2.0.0-rc3` tras pruebas intensivas en Debian con `foot`, Termux/Android y uso adicional de terceros sin regresiones reportadas.

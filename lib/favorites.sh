@@ -2,6 +2,63 @@
 
 # Favoritos personales de Keila. El repositorio solo actúa como semilla inicial.
 
+# La confirmación de borrado vive en memoria y pertenece a la sesión actual.
+# Nunca se persiste: sirve únicamente como barrera contra pulsaciones accidentales.
+FAVORITES_CONFIRM_ACTION=''
+FAVORITES_CONFIRM_URL=''
+FAVORITES_CONFIRM_EXPIRES=0
+FAVORITES_CONFIRM_TIMEOUT="${KEILA_FAVORITES_CONFIRM_TIMEOUT:-4}"
+
+favorites_confirm_timeout_value() {
+    local timeout="${FAVORITES_CONFIRM_TIMEOUT:-4}"
+    [[ "$timeout" =~ ^[0-9]+$ ]] || timeout=4
+    ((timeout < 2)) && timeout=2
+    ((timeout > 10)) && timeout=10
+    printf '%s\n' "$timeout"
+}
+
+favorites_confirm_clear() {
+    FAVORITES_CONFIRM_ACTION=''
+    FAVORITES_CONFIRM_URL=''
+    FAVORITES_CONFIRM_EXPIRES=0
+}
+
+# Limpia una confirmación caducada. Devuelve 0 solo cuando había algo que
+# caducó, de modo que los bucles de UI puedan usarlo si alguna vez lo necesitan.
+favorites_confirm_expire() {
+    [[ -n "${FAVORITES_CONFIRM_ACTION:-}" ]] || return 1
+
+    local now="${EPOCHSECONDS:-$(date +%s)}"
+    if ((FAVORITES_CONFIRM_EXPIRES <= 0 || now > FAVORITES_CONFIRM_EXPIRES)); then
+        favorites_confirm_clear
+        return 0
+    fi
+    return 1
+}
+
+# Primera llamada: arma la confirmación y devuelve 2. Segunda llamada con la
+# misma acción y URL dentro de la ventana: confirma, limpia el estado y devuelve
+# 0. Una acción/URL distinta sustituye la confirmación anterior sin borrar nada.
+favorites_confirm_removal() {
+    local action="$1" url="$2"
+    [[ -n "$action" && -n "$url" ]] || return 1
+
+    local now="${EPOCHSECONDS:-$(date +%s)}"
+    local timeout
+    timeout=$(favorites_confirm_timeout_value)
+
+    if [[ "${FAVORITES_CONFIRM_ACTION:-}" == "$action" && "${FAVORITES_CONFIRM_URL:-}" == "$url" ]] &&
+        ((FAVORITES_CONFIRM_EXPIRES > 0 && now <= FAVORITES_CONFIRM_EXPIRES)); then
+        favorites_confirm_clear
+        return 0
+    fi
+
+    FAVORITES_CONFIRM_ACTION="$action"
+    FAVORITES_CONFIRM_URL="$url"
+    FAVORITES_CONFIRM_EXPIRES=$((now + timeout))
+    return 2
+}
+
 favorites_init() {
     local seed_file="${1:-}"
 
@@ -13,11 +70,13 @@ favorites_init() {
 
     local status=0
     if [[ ! -f "$KEILA_FAVORITES_FILE" ]]; then
+        local tmp
+        tmp=$(mktemp "${KEILA_FAVORITES_FILE}.tmp.XXXXXX") || { lock_release "$lock_dir"; return 1; }
         if [[ -n "$seed_file" && -f "$seed_file" ]]; then
-            cp "$seed_file" "$KEILA_FAVORITES_FILE" || status=1
-        else
-            : > "$KEILA_FAVORITES_FILE" || status=1
+            cp "$seed_file" "$tmp" || status=1
         fi
+        if ((status == 0)); then data_publish "$tmp" "$KEILA_FAVORITES_FILE" favorites || status=1; fi
+        if ((status)); then rm -f -- "$tmp"; fi
         if ((status == 0)); then
             chmod 600 "$KEILA_FAVORITES_FILE" 2>/dev/null || true
         fi
@@ -33,7 +92,7 @@ favorites_load() {
     [[ -f "$KEILA_FAVORITES_FILE" ]] || return 0
 
     local name url
-    while IFS='|' read -r name url; do
+    while IFS='|' read -r name url || [[ -n "$name" ]]; do
         [[ -n "${name:-}" && -n "${url:-}" ]] || continue
         FAVORITE_NAMES+=("$name")
         FAVORITE_URLS+=("$url")
@@ -42,7 +101,8 @@ favorites_load() {
 
 favorites_save_unlocked() {
     keila_init_paths || return 1
-    local tmp="${KEILA_FAVORITES_FILE}.tmp.${BASHPID:-$$}"
+    local tmp
+    tmp=$(mktemp "${KEILA_FAVORITES_FILE}.tmp.XXXXXX") || return 1
     local i status=0
     umask 077
 
@@ -52,7 +112,7 @@ favorites_save_unlocked() {
     done
 
     if ((status == 0)); then
-        mv -f "$tmp" "$KEILA_FAVORITES_FILE" || status=1
+        data_publish "$tmp" "$KEILA_FAVORITES_FILE" favorites || status=1
     fi
     if ((status == 0)); then
         chmod 600 "$KEILA_FAVORITES_FILE" 2>/dev/null || true
@@ -219,3 +279,6 @@ favorites_toggle() {
     lock_release "$lock_dir" || status=1
     return "$status"
 }
+
+# shellcheck source=lib/personal.sh
+source "$(dirname "${BASH_SOURCE[0]}")/personal.sh"

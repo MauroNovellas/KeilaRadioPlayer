@@ -4,6 +4,96 @@
 # izquierda y Favoritos queda como columna de navegación a la derecha.
 # Se carga después de ui-desktop.sh y redefine solo geometría/render desktop.
 
+declare -a UI_SPECTRUM_CURSOR=()
+declare -a UI_SPECTRUM_CURSOR_CACHE=()
+declare -a UI_PLAYER_HISTORY_CURSORS=()
+UI_SPECTRUM_CURSOR_CACHE_KEY=''
+UI_PLAYER_INFO_CURSOR_KEY=''
+UI_PLAYER_TITLE_CURSOR=''
+UI_PLAYER_AUDIO_CURSOR=''
+UI_PLAYER_HISTORY_HEADER_CURSOR=''
+UI_PLAYER_HISTORY_LOG_CURSOR=''
+
+# Metadatos, bitrate e historial breve ocupan filas fijas del panel.
+# No afectan a favoritos, búsqueda, volumen ni al rectángulo del espectro.
+ui_desktop_track_history_slots() {
+    local body_height="${1:-$(ui_desktop_body_height)}" limit
+
+    player_is_running || { printf '0\n'; return 0; }
+    declare -F track_history_display_limit >/dev/null 2>&1 || { printf '0\n'; return 0; }
+    limit=$(track_history_display_limit)
+
+    # Con 8 canciones: título, cabecera, 8 filas, ruta TXT, audio y volumen
+    # ocupan hasta la fila 13 del cuerpo; por debajo ocultamos el bloque para
+    # no pisar el borde ni provocar scroll en escritorios mínimos.
+    if ((body_height >= limit + 6)); then
+        printf '%s\n' "$limit"
+    else
+        printf '0\n'
+    fi
+}
+
+ui_draw_player_info_only() {
+    ((${PREFERENCES_ACTIVE:-0})) && return 1
+    ((UI_ACTIVE && !UI_SUSPENDED && !${INPUT_RESIZE_PENDING:-0})) || return 1
+    ui_desktop_enabled "$UI_COLS" "$UI_LINES" "$UI_LAYOUT_MODE" || return 1
+    local history_count=0 body_height i line
+    body_height=$(ui_desktop_body_height)
+    history_count=$(ui_desktop_track_history_slots "$body_height")
+    [[ "$UI_PLAYER_INFO_CURSOR_KEY" == "${TERM:-}|$UI_COLS|$UI_LINES|$UI_DESKTOP_LEFT_WIDTH|$history_count" ]] || return 1
+    [[ -n "$UI_PLAYER_TITLE_CURSOR" && -n "$UI_PLAYER_AUDIO_CURSOR" ]] || return 1
+    if ((history_count > 0)); then
+        [[ -n "$UI_PLAYER_HISTORY_HEADER_CURSOR" ]] || return 1
+        [[ -n "$UI_PLAYER_HISTORY_LOG_CURSOR" ]] || return 1
+        ((${#UI_PLAYER_HISTORY_CURSORS[@]} >= history_count)) || return 1
+    fi
+    local title='Sin título de emisión disponible' style=muted audio
+    if [[ -n "${PLAYER_STREAM_TITLE:-}" ]]; then
+        title="$UI_NOTE $PLAYER_STREAM_TITLE"
+        style=accent
+    fi
+    ui_audio_info state
+    audio=$UI_AUDIO_INFO
+    printf '%s' "$UI_PLAYER_TITLE_CURSOR"
+    ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$title" "$style"
+    if ((history_count > 0)); then
+        printf '%s' "$UI_PLAYER_HISTORY_HEADER_CURSOR"
+        ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" '  Canciones anteriores' accent
+        for ((i = 0; i < history_count; i++)); do
+            line=$(track_history_line "$i" "$UI_DESKTOP_LEFT_WIDTH" 2>/dev/null || true)
+            printf '%s' "${UI_PLAYER_HISTORY_CURSORS[i]}"
+            ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$line" muted
+        done
+        line=$(track_history_session_line "$UI_DESKTOP_LEFT_WIDTH" 2>/dev/null || true)
+        printf '%s' "$UI_PLAYER_HISTORY_LOG_CURSOR"
+        ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$line" muted
+    fi
+    printf '%s' "$UI_PLAYER_AUDIO_CURSOR"
+    ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$audio" muted
+    return 0
+}
+
+ui_desktop_prepare_spectrum_cursor() {
+    local graph_rows="$1"
+    local header_row="${2:-14}"
+    local cache_key="${UI_COLS}|${UI_LINES}|${UI_DESKTOP_LEFT_WIDTH}|${graph_rows}|${header_row}|${SPECTRUM_ENABLED:-0}"
+    local row
+
+    if [[ "$cache_key" == "$UI_SPECTRUM_CURSOR_CACHE_KEY" ]]; then
+        UI_SPECTRUM_CURSOR=("${UI_SPECTRUM_CURSOR_CACHE[@]}")
+        return 0
+    fi
+
+    UI_SPECTRUM_CURSOR=()
+    if ((SPECTRUM_ENABLED)); then
+        for ((row = 0; row < graph_rows; row++)); do
+            UI_SPECTRUM_CURSOR[row]=$(tput cup "$((row + header_row + 4))" 2 2>/dev/null || true)
+        done
+    fi
+    UI_SPECTRUM_CURSOR_CACHE=("${UI_SPECTRUM_CURSOR[@]}")
+    UI_SPECTRUM_CURSOR_CACHE_KEY="$cache_key"
+}
+
 ui_desktop_pane_widths() {
     local width="$1"
     local usable favorites now_playing
@@ -39,6 +129,24 @@ ui_desktop_row() {
     local right_badge_style="${8:-}"
     local selected="${9:-0}"
 
+    # Separador solo a la derecha; no borrar la fila del reproductor izquierdo.
+    if [[ "$right_style" == separator_label ]]; then
+        ui_style_begin muted
+        printf '%s' "$UI_V"
+        ui_style_end
+        printf ' '
+        ui_print_split_styled "$UI_DESKTOP_LEFT_WIDTH" "$left_text" "$left_badge" "$left_style" "$left_badge_style"
+        printf ' '
+        ui_style_begin muted
+        printf '%s' "$UI_ML"
+        ui_desktop_rule_segment "$((UI_DESKTOP_RIGHT_WIDTH + 2))" "$right_text" accent
+        ui_style_begin muted
+        printf '%s' "$UI_MR"
+        ui_style_end
+        printf '\n'
+        return 0
+    fi
+
     # La selección pertenece ahora al panel derecho de Favoritos.
     if ((selected)); then
         right_style='selected'
@@ -51,11 +159,27 @@ ui_desktop_row() {
     printf ' '
     ui_print_split_styled "$UI_DESKTOP_LEFT_WIDTH" "$left_text" "$left_badge" "$left_style" "$left_badge_style"
     printf ' '
+    if [[ "$right_style" == separator ]]; then
+        # La regla ocupa también los márgenes y conecta con ambos bordes.
+        ui_style_begin muted
+        printf '%s' "$UI_ML"
+        ui_repeat_char "$UI_H" "$((UI_DESKTOP_RIGHT_WIDTH + 2))"
+        printf '%s' "$UI_MR"
+        ui_style_end
+        printf '\n'
+        return 0
+    fi
     ui_style_begin muted
     printf '%s' "$UI_V"
     ui_style_end
     printf ' '
-    ui_print_split_styled "$UI_DESKTOP_RIGHT_WIDTH" "$right_text" "$right_badge" "$right_style" "$right_badge_style"
+    if (( ${UI_DESKTOP_NAV_COLUMNS:-0} )); then
+        ui_print_navigation_columns "$UI_DESKTOP_RIGHT_WIDTH" "$right_text" "${UI_DESKTOP_LEFT_COMMENT:-}" "$right_style" "$right_badge" "${UI_DESKTOP_RIGHT_COMMENT:-}" "$right_badge_style" "${UI_DESKTOP_LEFT_COMMENT_STYLE:-comment}" "${UI_DESKTOP_RIGHT_COMMENT_STYLE:-comment}"
+    elif (( ${UI_DESKTOP_SEARCH_COLUMNS:-0} )); then
+        ui_print_search_columns "$UI_DESKTOP_RIGHT_WIDTH" "$right_text" "${UI_DESKTOP_SEARCH_AMBIT:-}" "${UI_DESKTOP_SEARCH_COUNTRY:-}" "${UI_DESKTOP_SEARCH_FORMAT:-}" "${UI_DESKTOP_SEARCH_COMMENT:-}" "$right_style"
+    else
+        ui_print_split_styled "$UI_DESKTOP_RIGHT_WIDTH" "$right_text" "$right_badge" "$right_style" "$right_badge_style"
+    fi
     printf ' '
     ui_style_begin muted
     printf '%s' "$UI_V"
@@ -71,10 +195,35 @@ ui_draw_desktop() {
 
     ui_desktop_pane_widths "$width"
     ui_desktop_sync_selection "$body_height"
+    local track_history_count=0 history_header_row=2 history_first_row=3 history_log_row=3 audio_row=2 volume_row=3 equalizer_start_row=5
+    track_history_count=$(ui_desktop_track_history_slots "$body_height")
+    if ((track_history_count > 0)); then
+        history_log_row=$((history_first_row + track_history_count))
+        audio_row=$((history_log_row + 1))
+        volume_row=$((audio_row + 1))
+        equalizer_start_row=$((volume_row + 2))
+    fi
+    local info_key="${TERM:-}|$UI_COLS|$UI_LINES|$UI_DESKTOP_LEFT_WIDTH|$track_history_count"
+    if [[ "$info_key" != "$UI_PLAYER_INFO_CURSOR_KEY" ]]; then
+        UI_PLAYER_TITLE_CURSOR=$(tput cup 4 2 2>/dev/null || true)
+        UI_PLAYER_HISTORY_HEADER_CURSOR=''
+        UI_PLAYER_HISTORY_LOG_CURSOR=''
+        UI_PLAYER_HISTORY_CURSORS=()
+        if ((track_history_count > 0)); then
+            UI_PLAYER_HISTORY_HEADER_CURSOR=$(tput cup "$((history_header_row + 3))" 2 2>/dev/null || true)
+            local cursor_index
+            for ((cursor_index = 0; cursor_index < track_history_count; cursor_index++)); do
+                UI_PLAYER_HISTORY_CURSORS[cursor_index]=$(tput cup "$((history_first_row + cursor_index + 3))" 2 2>/dev/null || true)
+            done
+            UI_PLAYER_HISTORY_LOG_CURSOR=$(tput cup "$((history_log_row + 3))" 2 2>/dev/null || true)
+        fi
+        UI_PLAYER_AUDIO_CURSOR=$(tput cup "$((audio_row + 3))" 2 2>/dev/null || true)
+        UI_PLAYER_INFO_CURSOR_KEY=$info_key
+    fi
 
     ui_box_rule "$width" "$UI_TL" "$UI_TR"
     ui_box_center_line "$width" "$title" title
-    ui_desktop_header_rule "$width" 'AHORA SUENA' "FAVORITOS (${#FAVORITE_NAMES[@]})"
+    ui_desktop_header_rule "$width" 'AHORA SUENA' 'EMISORAS'
 
     local station station_style marker favorite_badge recording_badge state_badge
     marker=$(ui_player_marker)
@@ -97,7 +246,7 @@ ui_draw_desktop() {
     fi
 
     if ((RECORDING_ACTIVE)); then
-        recording_badge="[$UI_RECORD REC $(recording_elapsed_display)]"
+        recording_badge="[$UI_RECORD $(ui_recording_status_display)]"
     else
         recording_badge=''
     fi
@@ -124,7 +273,7 @@ ui_draw_desktop() {
         main_badge_style='favorite'
     fi
 
-    local audio_info=''
+    local audio_info='' track_history_line=''
     player_is_running && audio_info=$(ui_audio_info)
 
     local volume_bar_width volume_left volume_hint
@@ -134,82 +283,87 @@ ui_draw_desktop() {
     volume_left="VOL $(printf '%3s' "$PLAYER_VOLUME")%  $(ui_volume_bar "$volume_bar_width")"
     volume_hint='A/D  ←/→'
 
-    local row index fav_marker fav_badge fav_style fav_badge_style selected
+    local row index fav_marker preset_label fav_badge fav_style fav_badge_style selected
     local main_text main_badge main_style main_style_badge
+    local eq_row spectrum_row spectrum_header_row spectrum_graph_rows spectrum_visible_rows
+    spectrum_header_row=$((equalizer_start_row + 9))
+    spectrum_graph_rows="${SPECTRUM_DISPLAY_ROWS:-8}"
+    [[ "$spectrum_graph_rows" =~ ^[0-9]+$ ]] || spectrum_graph_rows=8
+    ((spectrum_graph_rows > 8)) && spectrum_graph_rows=8
+    spectrum_visible_rows=$((body_height - spectrum_header_row - 1))
+    ((spectrum_visible_rows < 0)) && spectrum_visible_rows=0
+    ((spectrum_graph_rows > spectrum_visible_rows)) && spectrum_graph_rows=$spectrum_visible_rows
+    ui_desktop_prepare_spectrum_cursor "$spectrum_graph_rows" "$spectrum_header_row"
     for ((row = 0; row < body_height; row++)); do
         main_text=''
         main_badge=''
         main_style=''
         main_style_badge=''
 
-        case "$row" in
-            0)
-                main_text="$marker $station"
-                main_badge="$main_badges"
-                main_style="$station_style"
-                main_style_badge="$main_badge_style"
-                ;;
-            1)
-                if player_is_running && [[ -n "${PLAYER_STREAM_TITLE:-}" ]]; then
-                    main_text="$UI_NOTE $PLAYER_STREAM_TITLE"
-                    main_style='accent'
-                else
-                    main_text='Sin título de emisión disponible'
-                    main_style='muted'
-                fi
-                ;;
-            2)
-                if [[ -n "$audio_info" ]]; then
-                    main_text="$audio_info"
-                    main_style='muted'
-                fi
-                ;;
-            4)
-                main_text='REPRODUCCIÓN'
-                main_badge=$(ui_player_status)
-                main_style='muted'
-                main_style_badge=$(ui_desktop_player_state_style)
-                ;;
-            5)
-                main_text="$volume_left"
-                main_badge="$volume_hint"
+        if ((row == 0)); then
+            main_text="$marker $station"
+            main_badge="$main_badges"
+            main_style="$station_style"
+            main_style_badge="$main_badge_style"
+        elif ((row == 1)); then
+            if player_is_running && [[ -n "${PLAYER_STREAM_TITLE:-}" ]]; then
+                main_text="$UI_NOTE $PLAYER_STREAM_TITLE"
                 main_style='accent'
-                main_style_badge='muted'
-                ;;
-            7)
-                main_text='GRABACIÓN'
-                if ((RECORDING_ACTIVE)); then
-                    main_badge="$UI_RECORD REC $(recording_elapsed_display)"
-                    main_style='record'
-                    main_style_badge='record'
-                else
-                    main_badge='Inactiva'
-                    main_style='muted'
-                    main_style_badge='muted'
+            else
+                main_text='Sin título de emisión disponible'
+                main_style='muted'
+            fi
+        elif ((track_history_count > 0 && row == history_header_row)); then
+            main_text='  Canciones anteriores'
+            main_style='accent'
+        elif ((track_history_count > 0 && row >= history_first_row && row < history_first_row + track_history_count)); then
+            track_history_line=$(track_history_line "$((row - history_first_row))" "$UI_DESKTOP_LEFT_WIDTH" 2>/dev/null || true)
+            main_text="$track_history_line"
+            main_style='muted'
+        elif ((track_history_count > 0 && row == history_log_row)); then
+            track_history_line=$(track_history_session_line "$UI_DESKTOP_LEFT_WIDTH" 2>/dev/null || true)
+            main_text="$track_history_line"
+            main_style='muted'
+        elif ((row == audio_row)); then
+            if [[ -n "$audio_info" ]]; then
+                main_text="$audio_info"
+                main_style='muted'
+            fi
+        elif ((row == volume_row)); then
+            main_text="$volume_left"
+            main_badge="$volume_hint"
+            main_style='accent'
+            main_style_badge='muted'
+        elif ((row >= equalizer_start_row && row < spectrum_header_row - 1)); then
+            # Ecualizador a ancho completo: sus cinco bandas ocupan todo el
+            # panel Ahora suena y ya no comparten fila con el espectro.
+            eq_row=$((row - equalizer_start_row))
+            ui_equalizer_wide_row "$eq_row" "$UI_DESKTOP_LEFT_WIDTH" >/dev/null
+            main_text="$UI_EQ_TEXT"
+            main_style="$UI_EQ_STYLE"
+            if ((row == equalizer_start_row)); then
+                if ((${EQUALIZER_EDITOR_ACTIVE:-0})); then
+                    # El encabezado conserva las cinco frecuencias completas;
+                    # la banda activa queda marcada en el eje central.
+                    main_badge=''
+                    main_style_badge=''
                 fi
-                ;;
-            8)
-                if ((RECORDING_ACTIVE)); then
-                    main_text=$(recording_filename)
-                    main_style='muted'
-                fi
-                ;;
-            10)
-                main_text='FAVORITO'
-                if player_is_running && favorites_find_url "$PLAYER_URL" >/dev/null 2>&1; then
-                    main_badge="$UI_FAVORITE Sí"
-                    main_style='muted'
-                    main_style_badge='favorite'
-                else
-                    main_badge='No'
-                    main_style='muted'
-                    main_style_badge='muted'
-                fi
-                ;;
-        esac
+            fi
+        elif ((row == spectrum_header_row)); then
+            main_text="[$(ui_shortcut v)] ESPECTROGRAMA"
+            main_style='playing'
+        elif ((SPECTRUM_ENABLED && row > spectrum_header_row && row <= spectrum_header_row + spectrum_graph_rows)); then
+            # El analizador se apila bajo el ecualizador y se estira hasta los
+            # mismos límites del panel, con columnas anchas y separadas.
+            spectrum_row=$((row - spectrum_header_row - 1))
+            ui_spectrum_editor_row_wide "$spectrum_row" "$UI_DESKTOP_LEFT_WIDTH" state
+            main_text=$UI_SPECTRUM_ROW_TEXT
+            main_style='playing'
+        fi
 
         index=$((UI_SCROLL_OFFSET + row))
         fav_marker='  '
+        preset_label=''
         fav_badge=''
         fav_style=''
         fav_badge_style=''
@@ -217,6 +371,11 @@ ui_draw_desktop() {
 
         if ((index < ${#FAVORITE_NAMES[@]})); then
             ((index == UI_SELECTED_INDEX)) && { fav_marker="$UI_SELECT "; selected=1; }
+            case "$index" in
+                0|1|2|3|4|5|6|7|8) preset_label="$((index + 1)). " ;;
+                9) preset_label='0. ' ;;
+                *) preset_label='   ' ;;
+            esac
 
             if player_is_running && [[ "${FAVORITE_URLS[$index]}" == "$PLAYER_URL" ]]; then
                 fav_style='playing'
@@ -228,7 +387,7 @@ ui_draw_desktop() {
                 fav_badge_style='muted'
             fi
 
-            fav_marker+="${FAVORITE_NAMES[$index]}"
+            fav_marker+="$preset_label${FAVORITE_NAMES[$index]}"
         else
             fav_marker=''
         fi
@@ -247,4 +406,28 @@ ui_draw_desktop() {
     fi
     ui_box_rule "$width" "$UI_BL" "$UI_BR"
     tput ed 2>/dev/null || true
+}
+
+# Posiciones preparadas tras cada dibujo completo y redimensionado. El tick
+# escribe solo el rectángulo del espectro, sin tput ni subprocesos por fila.
+ui_draw_spectrum_only() {
+    ((${PREFERENCES_ACTIVE:-0})) && return 1
+    ((UI_ACTIVE && !UI_SUSPENDED && SPECTRUM_ENABLED)) || return 1
+    ui_desktop_enabled "$UI_COLS" "$UI_LINES" "$UI_LAYOUT_MODE" || return 0
+    local row output='' style=''
+    # Reutilizar el cuadro completo evita recorrer ocho filas idénticas.
+    # Se sigue emitiendo: un redibujado completo puede haber borrado el panel.
+    local frame_key="$UI_DESKTOP_LEFT_WIDTH|${UI_SPECTRUM_CURSOR[*]}|${SPECTRUM_LEVELS[*]}|${SPECTRUM_PEAK_LEVELS[*]}|${SPECTRUM_DISPLAY_ROWS:-8}|${SPECTRUM_FRAME_ROWS:-16}|$UI_UNICODE|$UI_BAR_FULL|$UI_COLOR|$UI_BOLD|$UI_GREEN|$UI_RESET"
+    if [[ "$frame_key" == "${UI_SPECTRUM_FRAME_CACHE_KEY:-}" ]]; then
+        printf '%s' "$UI_SPECTRUM_FRAME_CACHE"
+        return 0
+    fi
+    if ((UI_COLOR)); then style="$UI_BOLD$UI_GREEN"; fi
+    for row in "${!UI_SPECTRUM_CURSOR[@]}"; do
+        ui_spectrum_editor_row_wide "$row" "$UI_DESKTOP_LEFT_WIDTH" state
+        output+="${UI_SPECTRUM_CURSOR[row]}$style$UI_SPECTRUM_ROW_TEXT$UI_RESET"
+    done
+    UI_SPECTRUM_FRAME_CACHE_KEY=$frame_key
+    UI_SPECTRUM_FRAME_CACHE=$output
+    printf '%s' "$output"
 }

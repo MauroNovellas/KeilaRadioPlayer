@@ -1,0 +1,6 @@
+keila-radio (2.1.1-1) unstable; urgency=medium
+
+  * Initial Debian packaging for the Keila Radio Player terminal application.
+  * License the program under GPL-3-or-later.
+
+ -- Mauro Novellas <mauro@novellas.es>  Tue, 08 Sep 2026 20:00:00 +0200
