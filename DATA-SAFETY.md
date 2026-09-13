@@ -2,6 +2,12 @@
 
 ## Garantías comprobadas
 
+- La parada final de una grabación es optativa, de sesión y confirmada con el
+  horario. Solo se ejecuta tras cerrar su archivo y comprobar de nuevo la ruta,
+  URL y proceso; no detiene otra escucha ni se activa por una cancelación manual.
+  Conserva archivos dudosos, cancela reintentos y respeta alarmas futuras. El
+  silencio y volumen de salida no se aplican a la copia del stream: se verifica
+  con audio sintético a volumen cero/silenciado y medición del archivo resultante.
 - La grabación programada es una reserva en memoria con confirmación de fecha,
   emisora y final. No modifica favoritas ni instala tareas del sistema. Usa la
   reserva exclusiva y los marcadores del grabador habitual; no crea el archivo

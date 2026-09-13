@@ -84,8 +84,12 @@ pendientes/fallidos. `record-schedule-menu.sh` comprueba selección sin reproduc
 HHMM automático, borradores, confirmación caducada, cancelación y terminal mínima.
 Los formularios y la revisión se incluyen en las pruebas de layout responsive.
 `record-schedule-audio.sh` conecta el tick real de la aplicación con mpv y una
-fuente MP3 sintética local: comprueba silencio por IPC, escritura, marcador,
-cierre verificado y reproducción del resultado. Solo adelanta el final previsto
+fuente MP3 sintética local: comprueba silencio/volumen por IPC, escritura,
+marcador, cierre verificado y reproducción del resultado. Prueba continuar y
+parar al finalizar, sin procesos huérfanos. Mide el nivel medio del audio
+guardado y lo compara con el original (tolerancia de 1 dB), también silenciado
+y con volumen cero. Los tests de estados/menús cubren confirmación, cancelación,
+alarmas, cierres pendientes y protección de otras grabaciones. Solo adelanta el final previsto
 para no esperar un minuto; no utiliza emisoras remotas ni altavoces.
 `m3u-files.sh` verifica BOM/CRLF, duplicados, límites, entradas no admitidas,
 ida y vuelta, privacidad, fusión bloqueada, escritura fallida y colisiones.

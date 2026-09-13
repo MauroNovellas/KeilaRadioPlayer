@@ -62,7 +62,7 @@ for geometry in '160 45' '110 24' '97 16' '96 16' '80 24' '62 16' '50 13' '42 11
                 ayuda) preferences_build_rows help; frame=$(panel_draw AYUDA 0 0 'Enter detalle | Esc volver' '') ;;
                 alarma) frame=$(alarm_editor_draw '12:3') ;;
                 parada) frame=$(station_field_draw 'PARADA EN MINUTOS' '1440' 'Solo esta sesión; Esc conserva el plazo anterior.') ;;
-                programacion) frame=$(record_plan_form_draw 'Una emisora con nombre largo' 'https://radio.invalid/audio' '12:30' 1440 0 0 '') ;;
+                programacion) frame=$(record_plan_form_draw 'Una emisora con nombre largo' 'https://radio.invalid/audio' '12:30' 1440 3 0 '' 1) ;;
                 confirmar_programacion) frame=$(record_plan_confirm_draw 'CONFIRMAR PROGRAMACIÓN' 'Fecha, inicio, final y emisora que deben revisarse antes de confirmar.') ;;
                 hora_grabacion) frame=$(station_field_draw 'HORA DE GRABACIÓN' '12:3' 'Introduce cuatro cifras HHMM.') ;;
                 m3u) frame=$(m3u_draw import '/una/ruta/muy/larga/favoritas.m3u' 0 0 '') ;;

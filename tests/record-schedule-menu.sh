@@ -72,6 +72,25 @@ RECORD_PLAN_STATE=pending
 feed ENTER
 app_record_plan_confirm cancel || fail cancelar
 [[ $RECORD_PLAN_STATE == cancelled ]] || fail 'no cancela'
+# La opción se edita en borrador, queda en la revisión y admite cursores/Enter.
+panel_poll() { return 1; }
+record_plan_arm 'Radio Uno' https://uno.invalid/ "$saved" "$end" || fail armar
+feed KEY ESC; keys=(p '')
+app_edit_record_plan && fail 'borrador aceptado con Esc'
+((RECORD_PLAN_STOP_AFTER == 0)) || fail 'toggle guarda antes de confirmar'
+feed KEY KEY ENTER; keys=(p g '')
+app_edit_record_plan || fail 'confirmar opción de parada'
+((RECORD_PLAN_STOP_AFTER == 1)) || fail 'pierde parada al confirmar'
+feed KEY ENTER; keys=(g '')
+app_edit_record_plan || fail 'reeditar reserva'
+((RECORD_PLAN_STOP_AFTER == 1)) || fail 'edición no precarga parada anterior'
+feed DOWN DOWN DOWN ENTER END ENTER ENTER
+app_edit_record_plan || fail 'navegación de nueva fila'
+((RECORD_PLAN_STOP_AFTER == 0)) || fail 'Enter no alterna parada'
+feed ESC
+app_record_plan_confirm arm 'Radio Dos' https://dos.invalid/ "$saved" "$end" 'Horario exacto' 1 && fail 'Esc confirma parada'
+((RECORD_PLAN_STOP_AFTER == 0)) || fail 'revisión cancelada altera parada'
+RECORD_PLAN_STATE=cancelled
 options_build_rows record_plan
 [[ ${#OPTIONS_ROWS[@]} == 3 ]] || fail 'menú incompleto'
 options_action_reason plan_cancel

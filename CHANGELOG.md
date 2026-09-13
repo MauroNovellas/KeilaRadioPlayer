@@ -4,6 +4,13 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - próxima release
 
+- Grabación programada: opción P «Parar reproducción al finalizar», desactivada
+  por defecto y revisable antes de confirmar. Cierra el archivo antes de detener
+  su radio/reintentos; no apaga el dispositivo ni cierra Keila. No actúa sobre
+  cancelaciones manuales, reservas omitidas u otra reproducción. Conserva alarmas
+  futuras. Regresiones de opción, borrador, cierre y propiedad del archivo; mpv
+  real comprueba ambos finales y que silencio/volumen cero conservan el nivel
+  original del audio guardado, sin recodificar ni añadir un control de ganancia.
 - Opciones > Temporizador > Grabación programada: favorita, hora HHMM, duración,
   revisión y confirmación; estado consultable y cancelación segura. Una reserva
   por sesión, sin procesos de planificación ni escrituras periódicas. Conserva

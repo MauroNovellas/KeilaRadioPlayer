@@ -16,7 +16,7 @@ fail() { printf 'FAIL %s\n' "$*" >&2; exit 1; }
 state() { [[ "$RECORD_PLAN_STATE" == "$1" ]] || fail "$2: $RECORD_PLAN_STATE != $1"; }
 app_message() { UI_MESSAGE=$1; }
 player_is_running() { ((RUNNING)); }
-player_stop() { STOPS=$((STOPS+1)); RUNNING=0 PLAYER_PID=''; }
+player_stop() { STOPS=$((STOPS+1)); STOP_ACTIVE=$RECORDING_ACTIVE; RUNNING=0 PLAYER_PID=''; }
 pending_preview_stop() { :; }
 spectrum_stop() { :; }
 app_play() {
@@ -53,7 +53,7 @@ reset_case() {
     PLAYS=0 STARTS=0 CLOSES=0 STOPS=0
     ALARM_AT=0 SLEEP_TIMER_AT=0 PENDING_PREVIEW_PID='' BACKUP_DATA_BUSY=0
     app_reconnect_reset
-    record_plan_arm Radio https://radio.invalid/ "$((EPOCHSECONDS+60))" "$((EPOCHSECONDS+180))" || fail armar
+    record_plan_arm Radio https://radio.invalid/ "$((EPOCHSECONDS+60))" "$((EPOCHSECONDS+180))" "$EPOCHSECONDS" "${1:-0}" || fail armar
 }
 due() { EPOCHSECONDS=$RECORD_PLAN_AT; record_plan_tick || fail inicio; }
 ready() { PLAYER_STREAM_READY=1; record_plan_tick || fail preparar; }
@@ -157,4 +157,49 @@ CLOSE_MODE=ok; recording_stop; record_plan_tick; state 'done' 'cierre asíncrono
 reset_case; due; ready; RUNNING=0; record_plan_tick; state failed 'mpv terminó antes de tiempo'
 [[ $RECORD_PLAN_NOTE == *incompleta* && $RECORD_PLAN_NOTE == *verificado* ]] || fail 'oculta interrupción de archivo reproducible'
 
-printf 'ok   programación: reloj, espera de audio, disparo único, conflictos, identidad y cierre simulados\n'
+# Parada optativa solo al final previsto y después del cierre del archivo.
+reset_case
+((RECORD_PLAN_STOP_AFTER == 0)) || fail 'parada activada por defecto'
+for value in 2 -1 yes '1+1'; do
+    record_plan_arm Radio https://radio.invalid/ "$RECORD_PLAN_AT" "$RECORD_PLAN_END" "$EPOCHSECONDS" "$value" && fail 'parada inválida'
+    ((RECORD_PLAN_STOP_AFTER == 0)) || fail 'entrada inválida altera reserva'
+done
+reset_case 1; due; ready
+APP_RECONNECT_ELIGIBLE=1 APP_RECONNECT_NEXT_AT=$((EPOCHSECONDS+30))
+EPOCHSECONDS=$RECORD_PLAN_END; ALARM_AT=$((EPOCHSECONDS+60)) ALARM_LABEL=futura
+record_plan_tick; state 'done' 'parada al final'
+((STOPS == 1 && STOP_ACTIVE == 0 && CLOSES == 1 && RUNNING == 0)) || fail 'parada antes de cerrar o duplicada'
+((APP_RECONNECT_ELIGIBLE == 0 && APP_RECONNECT_NEXT_AT == 0)) || fail 'reconexión tras parada'
+[[ $ALARM_LABEL == futura && $PLAYER_MUTED == 1 && $PLAYER_VOLUME == 37 ]] || fail 'pierde alarma o volumen'
+[[ $RECORD_PLAN_NOTE == *'Reproducción detenida'* ]] || fail 'falta aviso de parada'
+record_plan_status
+[[ $RECORD_PLAN_DETAIL == *'Al finalizar: Parar reproducción'* ]] || fail 'estado oculta opción'
+record_plan_tick && fail 'repite parada'
+reset_case 1; due; ready; EPOCHSECONDS=$RECORD_PLAN_END; ALARM_AT=$EPOCHSECONDS ALARM_LABEL=vencida
+record_plan_tick
+((ALARM_AT == 0)) || fail 'alarma vencida reactiva radio'
+reset_case 1; due; ready; record_plan_cancel; record_plan_tick
+state cancelled 'cancelación no activa parada'; ((STOPS == 0)) || fail 'cancelar apaga radio'
+reset_case 1; record_plan_cancel; ((STOPS == 0)) || fail 'reserva cancelada apaga radio'
+reset_case 1; due; ready; CLOSE_MODE=failed; EPOCHSECONDS=$RECORD_PLAN_END
+record_plan_tick; state failed 'archivo dudoso con parada'
+((STOPS == 1 && STOP_ACTIVE == 0)) || fail 'error de validación impide parada'
+reset_case 1; due; ready; CLOSE_MODE=pending; EPOCHSECONDS=$RECORD_PLAN_END; record_plan_tick
+((STOPS == 0)) || fail 'parada sin cerrar archivo'
+CLOSE_MODE=ok; recording_stop; record_plan_tick
+state 'done' 'cierre asíncrono con parada'; ((STOPS == 1)) || fail 'olvida parada asíncrona'
+reset_case 1; due; ready; CLOSE_MODE=pending; EPOCHSECONDS=$RECORD_PLAN_END; record_plan_tick
+EPOCHSECONDS=$RECORD_PLAN_CLOSE_UNTIL; ALARM_AT=$EPOCHSECONDS; CLOSE_MODE=force; record_plan_tick
+((STOPS == 1)) || fail 'duplica parada forzada'
+((ALARM_AT == 0)) || fail 'alarma vencida reactiva radio tras cierre forzado'
+reset_case 1; due; ready; RECORDING_FILE=/simulada/manual.ts; EPOCHSECONDS=$RECORD_PLAN_END; record_plan_tick
+((STOPS == 0 && CLOSES == 0)) || fail 'parada afecta otra grabación'
+reset_case 1; due; ready; PLAYER_PID=999; EPOCHSECONDS=$RECORD_PLAN_END; record_plan_tick
+((STOPS == 0)) || fail 'parada afecta otro proceso'
+reset_case 1; due; ready; PENDING_PREVIEW_PID=999; EPOCHSECONDS=$RECORD_PLAN_END; record_plan_tick
+((STOPS == 0)) || fail 'parada afecta otra escucha'
+reset_case 1; RECORDING_ACTIVE=1; due; EPOCHSECONDS=$RECORD_PLAN_END; record_plan_tick || true
+state skipped 'manual prioritaria con parada'; ((STOPS == 0)) || fail 'reserva omitida apaga radio'
+reset_case 1; due; ready; RUNNING=0; record_plan_tick
+((STOPS == 0 && RECORD_PLAN_END_REACHED == 0)) || fail 'fallo temprano dispara parada de fin'
+printf 'ok   programación: reloj, conflictos, identidad, cierre y parada optativa simulados\n'

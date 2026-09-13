@@ -7,6 +7,12 @@ RECORD_PLAN_LABEL='' RECORD_PLAN_NOTE='' RECORD_PLAN_ERROR=''
 RECORD_PLAN_CONNECT_UNTIL=0 RECORD_PLAN_CLOSE_UNTIL=0 RECORD_PLAN_CHECK_AT=0
 RECORD_PLAN_RESULT='done'
 RECORD_PLAN_END_REASON=''
+RECORD_PLAN_STOP_AFTER=0 RECORD_PLAN_END_REACHED=0
+
+record_plan_after_label() {
+    RECORD_PLAN_AFTER_LABEL='Seguir escuchando'
+    [[ $1 != 1 ]] || RECORD_PLAN_AFTER_LABEL='Parar reproducción'
+}
 
 record_plan_busy() {
     case "$RECORD_PLAN_STATE" in connecting|preparing|recording|closing) return 0 ;; *) return 1 ;; esac
@@ -31,7 +37,8 @@ record_plan_status() {
         cancelled) RECORD_PLAN_STATUS='Cancelada / interrumpida' ;;
         *) RECORD_PLAN_STATUS='Sin programar' ;;
     esac
-    RECORD_PLAN_DETAIL="Emisora: ${RECORD_PLAN_NAME:-sin elegir}. ${RECORD_PLAN_LABEL:-Sin horario}. Archivo: ${RECORD_PLAN_FILE:-se reservará al iniciar}. ${RECORD_PLAN_NOTE}"
+    record_plan_after_label "$RECORD_PLAN_STOP_AFTER"
+    RECORD_PLAN_DETAIL="Emisora: ${RECORD_PLAN_NAME:-sin elegir}. ${RECORD_PLAN_LABEL:-Sin horario}. Al finalizar: $RECORD_PLAN_AFTER_LABEL. Archivo: ${RECORD_PLAN_FILE:-se reservará al iniciar}. ${RECORD_PLAN_NOTE}"
 }
 
 record_plan_prepare() {
@@ -53,10 +60,11 @@ record_plan_prepare() {
 }
 
 record_plan_arm() {
-    local name=$1 url=$2 at=$3 end=$4 now=${5:-$EPOCHSECONDS}
+    local name=$1 url=$2 at=$3 end=$4 now=${5:-$EPOCHSECONDS} stop_after=${6:-0}
     RECORD_PLAN_ERROR=''
     record_plan_busy && { RECORD_PLAN_ERROR='Ya hay una programación en curso. Cancélala o espera su cierre.'; return 1; }
     station_manual_valid "$name" "$url" || { RECORD_PLAN_ERROR='Emisora no válida.'; return 1; }
+    [[ "$stop_after" == 0 || "$stop_after" == 1 ]] || { RECORD_PLAN_ERROR='Elige Sí o No para parar al finalizar.'; return 1; }
     if [[ ! "$at" =~ ^[1-9][0-9]{0,10}$ || ! "$end" =~ ^[1-9][0-9]{0,10}$ ]] ||
         ((at <= now || at > now+172800 || end-at < 60 || end-at > 86400)); then
         RECORD_PLAN_ERROR='El horario ya pasó o no es válido. Vuelve y revisa la programación.'; return 1
@@ -66,6 +74,7 @@ record_plan_arm() {
     RECORD_PLAN_LABEL="Inicio: $(date -d "@$at" '+%d/%m/%Y %H:%M'). Fin: $(date -d "@$end" '+%d/%m/%Y %H:%M') (hora local)"
     RECORD_PLAN_NOTE='Mantén Keila abierto y el equipo despierto.'
     RECORD_PLAN_CHECK_AT=0 RECORD_PLAN_RESULT='done' RECORD_PLAN_END_REASON=''
+    RECORD_PLAN_STOP_AFTER=$stop_after RECORD_PLAN_END_REACHED=0
     app_message "Grabación programada: $name. $RECORD_PLAN_LABEL." 10
 }
 
@@ -86,6 +95,8 @@ record_plan_blocks_alarm() {
 }
 
 record_plan_cancel() {
+    # Cancelar manualmente no activa la parada prevista para el final del horario.
+    RECORD_PLAN_END_REACHED=0
     if record_plan_owns_file && record_plan_busy; then
         RECORD_PLAN_STATE=closing RECORD_PLAN_RESULT=cancelled
         RECORD_PLAN_CLOSE_UNTIL=$((EPOCHSECONDS+5)) RECORD_PLAN_CHECK_AT=0
@@ -109,11 +120,30 @@ record_plan_manual_play() {
     return 0
 }
 
+record_plan_stop_after() {
+    RECORD_PLAN_AFTER_NOTE=''
+    ((RECORD_PLAN_STOP_AFTER && RECORD_PLAN_END_REACHED && !RECORDING_ACTIVE)) || return 0
+    # Una reproducción o escucha nueva nunca pertenece a esta programación.
+    [[ -n "$RECORD_PLAN_PID" && "$PLAYER_PID" == "$RECORD_PLAN_PID" &&
+        "$PLAYER_URL" == "$RECORD_PLAN_URL" && "$RECORDING_FILE" == "$RECORD_PLAN_FILE" &&
+        -z "${PENDING_PREVIEW_PID:-}" ]] || return 0
+    app_reconnect_reset
+    spectrum_stop
+    player_stop
+    app_reconnect_reset
+    # Como en la parada por minutos: no reactivar por una alarma ya vencida,
+    # pero conservar la que el usuario haya programado para más adelante.
+    if ((${ALARM_AT:-0} > 0 && ALARM_AT <= EPOCHSECONDS)); then ALARM_AT=0 ALARM_LABEL=''; fi
+    RECORD_PLAN_AFTER_NOTE=' Reproducción detenida al finalizar; Keila sigue abierto.'
+}
+
 record_plan_closed() {
-    if ((${RECORDING_LAST_VERIFIED:-0})) && [[ -z "${RECORDING_LAST_ERROR:-}" ]]; then
-        record_plan_finish "$RECORD_PLAN_RESULT" "${RECORD_PLAN_END_REASON}Archivo cerrado y verificado: $RECORD_PLAN_FILE"
+    local status=${1:-0}
+    record_plan_stop_after
+    if ((status == 0 && ${RECORDING_LAST_VERIFIED:-0})) && [[ -z "${RECORDING_LAST_ERROR:-}" ]]; then
+        record_plan_finish "$RECORD_PLAN_RESULT" "${RECORD_PLAN_END_REASON}Archivo cerrado y verificado: $RECORD_PLAN_FILE${RECORD_PLAN_AFTER_NOTE}"
     else
-        record_plan_finish failed "Archivo conservado para revisión: $RECORD_PLAN_FILE. ${RECORDING_LAST_ERROR:-No se pudo verificar el audio.}"
+        record_plan_finish failed "Archivo conservado para revisión: $RECORD_PLAN_FILE. ${RECORDING_LAST_ERROR:-No se pudo verificar el audio.}${RECORD_PLAN_AFTER_NOTE}"
     fi
 }
 
@@ -181,6 +211,7 @@ record_plan_tick() {
             fi
             if [[ "$RECORD_PLAN_STATE" != closing ]] && { ((now >= RECORD_PLAN_END)) || ! player_is_running; }; then
                 RECORD_PLAN_STATE=closing RECORD_PLAN_CLOSE_UNTIL=$((now+5)) RECORD_PLAN_CHECK_AT=0
+                ((now < RECORD_PLAN_END)) || RECORD_PLAN_END_REACHED=1
                 RECORD_PLAN_NOTE='Finalizando el archivo.'
                 if ! player_is_running; then
                     RECORD_PLAN_RESULT=failed
@@ -195,6 +226,11 @@ record_plan_tick() {
                     # Solo el reproductor/archivo que pertenecen a esta reserva.
                     app_reconnect_reset
                     player_stop
+                    # El cierre forzado ya detuvo nuestra radio: aplicar también
+                    # la prioridad frente a alarmas vencidas, sin volver a pararla.
+                    if ((RECORD_PLAN_STOP_AFTER && RECORD_PLAN_END_REACHED && ${ALARM_AT:-0} > 0 && ALARM_AT <= EPOCHSECONDS)); then
+                        ALARM_AT=0 ALARM_LABEL=''
+                    fi
                     status=0; recording_stop || status=$?
                     if ((status == 2)); then
                         record_plan_finish failed "No se confirmó el cierre. Archivo y marcador conservados: $RECORD_PLAN_FILE"
@@ -202,9 +238,7 @@ record_plan_tick() {
                     fi
                 fi
                 if ((status != 2)); then
-                    if ((status == 0)); then
-                        record_plan_closed
-                    else record_plan_finish failed "Archivo conservado para revisión: $RECORD_PLAN_FILE. ${RECORDING_LAST_ERROR:-No se pudo verificar el cierre.}"; fi
+                    record_plan_closed "$status"
                 fi
                 return 0
             fi

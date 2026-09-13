@@ -244,7 +244,7 @@ options_build_rows() {
             OPTIONS_TITLE='GRABACIÓN PROGRAMADA'
             record_plan_status
             options_add_row I 'Estado y horario' "$RECORD_PLAN_DETAIL" plan_info "$RECORD_PLAN_STATUS"
-            options_add_row N 'Nueva programación' 'Elige una favorita, HHMM y minutos. Revisa inicio/fin antes de confirmar. Sustituye solo una programación pendiente; nunca una grabación en curso.' plan_edit
+            options_add_row N 'Nueva programación' 'Elige una favorita, HHMM y minutos; P permite parar la reproducción al finalizar. Revisa inicio/fin y esa opción antes de confirmar. Sustituye solo una programación pendiente; nunca una grabación en curso.' plan_edit
             options_add_row X 'Cancelar / detener programación' 'Pide confirmación. Cancela la reserva o cierra únicamente su propia grabación, conservando el archivo y la radio actual.' plan_cancel
             ;;
         sleep)

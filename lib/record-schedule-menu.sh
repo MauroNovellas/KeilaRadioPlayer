@@ -4,11 +4,13 @@
 source "$(dirname "${BASH_SOURCE[0]}")/record-schedule.sh"
 
 record_plan_form_draw() {
-    local name=$1 url=$2 hour=$3 minutes=$4 selected=$5 offset=$6 notice=$7
+    local name=$1 url=$2 hour=$3 minutes=$4 selected=$5 offset=$6 notice=$7 stop_after=${8:-0} stop_badge=No
+    [[ "$stop_after" != 1 ]] || stop_badge=Sí
     PANEL_ROWS=()
     panel_add_row E 'Emisora favorita' "Emisora: ${name:-sin elegir}. URL: $url. La programación conserva esta selección aunque después cambien tus favoritas." "${name:-Elegir}"
     panel_add_row H 'Hora de inicio' 'Escribe HHMM; los dos puntos se añaden solos. Si esa hora ya pasó, se propondrá mañana. La fecha exacta se revisa antes de confirmar.' "${hour:-HH:MM}"
     panel_add_row D 'Duración en minutos' 'De 1 a 1440. El final se calcula desde la hora prevista, no desde cuando llegue el audio.' "$minutes min"
+    panel_add_row P 'Parar reproducción al finalizar' 'Al activarla, cierra el archivo y detiene la radio al llegar al final previsto. No apaga el equipo ni cierra Keila. Una cancelación manual no activa esta parada. Las alarmas futuras se conservan. Para dormir en silencio, usa M en la pantalla principal: se graba el audio original, independiente del volumen y del silencio.' "$stop_badge"
     panel_add_row G 'Revisar programación' 'Todavía no guarda: muestra emisora, fecha, inicio y final. Solo una programación por sesión. Puede cambiar la radio actual; no restaura la emisora anterior. Mantén Keila abierto y el equipo despierto.' 'Confirmación'
     panel_draw 'PROGRAMAR GRABACIÓN' "$selected" "$offset" 'Enter editar | G revisar | Esc volver' "$notice"
 }
@@ -77,12 +79,13 @@ record_plan_confirm_draw() {
 }
 
 app_record_plan_confirm() {
-    local action=$1 name=${2:-} url=${3:-} at=${4:-0} end=${5:-0} label=${6:-}
+    local action=$1 name=${2:-} url=${3:-} at=${4:-0} end=${5:-0} label=${6:-} stop_after=${7:-0}
     # FILE pertenece al motor cargado arriba; FIELD es solo la entrada del editor.
     # shellcheck disable=SC2153
     local redraw=1 notice='' detail token="$RECORD_PLAN_STATE|$RECORD_PLAN_AT|$RECORD_PLAN_FILE|$RECORD_PLAN_PID"
     if [[ "$action" == arm ]]; then
-        detail="Emisora: $name. URL: $url. $label. Carpeta: ${RECORDINGS_DIR:-sin configurar}. Sustituye la programación pendiente anterior. Usa la radio actual y respeta volumen/silencio, pero puede cambiar la emisora. No restaura la anterior. Si ya grabas, escuchas un archivo o restauras datos al inicio, se omite. La parada automática puede interrumpirla. Keila debe seguir abierto y el equipo despierto. Solo esta sesión."
+        record_plan_after_label "$stop_after"
+        detail="Emisora: $name. $label. Al finalizar: $RECORD_PLAN_AFTER_LABEL. URL: $url. Carpeta: ${RECORDINGS_DIR:-sin configurar}. Sustituye la programación pendiente anterior. Respeta volumen/silencio; el archivo conserva el audio original incluso silenciado. Puede cambiar la emisora; no restaura la anterior. Si ya grabas, escuchas un archivo o restauras datos al inicio, se omite. La parada automática puede interrumpirla. Parar al finalizar no apaga el equipo ni cierra Keila; conserva alarmas futuras. Keila debe seguir abierto y el equipo despierto. Solo esta sesión."
     else
         record_plan_status
         detail="$RECORD_PLAN_DETAIL. Confirma cancelar esta programación; si su grabación está activa, se cerrará de forma segura, sin borrar el archivo ni detener otra grabación."
@@ -105,7 +108,7 @@ app_record_plan_confirm() {
                 [[ "$INPUT_EVENT" == ENTER || "${INPUT_KEY,,}" == g ]] || continue
                 if ((UI_COLS < 20 || UI_LINES < 6)); then notice='Amplía la terminal antes de confirmar.'; continue; fi
                 if [[ "$action" == arm ]]; then
-                    if record_plan_arm "$name" "$url" "$at" "$end"; then return 0; fi
+                    if record_plan_arm "$name" "$url" "$at" "$end" "$EPOCHSECONDS" "$stop_after"; then return 0; fi
                     notice=$RECORD_PLAN_ERROR
                 else
                     if [[ "$token" != "$RECORD_PLAN_STATE|$RECORD_PLAN_AT|$RECORD_PLAN_FILE|$RECORD_PLAN_PID" ]]; then
@@ -118,17 +121,18 @@ app_record_plan_confirm() {
 }
 
 app_edit_record_plan() {
-    local name='' url='' hour='' minutes=30 selected=0 offset=0 redraw=1 notice='' key
+    local name='' url='' hour='' minutes=30 stop_after=0 selected=0 offset=0 redraw=1 notice='' key
     local PANEL_SELECTED=0 PANEL_SCROLL=0 PANEL_VISIBLE=1
     local -a PANEL_ROWS=()
     if [[ "$RECORD_PLAN_STATE" == pending ]]; then
         name=$RECORD_PLAN_NAME url=$RECORD_PLAN_URL
         hour=$(date -d "@$RECORD_PLAN_AT" +%H:%M)
         minutes=$(((RECORD_PLAN_END-RECORD_PLAN_AT)/60))
+        stop_after=$RECORD_PLAN_STOP_AFTER
     fi
     while true; do
         if ((redraw)); then
-            record_plan_form_draw "$name" "$url" "$hour" "$minutes" "$selected" "$offset" "$notice"
+            record_plan_form_draw "$name" "$url" "$hour" "$minutes" "$selected" "$offset" "$notice" "$stop_after"
             selected=$PANEL_SELECTED offset=$PANEL_SCROLL
         fi
         input_read || return 1
@@ -138,19 +142,20 @@ app_edit_record_plan() {
             RESIZE) ;;
             TICK) redraw=0; panel_poll && redraw=1 ;;
             UP|DOWN|HOME|END|PAGE_UP|PAGE_DOWN)
-                panel_move "$INPUT_EVENT" "$selected" 4 "$PANEL_VISIBLE"; selected=$PANEL_SELECTED ;;
+                panel_move "$INPUT_EVENT" "$selected" 5 "$PANEL_VISIBLE"; selected=$PANEL_SELECTED ;;
             ENTER|KEY)
                 key=${INPUT_KEY,,}
                 if [[ "$INPUT_EVENT" == ENTER ]]; then
-                    case "$selected" in 0) key=e ;; 1) key=h ;; 2) key=d ;; 3) key=g ;; esac
+                    case "$selected" in 0) key=e ;; 1) key=h ;; 2) key=d ;; 3) key=p ;; 4) key=g ;; esac
                 fi
                 case "$key" in
                     e) if app_record_plan_station; then name=$RECORD_PLAN_PICK_NAME url=$RECORD_PLAN_PICK_URL; fi ;;
                     h) if record_plan_field_edit hour "$hour"; then hour=$RECORD_PLAN_FIELD; fi ;;
                     d) if record_plan_field_edit minutes "$minutes"; then minutes=$RECORD_PLAN_FIELD; fi ;;
+                    p) stop_after=$((1-stop_after)) ;;
                     g)
                         if record_plan_prepare "$name" "$url" "$hour" "$minutes"; then
-                            if app_record_plan_confirm arm "$name" "$url" "$RECORD_PLAN_DRAFT_AT" "$RECORD_PLAN_DRAFT_END" "$RECORD_PLAN_DRAFT_LABEL"; then return 0; fi
+                            if app_record_plan_confirm arm "$name" "$url" "$RECORD_PLAN_DRAFT_AT" "$RECORD_PLAN_DRAFT_END" "$RECORD_PLAN_DRAFT_LABEL" "$stop_after"; then return 0; fi
                         else notice=$RECORD_PLAN_ERROR; fi ;;
                     '?') panel_detail 'PROGRAMAR GRABACIÓN' "$selected" ;;
                 esac ;;
