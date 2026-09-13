@@ -514,8 +514,8 @@ player_start() {
 
     PLAYER_NAME="$name"
     PLAYER_URL="$url"
-    # Una reconexión conserva silencio; una selección manual comienza con sonido.
-    if ((!${APP_RECONNECT_AUTOMATIC_START:-0})); then PLAYER_MUTED=0; fi
+    # Reconexión/programación conservan silencio; una selección manual lo quita.
+    if ((!${APP_RECONNECT_AUTOMATIC_START:-0})) && [[ ${PLAYER_PRESERVE_MUTE:-0} != 1 ]]; then PLAYER_MUTED=0; fi
     PLAYER_PAUSED=0
     PLAYER_LAST_EXIT_STATUS=""
     player_reset_info

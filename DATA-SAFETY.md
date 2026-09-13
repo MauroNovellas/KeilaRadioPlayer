@@ -2,6 +2,17 @@
 
 ## Garantías comprobadas
 
+- La grabación programada es una reserva en memoria con confirmación de fecha,
+  emisora y final. No modifica favoritas ni instala tareas del sistema. Usa la
+  reserva exclusiva y los marcadores del grabador habitual; no crea el archivo
+  hasta que el reproductor confirma audio. Solo cierra el archivo ligado a su
+  ruta, URL y proceso, nunca una grabación posterior o manual. Un cierre atascado
+  reintenta a cadencia limitada; después de cinco segundos puede cerrar su mpv
+  y verificar de nuevo. Solo declara finalizada una grabación verificada; los
+  archivos dudosos y sus marcadores se conservan. Una salida inesperada de mpv
+  se avisa como posible grabación incompleta, aunque su audio sea reproducible.
+  No garantiza grabar mientras
+  el sistema está suspendido: omite inicios con más de 60 segundos de retraso.
 - M3U se prepara desde una instantánea privada y acotada (256 KiB, 2000 entradas),
   sin seguir enlaces ni abrir FIFO y sin interpretar comandos o etiquetas como
   código. La confirmación importa esa vista previa, no una fuente modificada

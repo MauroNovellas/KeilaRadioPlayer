@@ -55,13 +55,16 @@ for geometry in '160 45' '110 24' '97 16' '96 16' '80 24' '62 16' '50 13' '42 11
     read -r UI_COLS UI_LINES <<< "$geometry"
     for unicode in 0 1; do
         UI_UNICODE=$unicode; ui_configure_glyphs
-        for screen in preferencias ayuda alarma parada m3u ecualizador comentarios historial grabaciones escucha renombrar traslado papelera diagnostico copias confirmacion; do
+        for screen in preferencias ayuda alarma parada programacion confirmar_programacion hora_grabacion m3u ecualizador comentarios historial grabaciones escucha renombrar traslado papelera diagnostico copias confirmacion; do
             BACKUP_PREPARED_DIR=''
             case "$screen" in
                 preferencias) preferences_build_rows settings; frame=$(panel_draw PREFERENCIAS 0 0 'Enter cambiar | Esc volver' '') ;;
                 ayuda) preferences_build_rows help; frame=$(panel_draw AYUDA 0 0 'Enter detalle | Esc volver' '') ;;
                 alarma) frame=$(alarm_editor_draw '12:3') ;;
                 parada) frame=$(station_field_draw 'PARADA EN MINUTOS' '1440' 'Solo esta sesión; Esc conserva el plazo anterior.') ;;
+                programacion) frame=$(record_plan_form_draw 'Una emisora con nombre largo' 'https://radio.invalid/audio' '12:30' 1440 0 0 '') ;;
+                confirmar_programacion) frame=$(record_plan_confirm_draw 'CONFIRMAR PROGRAMACIÓN' 'Fecha, inicio, final y emisora que deben revisarse antes de confirmar.') ;;
+                hora_grabacion) frame=$(station_field_draw 'HORA DE GRABACIÓN' '12:3' 'Introduce cuatro cifras HHMM.') ;;
                 m3u) frame=$(m3u_draw import '/una/ruta/muy/larga/favoritas.m3u' 0 0 '') ;;
                 ecualizador) frame=$(equalizer_editor_draw) ;;
                 comentarios) frame=$(label_editor_draw 'Radio con nombre largo' 'Comentario largo para comprobar que el cursor de escritura queda siempre visible Z') ;;
@@ -90,4 +93,4 @@ panel_draw PREFERENCIAS 3 0 'Enter cambiar | Esc volver' '' >/dev/null
 [[ "$OPTIONS_TITLE:$OPTIONS_SELECTED:$OPTIONS_SCROLL" == PADRE:7:2 ]] || fail 'el hijo altera selección o título del padre'
 [[ "${OPTIONS_ROWS[0]}" == 'P|Padre|Se conserva|menu:main||' ]] || fail 'el hijo reemplaza las filas del padre'
 
-printf 'ok   dieciséis pantallas: 13 geometrías, dos modos, cursor de edición y aislamiento del padre\n'
+printf 'ok   diecinueve pantallas: 13 geometrías, dos modos, cursor de edición y aislamiento del padre\n'

@@ -20,6 +20,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/station-options.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/sleep-timer.sh"
 # shellcheck source=lib/m3u-menu.sh
 source "$(dirname "${BASH_SOURCE[0]}")/m3u-menu.sh"
+# shellcheck source=lib/record-schedule-menu.sh
+source "$(dirname "${BASH_SOURCE[0]}")/record-schedule-menu.sh"
 
 options_cancel_confirmation() {
     if [[ -n "${FAVORITES_CONFIRM_URL:-}" ]]; then
@@ -137,6 +139,11 @@ options_action_reason() {
             ;;
         alarm_cancel) ((ALARM_AT > 0)) || OPTIONS_REASON='No hay ninguna alarma programada.' ;;
         sleep_cancel) ((${SLEEP_TIMER_AT:-0} > 0)) || OPTIONS_REASON='No hay ninguna parada programada.' ;;
+        plan_edit)
+            if record_plan_busy; then OPTIONS_REASON='Ya hay una programación en curso. Espera su cierre o cancélala.'
+            elif ((${#FAVORITE_NAMES[@]} == 0)); then OPTIONS_REASON='Primero añade una emisora a Favoritas.'; fi ;;
+        plan_cancel)
+            case "$RECORD_PLAN_STATE" in pending|connecting|preparing|recording|closing) : ;; *) OPTIONS_REASON='No hay ninguna programación pendiente o en curso.' ;; esac ;;
         m3u_export) ((${#FAVORITE_NAMES[@]} > 0)) || OPTIONS_REASON='Primero añade alguna favorita.' ;;
         m3u_import) ((${BACKUP_DATA_BUSY:-0} == 0)) || OPTIONS_REASON='Espera a que termine la restauración de datos.' ;;
         catalog_update) [[ -z "${CATALOG_PID:-}" ]] || OPTIONS_REASON='La actualización ya está en curso. Puedes seguir escuchando.' ;;
@@ -230,6 +237,15 @@ options_build_rows() {
             options_add_row X 'Cancelar alarma' 'Desactiva la alarma de esta sesión. Las alarmas nunca se guardan para el siguiente inicio.' alarm_cancel "$OPTIONS_ALARM"
             sleep_timer_status
             options_add_row P 'Temporizador de parada' 'Detiene radio y escucha de grabaciones; cierra una grabación activa de forma segura. No apaga el equipo. Las alarmas futuras se conservan; si ambas vencen a la vez, prima la parada.' menu:sleep "$SLEEP_TIMER_STATUS"
+            record_plan_status
+            options_add_row G 'Grabación programada' "$RECORD_PLAN_DETAIL. Elige favorita, hora y duración; revisa y confirma. Keila debe estar abierto y despierto." menu:record_plan "$RECORD_PLAN_STATUS"
+            ;;
+        record_plan)
+            OPTIONS_TITLE='GRABACIÓN PROGRAMADA'
+            record_plan_status
+            options_add_row I 'Estado y horario' "$RECORD_PLAN_DETAIL" plan_info "$RECORD_PLAN_STATUS"
+            options_add_row N 'Nueva programación' 'Elige una favorita, HHMM y minutos. Revisa inicio/fin antes de confirmar. Sustituye solo una programación pendiente; nunca una grabación en curso.' plan_edit
+            options_add_row X 'Cancelar / detener programación' 'Pide confirmación. Cancela la reserva o cierra únicamente su propia grabación, conservando el archivo y la radio actual.' plan_cancel
             ;;
         sleep)
             OPTIONS_TITLE='TEMPORIZADOR DE PARADA'
@@ -587,6 +603,9 @@ options_execute() {
         sleep:*) sleep_timer_set "${action#sleep:}" || true ;;
         sleep_edit) app_edit_sleep_timer || true ;;
         sleep_cancel) sleep_timer_set '' || true ;;
+        plan_edit) app_edit_record_plan || true ;;
+        plan_cancel) app_record_plan_confirm cancel || true ;;
+        plan_info) app_record_plan_info || true ;;
         m3u_export) app_m3u_dialog export || true ;;
         m3u_import) app_m3u_dialog import || true ;;
         pending) app_pending_menu || true ;;
@@ -635,6 +654,7 @@ options_snapshot() {
         "${#PENDING_FILES[@]}" "$SPECTRUM_ENABLED" "${UI_MESSAGE:-}" "$UI_SELECTED_INDEX" \
         "${#FAVORITE_NAMES[@]}" "${#RECENT_NAMES[@]}" "${APP_RECONNECT_NEXT_AT:-0}"
     OPTIONS_SNAPSHOT+="${SLEEP_TIMER_AT:-0}"
+    OPTIONS_SNAPSHOT+="/$RECORD_PLAN_STATE/$RECORD_PLAN_AT/$RECORD_PLAN_NOTE/$RECORD_PLAN_FILE"
     if [[ "${menu:-}" == sleep || "${menu:-}" == timer ]] && ((${SLEEP_TIMER_AT:-0} > 0)); then
         OPTIONS_SNAPSHOT+="/$EPOCHSECONDS"
     fi

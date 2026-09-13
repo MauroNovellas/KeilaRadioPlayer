@@ -60,6 +60,11 @@ player_start Radio https://example.invalid/radio || fail 'arranque automático'
 args=$(<"$TMP_ROOT/args")
 [[ "$args" == *'--mute=yes'* && "$args" == *'--volume=37'* ]] || fail 'reconexión pierde silencio/volumen'
 APP_RECONNECT_AUTOMATIC_START=0
+PLAYER_PRESERVE_MUTE=1
+player_start Programada https://example.invalid/programada || fail 'arranque programado'
+args=$(<"$TMP_ROOT/args")
+[[ "$args" == *'--mute=yes'* && "$args" == *'--volume=37'* ]] || fail 'programación pierde silencio/volumen'
+unset PLAYER_PRESERVE_MUTE
 player_start Otra https://example.invalid/otra || fail 'cambio manual'
 args=$(<"$TMP_ROOT/args")
 [[ "$args" == *'--mute=no'* ]] || fail 'selección manual queda silenciada'

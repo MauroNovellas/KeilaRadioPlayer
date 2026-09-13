@@ -38,6 +38,8 @@ update_validate_tree() {
         lib/m3u.sh
         lib/m3u-menu.sh
         lib/sleep-timer.sh
+        lib/record-schedule.sh
+        lib/record-schedule-menu.sh
         lib/player.sh
         lib/player-failure.sh
         lib/player-events.sh

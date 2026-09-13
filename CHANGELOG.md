@@ -4,6 +4,13 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - próxima release
 
+- Opciones > Temporizador > Grabación programada: favorita, hora HHMM, duración,
+  revisión y confirmación; estado consultable y cancelación segura. Una reserva
+  por sesión, sin procesos de planificación ni escrituras periódicas. Conserva
+  volumen/silencio, espera audio antes de reservar el archivo, respeta el final
+  previsto y verifica su cierre. Prioridades explícitas con alarma/parada,
+  escucha y grabación manual; omite inicios tardíos tras suspensión. Pruebas de
+  estados, conflictos, cierre pendiente, identidad del archivo y menús pequeños.
 - Opciones > Temporizador > Parada: plazos de 15/30/45/60/90 minutos o de 1 a
   1440, cuenta atrás dentro del menú, modificación y cancelación. Solo sesión,
   sin procesos ni escrituras periódicas; detiene radio/escucha, cancela reintentos

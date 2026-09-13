@@ -152,6 +152,7 @@ app_init_catalog_data() {
 app_play() {
     local name="$1" url="$2"
     local recording_notice=""
+    record_plan_manual_play
 
     if ((RECORDING_ACTIVE)); then
         local saved_file saved_size recording_error
@@ -499,6 +500,7 @@ app_update_catalog() {
 
 app_poll_player() {
     sleep_timer_tick && return 0
+    record_plan_tick && return 0
     alarm_tick && return 0
     if [[ -n "${PLAYER_PID:-}" ]] && ! player_is_running; then
         local was_recording=$RECORDING_ACTIVE was_paused=${PLAYER_PAUSED:-0} exit_status='?'

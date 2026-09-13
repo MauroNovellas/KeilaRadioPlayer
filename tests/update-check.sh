@@ -68,6 +68,8 @@ make_release() {
         m3u.sh
         m3u-menu.sh
         sleep-timer.sh
+        record-schedule.sh
+        record-schedule-menu.sh
         player.sh
         player-failure.sh
         player-events.sh

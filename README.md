@@ -68,6 +68,7 @@ Puedes acceder a todo lo habitual desde **`O` Opciones**, sin memorizar atajos.
 | Buscar en Radio Browser y actualizar su copia local | Emisoras |
 | Combinar país, región y temática con una búsqueda libre | Emisoras → Filtros de búsqueda |
 | Añadir una emisora por su URL | Emisoras → Añadir emisora manual |
+| Programar una grabación con hora y duración | Temporizador → Grabación programada |
 | Importar o exportar favoritas con otros reproductores | Emisoras → Importar / exportar M3U |
 | Gestionar Favoritas, Recientes, orden y comentarios | Emisoras |
 | Ajustar ecualizador, espectrograma, colores o Unicode | Visualización |
@@ -207,11 +208,11 @@ El análisis trabaja a 20 Hz y la presentación se limita a intervalos de 66 ms,
 </details>
 
 <details>
-<summary>Alarma, temporizador de parada, silencio y preferencias</summary>
+<summary>Alarma, parada automática, grabación programada y preferencias</summary>
 
 **Alarma — `L` o `O → T`.** Escribe `HHMM`: los dos puntos se añaden solos. También admite `HH:MM`. `Enter` programa; vacío cancela; `Esc` conserva lo anterior. Si la hora pasó, se programa para mañana, en hora local, con fecha/hora visibles.
 
-Suena **una sola vez** con la última emisora escuchada, incluso si la cambiaste después de programarla. Desactiva el silencio y usa el volumen configurado; comprueba volumen y conexión antes. Si hay una grabación, aplica el mismo cierre seguro que al cambiar de emisora.
+Suena **una sola vez** con la última emisora escuchada, incluso si la cambiaste después de programarla. Desactiva el silencio y usa el volumen configurado; comprueba volumen y conexión antes. Si hay una grabación manual, aplica el mismo cierre seguro que al cambiar de emisora. Si está grabando una programación, omite la alarma para protegerla.
 
 Keila debe seguir abierto y el equipo despierto. No es un despertador del sistema, no despierta Android y no se guarda al cerrar.
 
@@ -220,6 +221,12 @@ Keila debe seguir abierto y el equipo despierto. No es un despertador del sistem
 Al vencer detiene la radio o la escucha de un archivo, cancela reconexiones y cierra de forma segura una grabación activa; conserva las dudosas con aviso. **No apaga el equipo ni cierra Keila.** No se guarda entre sesiones. Tras suspender, actúa cuando Keila vuelve a ejecutarse; usa la hora del sistema. Una alarma futura se conserva y puede volver a encender la radio; si alarma y parada ya vencieron al reanudar, prima la parada.
 
 **Silencio — `M`.** No cambia volumen ni interrumpe grabaciones. El indicador es `MUTE`. Una reproducción elegida manualmente vuelve a tener sonido; las reconexiones automáticas conservan el silencio desde el arranque de mpv.
+
+**Grabación programada — `O → T → G → N`.** Elige una favorita, hora `HHMM` y duración de 1 a 1440 minutos. Revisa emisora, fecha de inicio y fin; `Enter` confirma, `?` permite leer el detalle completo y `Esc` conserva la programación anterior. Si la hora ya pasó se propone mañana. En `O → T → G` puedes consultar el estado o cancelar/detener con `X` y confirmación; nunca borra el archivo.
+
+Una programación por sesión, con **Keila abierto y el equipo despierto**: no despierta Android ni se conserva al cerrar. Al inicio puede cambiar la radio; respeta volumen y silencio, espera hasta 30 s a recibir audio y muestra «Preparando archivo», «Grabando» y «Cierre pendiente». El fin previsto no se retrasa. Normalmente deja la emisora sonando al terminar; no vuelve a la anterior. Guarda en la carpeta habitual con nombre exclusivo y verificación del cierre.
+
+Si al inicio ya grabas, escuchas un archivo o restauras datos, se omite. También si vuelve de suspensión más de 60 s tarde o fuera del intervalo. Una alarma ya vencida tiene prioridad antes de empezar a grabar; después se protege la grabación. La parada automática puede interrumpirla y conserva reservas futuras. Los archivos dudosos quedan para revisión; ante un cierre atascado puede detener el reproductor para liberar el archivo. Cambiar manualmente de emisora o cerrar su grabación interrumpe la programación; no abre otro archivo para reemplazarla.
 
 **Preferencias — `,` o Configuración.** Guarda inicio automático, colores, Unicode, espectrograma y teclas. Volumen, ecualizador y última emisora también se recuperan; solo una emisora que llegó a dar audio reemplaza la última escucha válida. Puedes desactivar el arranque automático; una URL pasada al ejecutar Keila tiene prioridad.
 

@@ -32,6 +32,7 @@ sleep_timer_tick() {
     ((SLEEP_TIMER_AT > 0 && EPOCHSECONDS >= SLEEP_TIMER_AT)) || return 1
     # Consumir primero: ni un segundo tick ni la reconexión pueden reactivarla.
     SLEEP_TIMER_AT=0 SLEEP_TIMER_FINISHED=1
+    if declare -F record_plan_sleep_stop >/dev/null; then record_plan_sleep_stop || true; fi
     app_reconnect_reset
     # Si ambas vencieron durante una suspensión, prima la parada. Una alarma
     # todavía futura se conserva y podrá volver a encender la radio.

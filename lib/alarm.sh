@@ -28,6 +28,10 @@ alarm_set() {
 alarm_tick() {
     ((ALARM_AT > 0 && EPOCHSECONDS >= ALARM_AT)) || return 1
     ALARM_AT=0 ALARM_LABEL=''
+    if declare -F record_plan_blocks_alarm >/dev/null && record_plan_blocks_alarm; then
+        app_message 'Alarma omitida: se conserva la grabación programada en curso.' 9
+        return 0
+    fi
     local name="${HISTORY_NAMES[0]:-${STATE_LAST_NAME:-}}" url="${HISTORY_URLS[0]:-${STATE_LAST_URL:-}}"
     if [[ -z "$url" ]]; then app_message 'Alarma: no hay una última emisora guardada.' 10; return 0; fi
     # app_play finaliza de forma segura una grabación antes de cambiar de stream.
