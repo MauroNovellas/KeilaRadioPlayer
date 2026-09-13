@@ -2,7 +2,7 @@
 
 Radio por Internet en tu terminal: busca emisoras, organiza tus favoritas, graba programas y escucha sin salir del teclado. Escrito en Bash, con `mpv` como motor de audio.
 
-Linux de escritorio es la plataforma principal; también se ha probado en Termux/Android, incluidas pantallas pequeñas. Esta guía describe la rama de desarrollo `v2.1`, con versión base **2.1.1**. Las novedades aún no publicadas se distinguen en el [historial de cambios](CHANGELOG.md).
+Linux de escritorio es la plataforma principal; también se ha probado en Termux/Android, incluidas pantallas pequeñas. Esta guía describe `main`, que integra las mejoras de la línea **2.1.1**. Los cambios pendientes de una nueva release se distinguen en el [historial de cambios](CHANGELOG.md).
 
 [Empezar](#empezar) · [Funciones](#funciones) · [Atajos](#atajos) · [Referencia completa](#referencia-completa) · [Pruebas y desarrollo](#pruebas-y-desarrollo)
 
@@ -11,7 +11,7 @@ Linux de escritorio es la plataforma principal; también se ha probado en Termux
 Para descargar esta rama necesitas Git:
 
 ```bash
-git clone --branch v2.1 https://github.com/MauroNovellas/KeilaRadioPlayer.git
+git clone --branch main https://github.com/MauroNovellas/KeilaRadioPlayer.git
 cd KeilaRadioPlayer
 ./keila-radio
 ```

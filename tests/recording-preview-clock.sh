@@ -15,6 +15,11 @@ for data in null true '"123"' -1 36000000; do
     [[ $(pending_clock_parse <<< "{\"request_id\":1,\"error\":\"success\",\"data\":$data}") == '- -' ]] || fail "dato $data"
 done
 [[ $(pending_clock_parse <<< '{"request_id":2,"error":"success","data":0}') == '- -' ]] || fail 'duración cero'
+for position in -0.157996 -0.999 0 0.999; do
+    [[ $(pending_clock_parse <<< "{\"request_id\":1,\"error\":\"success\",\"data\":$position}
+{\"request_id\":2,\"error\":\"success\",\"data\":25}") == '0 25' ]] || fail 'inicio de mpv antiguo'
+done
+[[ $(pending_clock_parse <<< '{"request_id":2,"error":"success","data":-0.1}') == '- -' ]] || fail 'duración negativa'
 [[ $(pending_clock_parse <<< '{"request_id":1,"error":"failure","data":42}') == '- -' ]] || fail error
 [[ $(pending_clock_parse <<< '{"request_id":3,"error":"success","data":42}') == '- -' ]] || fail identificador
 PENDING_CLOCK_POSITION=222 PENDING_CLOCK_DURATION=1695

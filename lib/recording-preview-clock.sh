@@ -10,8 +10,10 @@ pending_clock_parse() {
         def value($id; $positive):
             map(select(type == "object" and .request_id == $id)) | last |
             if .error == "success" and (.data | type) == "number" then
-                .data | if . >= 0 and . <= 35999999 and (if $positive then . > 0 else true end)
-                    then floor | tostring else "-" end
+                # mpv 0.34/0.37 puede devolver una fracción negativa al iniciar
+                # o volver al inicio. Se representa como 00:00, no como ausencia.
+                .data | if . <= 35999999 and (if $positive then . > 0 else . > -1 end)
+                    then [0, floor] | max | tostring else "-" end
             else "-" end;
         [value(1; false), value(2; true)] | join(" ")
     '

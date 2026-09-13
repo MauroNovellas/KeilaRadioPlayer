@@ -81,6 +81,16 @@ spectrum_terminate_bounded() {
     wait "$pid" 2>/dev/null || true
 }
 
+spectrum_configure_sync() {
+    # FFmpeg 4.x no conoce fps_mode. Comprobar capacidades, no números de
+    # versión; la consulta se ejecuta en el trabajador, nunca en el bucle TUI.
+    SPECTRUM_SYNC_ARGS=(-vsync 0)
+    if timeout --kill-after=.1s 2s ffmpeg -hide_banner -h full 2>/dev/null |
+        LC_ALL=C awk '/^-fps_mode/ {found=1} END {exit !found}'; then
+        SPECTRUM_SYNC_ARGS=(-fps_mode passthrough)
+    fi
+}
+
 spectrum_start() {
     ((SPECTRUM_ENABLED)) || return 1
     [[ -z "$SPECTRUM_PID" ]] || return 0
@@ -99,6 +109,8 @@ spectrum_start() {
     SPECTRUM_ERROR=''
     (
         trap spectrum_worker_stop TERM INT
+        local -a SPECTRUM_SYNC_ARGS=()
+        spectrum_configure_sync
         if command -v parec >/dev/null 2>&1; then
             # Pedir entregas pequeñas: el buffer predeterminado puede acumular
             # centenares de ms y entregar muchos cuadros en una sola ráfaga.
@@ -106,12 +118,12 @@ spectrum_start() {
                 --latency-msec=40 --process-time-msec=20 2>/dev/null |
                 ffmpeg -hide_banner -loglevel error -fflags nobuffer -flags low_delay -avioflags direct -probesize 32 -analyzeduration 0 -f s16le -ar 44100 -ac 1 -i - \
                     -lavfi 'showfreqs=s=17x16:rate=20:mode=bar:ascale=log:fscale=log:win_size=1024:overlap=0.5:colors=white' \
-                    -fps_mode passthrough -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
+                    "${SPECTRUM_SYNC_ARGS[@]}" -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
         else
             ffmpeg -hide_banner -loglevel error -fflags nobuffer -flags low_delay -avioflags direct \
                 -f pulse -sample_rate 44100 -channels 1 -fragment_size 1764 -i "$SPECTRUM_SOURCE" \
                 -lavfi 'showfreqs=s=17x16:rate=20:mode=bar:ascale=log:fscale=log:win_size=1024:overlap=0.5:colors=white' \
-                    -fps_mode passthrough -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
+                    "${SPECTRUM_SYNC_ARGS[@]}" -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
         fi |
             stdbuf -oL od -An -tu1 -w17 -v |
             spectrum_publish_frames

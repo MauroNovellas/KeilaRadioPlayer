@@ -2,7 +2,17 @@
 
 Todos los cambios relevantes de Keila Radio Player se documentarán en este archivo.
 
-## [Sin publicar] - rama v2.1
+## [Sin publicar] - próxima release
+
+- Integración de la línea v2.1 en main. El README dirige las nuevas instalaciones
+  a main; publicar una nueva etiqueta o release es un paso independiente.
+- CI completa en Ubuntu 22.04 y 24.04, ejecución manual, cancelación de trabajos
+  obsoletos de la misma rama y registros descargables durante siete días.
+  Acciones fijadas a commits y permisos de solo lectura.
+- Compatibilidad verificada por CI: las fracciones negativas de posición al
+  inicio en mpv 0.34/0.37 se muestran como 00:00, sin inventar tiempo transcurrido.
+  El espectrograma detecta fps_mode y usa vsync 0 en FFmpeg antiguo; detección
+  fuera del bucle de interfaz. Regresiones para ambos comportamientos.
 
 - README reorganizado con inicio rápido, resumen de funciones y atajos, y
   referencia completa en desplegables. Redacción más compacta y controles,

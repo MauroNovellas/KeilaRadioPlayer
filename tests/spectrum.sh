@@ -19,6 +19,18 @@ source "$ROOT_DIR/lib/spectrum.sh"
 source "$ROOT_DIR/lib/ui.sh"
 SPECTRUM_SMOOTHING=0
 
+# Selección compatible sin depender de la versión instalada en el equipo.
+(
+    # timeout ejecuta programas externos: sustituirlo solo dentro de este test.
+    timeout() { shift 2; "$@"; }
+    ffmpeg() { printf '%s\n' '-fps_mode[:<stream_spec>] set framerate mode'; }
+    spectrum_configure_sync
+    assert_eq '-fps_mode passthrough' "${SPECTRUM_SYNC_ARGS[*]}" 'sincronización moderna'
+    ffmpeg() { printf '%s\n' '-vsync set video sync method'; }
+    spectrum_configure_sync
+    assert_eq '-vsync 0' "${SPECTRUM_SYNC_ARGS[*]}" 'sincronización FFmpeg 4'
+) || fail 'selección de sincronización'
+
 # Reproduce el reloj localizado, incluidas fracciones que fallaban al leerse
 # como octales. El unset se limita al subshell para preservar el reloj real.
 for timestamp in 1788726347.038054 1788726347,038054; do
