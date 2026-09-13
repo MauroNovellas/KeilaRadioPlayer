@@ -33,6 +33,8 @@ update_validate_tree() {
         lib/favorites.sh
         lib/stations.sh
         lib/search.sh
+        lib/search-filters.sh
+        lib/station-options.sh
         lib/player.sh
         lib/player-failure.sh
         lib/player-events.sh
@@ -44,6 +46,9 @@ update_validate_tree() {
         lib/panels.sh
         lib/recording-manager.sh
         lib/recording-preview.sh
+        lib/recording-preview-clock.sh
+        lib/recording-files.sh
+        lib/recording-file-editor.sh
         lib/status-screen.sh
         lib/backup.sh
         lib/backup-archive.sh

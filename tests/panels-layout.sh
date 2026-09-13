@@ -18,6 +18,7 @@ STATUS_REFRESH_AT=$((EPOCHSECONDS + 3600))
 PENDING_FILES=('/grabaciones/Radio con un nombre muy largo.mp3')
 PENDING_NOTICE=''
 PENDING_PREVIEW_FILE=${PENDING_FILES[0]} PENDING_PREVIEW_STATE='En pausa' PENDING_PREVIEW_PAUSED=1
+PENDING_CLOCK_TIME='01:03:42 / 02:28:15'
 BACKUP_FILES=('/copias/keila-backup-con-nombre-muy-largo.tar.gz')
 BACKUP_SIZES=(8192) BACKUP_DATES=('2026-09-12 10:00:00')
 BACKUP_TARGET=${BACKUP_FILES[0]} BACKUP_NOTICE='Copia privada de datos personales'
@@ -41,6 +42,9 @@ check_frame() {
             [[ "$selected_line" == *'Z_'* ]] || fail 'se pierde el cursor al editar comentario largo'
             [[ "$frame" != *'? detalle'* ]] || fail 'se anuncia una ayuda que roba texto al comentario'
         fi
+        if [[ "$screen" == renombrar ]]; then
+            [[ "$selected_line" == *'Z_'* ]] || fail 'se pierde el cursor del nuevo nombre'
+        fi
     fi
 }
 
@@ -48,7 +52,7 @@ for geometry in '160 45' '110 24' '97 16' '96 16' '80 24' '62 16' '50 13' '42 11
     read -r UI_COLS UI_LINES <<< "$geometry"
     for unicode in 0 1; do
         UI_UNICODE=$unicode; ui_configure_glyphs
-        for screen in preferencias ayuda alarma ecualizador comentarios historial grabaciones escucha diagnostico copias confirmacion; do
+        for screen in preferencias ayuda alarma ecualizador comentarios historial grabaciones escucha renombrar traslado papelera diagnostico copias confirmacion; do
             BACKUP_PREPARED_DIR=''
             case "$screen" in
                 preferencias) preferences_build_rows settings; frame=$(panel_draw PREFERENCIAS 0 0 'Enter cambiar | Esc volver' '') ;;
@@ -59,6 +63,9 @@ for geometry in '160 45' '110 24' '97 16' '96 16' '80 24' '62 16' '50 13' '42 11
                 historial) frame=$(session_history_draw) ;;
                 grabaciones) frame=$(pending_draw 0 0) ;;
                 escucha) frame=$(pending_preview_draw 0 0) ;;
+                renombrar) frame=$(recording_name_draw '/grabaciones/Radio.mp3' 'Nombre de grabación muy largo para mantener visible el cursor Z') ;;
+                traslado) frame=$(recording_move_confirm_draw 'RECUPERAR GRABACIÓN' '/papelera/Original.mp3' '/grabaciones/Original (recuperada 1).mp3' 0 '') ;;
+                papelera) frame=$(PENDING_VIEW=trash pending_draw 0 0) ;;
                 diagnostico) frame=$(status_draw) ;;
                 copias) frame=$(backup_manager_draw) ;;
                 confirmacion) BACKUP_PREPARED_DIR='/copias/preparada'; frame=$(backup_manager_draw) ;;
@@ -66,6 +73,7 @@ for geometry in '160 45' '110 24' '97 16' '96 16' '80 24' '62 16' '50 13' '42 11
             check_frame "$frame" "$screen $geometry"
             # Comprobar el cursor con el nombre simple para habilitar su aserto.
             [[ "$screen" != comentarios ]] || check_frame "$frame" comentarios
+            [[ "$screen" != renombrar ]] || check_frame "$frame" renombrar
         done
     done
 done
@@ -77,4 +85,4 @@ panel_draw PREFERENCIAS 3 0 'Enter cambiar | Esc volver' '' >/dev/null
 [[ "$OPTIONS_TITLE:$OPTIONS_SELECTED:$OPTIONS_SCROLL" == PADRE:7:2 ]] || fail 'el hijo altera selección o título del padre'
 [[ "${OPTIONS_ROWS[0]}" == 'P|Padre|Se conserva|menu:main||' ]] || fail 'el hijo reemplaza las filas del padre'
 
-printf 'ok   once pantallas: 13 geometrías, dos modos, cursor de edición y aislamiento del padre\n'
+printf 'ok   catorce pantallas: 13 geometrías, dos modos, cursor de edición y aislamiento del padre\n'

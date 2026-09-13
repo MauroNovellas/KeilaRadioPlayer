@@ -4,6 +4,46 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - rama v2.1
 
+- README reorganizado con inicio rápido, resumen de funciones y atajos, y
+  referencia completa en desplegables. Redacción más compacta y controles,
+  dependencias y límites contrastados con la implementación actual.
+- La batería no hereda el teclado de la terminal principal. Evita bloqueos de
+  ffmpeg y script bajo timeout al ejecutar los tests desde una terminal real.
+  Audio de prueba con -nostdin y límite propio; prueba del guard con su PTY
+  privado y entrada exterior cerrada. Regresión del runner desde un TTY real.
+- Prueba del gestor de grabaciones estabilizada: espera el refresco y navega
+  explícitamente al archivo antes de confirmar la papelera. Reproduce el caso
+  de una grabación activa que pasa a la primera fila, comprueba que X la protege
+  y que solo se traslada el archivo elegido. Sin cambios en el borrado real.
+- Opciones > Emisoras: filtros combinables de país, región y temática, con
+  selectores locales y restablecimiento independiente de la consulta. Filtros
+  de sesión respetados también por comentarios y fzf externo. No añade filas
+  ni controles al reproductor; reutiliza su indicador de búsqueda.
+- Índice local con región y etiquetas separadas; conserva temáticas aunque haya
+  región. Migración en segundo plano sin retirar la lista antigua.
+- Alta manual desde Opciones: nombre y URL HTTP/HTTPS, prueba de escucha explícita
+  y guardado en Favoritas con detección de duplicados y protección existente.
+  No publica emisoras en Radio Browser ni cambia el catálogo.
+- Pruebas de filtros, migración, alta manual, cancelación, escritura fallida,
+  pantallas pequeñas y rendimiento sobre un catálogo de 50.000 emisoras.
+- Posición y duración de la grabación en escucha, con horas y datos ausentes
+  explícitos. Lectura real de mpv en segundo plano, limitada a una por segundo;
+  pausa sin reloj simulado y actualización tras saltos. No sondea la biblioteca.
+  Pruebas de formato, cadencia y tiempos con audio sintético y salida nula.
+- Renombrado desde la biblioteca con N: editor de nombre, extensión fija y
+  confirmación del origen y destino. Rechaza rutas, archivos ocupados, cambios
+  posteriores a la selección y colisiones, también durante la publicación.
+- Papelera accesible con T o desde Opciones > Grabaciones > T: listado y escucha
+  de archivos antiguos y nuevos; R prepara la recuperación. Si el nombre está
+  ocupado se propone un sufijo recuperada y se confirma ese destino exacto.
+  No se vacía la papelera ni se añade borrado definitivo.
+- Traslado conservador de audio y marcador, reserva exclusiva del destino y
+  bloqueo breve entre operaciones. No copia el audio en otro filesystem. Una
+  interrupción conserva audio y marcadores; los restos se dejan para revisión.
+  Las nuevas grabaciones evitan nombres reservados por marcadores huérfanos.
+- Pruebas de colisiones, firma obsoleta, publicación fallida, marcadores,
+  interrupciones antes/después del rename, cancelación, navegación y aislamiento
+  del listado de papelera. Catorce pantallas en 13 geometrías y ASCII/Unicode.
 - Biblioteca de grabaciones unificada, ordenada por fecha de modificación con
   nombre, tamaño y estados explícitos, incluyendo archivos en curso de solo
   consulta. Metadatos en segundo plano, refresco con U y selección estable

@@ -38,4 +38,16 @@ elapsed_ms=$(((end - start) / 1000000))
 [[ ${#SEARCH_MATCHES[@]} -eq 1 ]] || fail "consulta concreta: ${#SEARCH_MATCHES[@]}"
 ((elapsed_ms < 1500)) || fail "consulta concreta lenta: ${elapsed_ms} ms"
 
+awk -F '\t' 'BEGIN { OFS="\t" } { print $0, "Madrid", "rock,jazz" }' "$SEARCH_SOURCE_FILE" > "$TEST_TMP/facets.tsv"
+SEARCH_SOURCE_FILE="$TEST_TMP/facets.tsv"
+SEARCH_COUNTRY_FILTER_ENABLED=1 KEILA_CATALOG_COUNTRY_FILTER=ES
+SEARCH_REGION_FILTER=Madrid SEARCH_TAG_FILTER=rock
+start=$(date +%s%N)
+search_filter
+end=$(date +%s%N)
+elapsed_ms=$(((end - start) / 1000000))
+[[ ${#SEARCH_MATCHES[@]} -eq 1 ]] || fail 'filtros combinados cambian resultado'
+((elapsed_ms < 1500)) || fail "filtros combinados lentos: ${elapsed_ms} ms"
+printf 'ok   50.000 emisoras, tres filtros y consulta concreta: %s ms\n' "$elapsed_ms"
+
 printf 'ok   búsqueda: índice rápido para catálogos grandes\n'

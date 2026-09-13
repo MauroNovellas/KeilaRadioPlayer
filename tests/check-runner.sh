@@ -22,10 +22,13 @@ printf 'fast|missing.sh|\n' > "$task_tmp/suites.txt"
 if check_manifest "$task_tmp" 2>/dev/null; then fail 'acepta archivo ausente'; fi
 # Ejecutar una batería ficticia: no aborta en el primer fallo y aísla XDG/TMPDIR.
 printf 'exit 7\n' > "$task_tmp/sample.sh"
-printf '[[ "$XDG_CONFIG_HOME" == */forgotten/config && "$TMPDIR" == */forgotten/tmp ]]\n' > "$task_tmp/forgotten.sh"
+printf '%s\n' \
+    '[[ "$XDG_CONFIG_HOME" == */forgotten/config && "$TMPDIR" == */forgotten/tmp && ! -t 0 ]] || exit 8' \
+    'if IFS= read -r -t 1 unexpected; then exit 9; fi' \
+    'exit 0' > "$task_tmp/forgotten.sh"
 printf 'fast|sample.sh|\nfast|forgotten.sh|\n' > "$task_tmp/suites.txt"
-if (CHECK_DIR=$task_tmp; check_main fast) > "$task_tmp/result" 2>&1; then fail 'oculta test fallido'; fi
-grep -q '1 correctas; 1 fallidas' "$task_tmp/result" || fail 'no continúa o no aísla perfiles'
+if (CHECK_DIR=$task_tmp; check_main fast) <<< 'Esta entrada no debe llegar a ninguna prueba' > "$task_tmp/result" 2>&1; then fail 'oculta test fallido'; fi
+grep -q '1 correctas; 1 fallidas' "$task_tmp/result" || fail 'no continúa o no aísla perfiles/entrada'
 printf 'sleep 10\n' > "$task_tmp/sample.sh"
 if (CHECK_DIR=$task_tmp; KEILA_TEST_TIMEOUT=1; check_main fast) > "$task_tmp/result" 2>&1; then fail 'oculta timeout'; fi
 grep -q 'FALLO (124)' "$task_tmp/result" || fail 'sin límite por prueba'

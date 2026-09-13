@@ -2,6 +2,12 @@
 
 ## Garantías comprobadas
 
+- El alta manual reutiliza la escritura bloqueada y atómica de Favoritas y sus
+  copias de seguridad. No sustituye otra emisora con la misma URL ni publica en
+  Radio Browser. Guardar no reproduce; la prueba de escucha es una acción explícita
+  que puede generar entradas normales en Recientes y el registro de sesión.
+- Los filtros son estado de sesión: no escriben en favoritas ni en preferencias.
+  El índice antiguo sigue disponible durante su migración local de región/temática.
 - Favoritos, comentarios, estado, preferencias, recientes y ecualizador se
   publican mediante sustitución de un temporal en el mismo directorio. Un fallo de escritura o publicación no
   sustituye el original por un resultado parcial.
@@ -180,6 +186,44 @@ Ver [Guía de pruebas](TESTING.md) para grupos, dependencias y registros de fall
 
 ## Límites y trabajo pendiente
 
+### Renombrado y recuperación de la papelera
+
+Las operaciones requieren confirmar el origen y el destino y vuelven a comprobar
+la firma del audio y su marcador antes de moverlos. No afectan a grabaciones,
+verificaciones o escuchas activas de ese archivo. Se rechazan enlaces simbólicos,
+rutas fuera de la carpeta prevista y nombres no válidos. La papelera solo recorre
+contenedores `recording.*` directos; no sigue enlaces ni ejecuta metadatos.
+
+Un bloqueo breve serializa estas operaciones entre sesiones cooperantes. Antes
+de mover el audio se reserva un marcador privado en el destino mediante creación
+exclusiva, conservando aún el original. Después se mueve el audio sin reemplazar
+destinos existentes y se comprueba el resultado: que `mv -n` termine con éxito
+no basta para dar por hecho que se trasladó. La operación rechaza distintos
+dispositivos para evitar una copia costosa de audio. No requiere enlaces duros,
+que no están disponibles en algunos almacenamientos compartidos de Android.
+
+Audio y marcador **no son una transacción única**. Un cierre entre pasos puede
+dejar un marcador en el destino todavía vacío, o el audio y su marcador en el
+destino con el marcador anterior sobrante. Se conservan esos restos y se avisa
+de los errores detectados; no se intenta un rollback que pudiera sobrescribir
+otro archivo. Una grabación nueva evita también nombres cuyo `.pending` existe.
+No hay garantía frente a modificaciones simultáneas por programas que ignoren
+estas reservas y bloqueos, ni frente a pérdida eléctrica del almacenamiento.
+
+Recuperar no sobrescribe el nombre original ocupado: se propone un nombre
+alternativo antes de confirmar. Tampoco cambia automáticamente ese destino si
+aparece una colisión después de confirmarlo. No se elimina audio definitivamente;
+solo se retiran contenedores vacíos mediante `rmdir`, conservando cualquier otro
+archivo del contenedor. Los nombres demasiado largos se acortan en la propuesta
+alternativa sin cambiar la extensión.
+
+`tests/recording-files.sh` simula colisiones, errores, marcadores sobrantes y
+SIGKILL a ambos lados del traslado; `tests/recording-file-menu.sh` comprueba
+confirmación, cancelación, refresco, resize y separación entre biblioteca y
+papelera. Todos los datos usados son ficticios y temporales.
+
+### Escucha y límites generales
+
 La biblioteca de grabaciones no decodifica los archivos durante el escaneo ni
 considera la ausencia de `.pending` una verificación del audio. Un marcador que
 sea enlace, directorio o FIFO bloquea las operaciones; nunca se lee como texto.
@@ -230,3 +274,6 @@ personales reales ni llenar el almacenamiento del teléfono para estas pruebas.
    no debe reanudarse una pausa previa ni sustituirse la emisora de la alarma.
 6. Recorrer la biblioteca a 40 y 62 columnas, abrir detalles y actualizar la
    lista. Comprobar que conserva el archivo seleccionado y no desplaza columnas.
+7. Renombrar un audio de prueba, cancelar primero y confirmar después; comprobar
+   extensión y contenido. Moverlo a papelera, crear otro con el mismo nombre y
+   recuperarlo: debe proponer otro destino y conservar ambos archivos.

@@ -6,6 +6,8 @@ PENDING_PREVIEW_FILE='' PENDING_PREVIEW_STATE='' PENDING_PREVIEW_PAUSED=0
 PENDING_PREVIEW_READY=0 PENDING_PREVIEW_DEADLINE=0 PENDING_PREVIEW_CHECK_AT=0
 PENDING_RADIO_PID='' PENDING_RADIO_URL='' PENDING_RADIO_RESUME=0
 PENDING_PREVIEW_RETURN_NOTICE='' PENDING_PREVIEW_RESPONSE='' PENDING_PREVIEW_REQUEST=0
+# shellcheck source=lib/recording-preview-clock.sh
+source "$(dirname "${BASH_SOURCE[0]}")/recording-preview-clock.sh"
 
 pending_preview_exchange() {
     [[ -S "$PENDING_PREVIEW_SOCKET" ]] || return 1
@@ -26,6 +28,7 @@ pending_preview_command() {
 }
 
 pending_preview_stop() {
+    pending_clock_stop
     local pid=$PENDING_PREVIEW_PID
     if [[ -n "$pid" ]]; then
         player_terminate_group_bounded "$pid" "$pid" || true
@@ -48,6 +51,8 @@ pending_preview_start() {
     pending_signature "$file" >/dev/null && [[ -s "$file" && -r "$file" ]] && ! pending_busy "$file" || return 1
     ((${RECORDING_ACTIVE:-0} == 0)) || { PENDING_NOTICE='Detén la grabación antes de escuchar.'; return 1; }
     pending_preview_stop
+    PENDING_CLOCK_POSITION='-' PENDING_CLOCK_DURATION='-' PENDING_CLOCK_FORCE=1 PENDING_CLOCK_AT=0
+    pending_clock_update_text
     PENDING_PREVIEW_RETURN_NOTICE='La radio conserva su estado anterior.'
     PENDING_PREVIEW_DIR=$(mktemp -d "${TMPDIR:-/tmp}/keila-listen.XXXXXX") || return 1
     PENDING_PREVIEW_SOCKET="$PENDING_PREVIEW_DIR/mpv.sock"
@@ -95,7 +100,7 @@ pending_preview_poll() {
         PENDING_NOTICE+=" $PENDING_PREVIEW_RETURN_NOTICE"
         return 0
     fi
-    ((PENDING_PREVIEW_READY == 0)) || return 1
+    if ((PENDING_PREVIEW_READY)); then pending_clock_poll; return; fi
     if ((EPOCHSECONDS >= PENDING_PREVIEW_DEADLINE)); then
         pending_preview_stop
         PENDING_PREVIEW_STATE=Error
@@ -106,6 +111,7 @@ pending_preview_poll() {
     PENDING_PREVIEW_CHECK_AT=$((EPOCHSECONDS+1))
     if pending_preview_command '["get_property","audio-params"]'; then
         PENDING_PREVIEW_READY=1 PENDING_PREVIEW_STATE=Escuchando
+        pending_clock_poll || true
         PENDING_NOTICE='P pausa | Izquierda / derecha: saltos de 10 s | Esc vuelve'
         return 0
     fi
@@ -121,6 +127,7 @@ pending_preview_action() {
             PENDING_NOTICE='No se pudo cambiar la pausa de la grabación.'; return 1
         fi
         PENDING_PREVIEW_PAUSED=$((1-PENDING_PREVIEW_PAUSED))
+        pending_clock_invalidate
         if ((PENDING_PREVIEW_PAUSED)); then PENDING_PREVIEW_STATE='En pausa'; else PENDING_PREVIEW_STATE=Escuchando; fi
         PENDING_NOTICE="$PENDING_PREVIEW_STATE · El estado de la radio no cambia."
         return 0
@@ -136,6 +143,7 @@ pending_preview_action() {
         return 1
     fi
     if ! pending_preview_command "$command"; then PENDING_NOTICE='No se pudo cambiar la posición de la grabación.'; return 1; fi
+    pending_clock_invalidate
     case "$action" in
         back) PENDING_NOTICE='Retroceso de 10 segundos solicitado.' ;;
         forward) PENDING_NOTICE='Avance de 10 segundos solicitado.' ;;
@@ -150,7 +158,7 @@ pending_preview_build_rows() {
     PANEL_ROWS=()
     local sound="Volumen heredado: ${PLAYER_VOLUME:-50}%."
     ((${PLAYER_MUTED:-0} == 0)) || sound+=' Silencio activado en la radio.'
-    panel_add_row P "$pause grabación" "Archivo: $PENDING_PREVIEW_FILE. $sound Solo pausa este archivo; no cambia la radio, su volumen ni su silencio." "$PENDING_PREVIEW_STATE" "$reason"
+    panel_add_row P "$pause grabación" "Archivo: $PENDING_PREVIEW_FILE. Posición / duración: $PENDING_CLOCK_TIME. --:-- indica un dato no disponible; se muestra la última lectura real, sin estimarla por el reloj. $sound Solo pausa este archivo; no cambia la radio, su volumen ni su silencio." "$PENDING_PREVIEW_STATE" "$reason"
     panel_add_row A 'Retroceder 10 segundos' 'También flecha izquierda. Solo si el formato permite buscar una posición.' '' "$reason"
     panel_add_row D 'Avanzar 10 segundos' 'También flecha derecha. Llegar al final termina la escucha y retoma la radio si corresponde.' '' "$reason"
     panel_add_row I 'Volver al inicio' 'Empieza desde el principio del archivo, conservando la pausa.' '' "$reason"
@@ -160,7 +168,7 @@ pending_preview_build_rows() {
 pending_preview_draw() {
     local -a PANEL_ROWS=()
     pending_preview_build_rows
-    panel_draw 'ESCUCHAR GRABACIÓN' "$1" "$2" 'P pausa | A/D saltar | Esc volver' "$PENDING_NOTICE" "${PENDING_PREVIEW_FILE##*/} | $PENDING_PREVIEW_STATE"
+    panel_draw 'ESCUCHAR GRABACIÓN' "$1" "$2" 'P pausa | A/D saltar | Esc volver' "$PENDING_NOTICE" "$PENDING_CLOCK_TIME | $PENDING_PREVIEW_STATE | ${PENDING_PREVIEW_FILE##*/}"
 }
 
 app_recording_preview() {

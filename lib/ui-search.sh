@@ -93,9 +93,10 @@ ui_search_desktop() {
                 left_badge_style='selected'
                 ;;
             1)
-                left_text='Filtro país:'
-                if ((SEARCH_COUNTRY_FILTER_ENABLED)); then
-                    left_badge="$KEILA_CATALOG_COUNTRY_FILTER activo"
+                left_text='Filtros:'
+                search_filters_badge
+                if [[ "$SEARCH_FILTER_BADGE" != Global ]]; then
+                    left_badge=$SEARCH_FILTER_BADGE
                     left_style='accent'
                     left_badge_style='selected'
                 else
@@ -190,8 +191,8 @@ ui_search_single_column() {
     ui_box_rule "$width" "$UI_TL" "$UI_TR"
     ui_box_center_line "$width" "$title" title
     ui_box_rule "$width" "$UI_ML" "$UI_MR" '[B] BUSQUEDA EMISORAS' accent
-    local country_filter='Global'
-    ((SEARCH_COUNTRY_FILTER_ENABLED)) && country_filter="País $KEILA_CATALOG_COUNTRY_FILTER"
+    search_filters_badge
+    local country_filter=$SEARCH_FILTER_BADGE
     ui_box_split_line "$width" 'Buscar:' "${SEARCH_QUERY}_  [$country_filter]" 0 accent selected
     local detail_header=''
     if ui_search_show_details; then detail_header=$(ui_labels_header "$((width - 4))"); fi
@@ -281,8 +282,8 @@ ui_draw_search() {
             ui_print_padded "$tiny_width" "Buscar: ${SEARCH_QUERY}_"
         fi
         printf '\n'
-            local tiny_filter='Global'
-            ((SEARCH_COUNTRY_FILTER_ENABLED)) && tiny_filter="País $KEILA_CATALOG_COUNTRY_FILTER"
+            search_filters_badge
+            local tiny_filter=$SEARCH_FILTER_BADGE
             local tiny_detail='solo nombres'
             ((SEARCH_DETAILS_VISIBLE)) && tiny_detail='detalles'
             ui_print_padded "$tiny_width" "Resultados: ${#SEARCH_MATCHES[@]} · $tiny_filter · $tiny_detail"

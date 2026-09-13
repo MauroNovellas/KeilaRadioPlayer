@@ -14,6 +14,8 @@ OPTIONS_CATALOG_SIGNATURE=''
 OPTIONS_CATALOG_STATE='Sin catálogo'
 declare -a OPTIONS_ROWS=()
 declare -A OPTIONS_SELECTIONS=() OPTIONS_OFFSETS=()
+# shellcheck source=lib/station-options.sh
+source "$(dirname "${BASH_SOURCE[0]}")/station-options.sh"
 
 options_cancel_confirmation() {
     if [[ -n "${FAVORITES_CONFIRM_URL:-}" ]]; then
@@ -159,7 +161,7 @@ options_build_rows() {
         main)
             OPTIONS_TITLE='OPCIONES'
             options_add_row P Reproducción 'Pausa, sonido, volumen y grabación de la emisora actual.' menu:playback "$OPTIONS_PLAYBACK"
-            options_add_row E Emisoras 'Busca una emisora o gestiona la seleccionada: favoritas, recientes y comentarios.' menu:stations "$OPTIONS_CATALOG_STATE"
+            options_add_row E Emisoras 'Búsqueda, filtros, alta manual y gestión de favoritas, recientes y comentarios.' menu:stations "$OPTIONS_CATALOG_STATE"
             options_add_row V Visualización 'Espectrograma, ecualizador, colores y símbolos. Las preferencias se guardan al cambiarlas.' menu:visual
             options_add_row T Temporizador 'La alarma suena una sola vez. Mantén Keila abierto y el equipo despierto; no se restaura al iniciar.' menu:timer "$OPTIONS_ALARM"
             options_add_row G Grabaciones 'Graba el audio o revisa los archivos guardados. El gestor permite comprobarlos, escucharlos y eliminarlos con confirmación.' menu:recordings "$OPTIONS_RECORDING"
@@ -182,6 +184,9 @@ options_build_rows() {
             OPTIONS_TITLE='EMISORAS'
             options_add_row B 'Buscar emisoras' 'Abre la búsqueda. Escribe el nombre; Supr limpia la consulta y Enter reproduce. Esc vuelve al reproductor.' search
             options_add_row U 'Actualizar catálogo' 'Actualiza la copia local de Radio Browser en segundo plano. Conserva la copia anterior si falla la descarga.' catalog_update "$OPTIONS_CATALOG_STATE"
+            search_filters_summary
+            options_add_row L 'Filtros de búsqueda' 'Combina país, región y temática sin ocupar la consulta. Se aplican al catálogo durante esta sesión; no ocultan tus favoritas ni recientes.' menu:filters "$SEARCH_FILTER_SUMMARY"
+            options_add_row N 'Añadir emisora manual' 'Introduce nombre y dirección del audio HTTP/HTTPS. Puedes escucharla antes de guardarla en Favoritas; no se envía al catálogo público.' station_manual
             options_add_row F 'Ir a Favoritas' 'Cierra Opciones y lleva el cursor a Favoritas.' select_favorites "${#FAVORITE_NAMES[@]} emisoras"
             options_add_row R 'Ir a Recientes' 'Cierra Opciones y lleva el cursor a Recientes.' select_recents "${#RECENT_NAMES[@]} emisoras"
             options_add_row I 'Reproducir selección' "$selected Vuelve al reproductor al iniciar la escucha." play_selected
@@ -189,6 +194,16 @@ options_build_rows() {
             options_add_row C 'Editar comentario' "$selected Enter guarda y Esc cancela en el editor." comment
             options_add_row K 'Subir favorita' "$selected Sube una posición y guarda el orden." favorite_up
             options_add_row J 'Bajar favorita' "$selected Baja una posición y guarda el orden." favorite_down
+            ;;
+        filters)
+            OPTIONS_TITLE='FILTROS DE BÚSQUEDA'
+            local country='Todos'
+            ((SEARCH_COUNTRY_FILTER_ENABLED == 0)) || country=$KEILA_CATALOG_COUNTRY_FILTER
+            options_add_row P País 'Elige por nombre o código. Cambiar el país quita la región anterior, pero conserva temática y consulta. Los filtros duran esta sesión.' filter_country "$country"
+            options_add_row R 'Región / ámbito' 'Ubicación declarada en el catálogo, dentro del país elegido. Las emisoras sin ubicación quedan fuera al activar este filtro; no se deduce por su nombre.' filter_region "${SEARCH_REGION_FILTER:-Todas}"
+            options_add_row T Temática 'Etiquetas del catálogo, por ejemplo rock o noticias. Coincidencia de etiqueta completa: rock no equivale a hard rock. Puedes seguir escribiendo en la búsqueda.' filter_tag "${SEARCH_TAG_FILTER:-Todas}"
+            options_add_row X 'Quitar todos los filtros' 'Vuelve a buscar en todo el catálogo sin borrar tu consulta. Supr dentro de la búsqueda solo borra la consulta, nunca los filtros.' filter_clear
+            options_add_row B 'Buscar con estos filtros' 'Cierra Opciones y abre la búsqueda con la consulta y los filtros actuales.' search
             ;;
         visual)
             OPTIONS_TITLE='VISUALIZACIÓN'
@@ -211,7 +226,8 @@ options_build_rows() {
             options_add_row G "$OPTIONS_RECORD_LABEL" "Graba la emisora actual. Archivo: ${RECORDING_FILE:-todavía no iniciado}. El cierre se verifica antes de dar la grabación por finalizada." record_toggle "$OPTIONS_RECORDING"
             local files="${#PENDING_FILES[@]} archivos"
             [[ -z "$PENDING_SCAN_PID" ]] || files='Buscando archivos'
-            options_add_row R 'Revisar y escuchar grabaciones' 'Lista unificada por fecha, con tamaño y estado. E abre la escucha con pausa y saltos; al volver se retoma la misma radio si no estaba pausada. C comprueba y finaliza. Eliminar requiere confirmación y usa una papelera recuperable.' pending "$files"
+            options_add_row R 'Revisar y escuchar grabaciones' 'Lista por fecha, con tamaño y estado. E escucha con pausa y saltos; C comprueba; N renombra conservando la extensión. X mueve a papelera tras confirmar. No sobrescribe archivos.' pending "$files"
+            options_add_row T 'Papelera de grabaciones' 'Revisa o escucha lo enviado a papelera. R prepara su recuperación y muestra el destino antes de confirmar; si existe ese nombre, propone otro. No hay borrado definitivo.' pending_trash_menu
             ;;
         session)
             OPTIONS_TITLE='SESIÓN'
@@ -524,6 +540,11 @@ options_execute() {
         record_toggle) app_toggle_recording || true ;;
         search) app_search_catalog || true; OPTIONS_CLOSE_REQUESTED=1 ;;
         catalog_update) app_update_catalog || true ;;
+        filter_country) app_station_filter_picker country || true ;;
+        filter_region) app_station_filter_picker region || true ;;
+        filter_tag) app_station_filter_picker tag || true ;;
+        filter_clear) search_filters_set clear ''; app_message 'Filtros quitados; se conserva la consulta.' 4 ;;
+        station_manual) app_station_manual || true ;;
         select_favorites) ui_select_emisoras && OPTIONS_CLOSE_REQUESTED=1 ;;
         select_recents) ui_select_recientes && OPTIONS_CLOSE_REQUESTED=1 ;;
         favorite_toggle) options_toggle_selected_favorite || true ;;
@@ -538,6 +559,7 @@ options_execute() {
         alarm) app_edit_alarm || true ;;
         alarm_cancel) alarm_set '' || true ;;
         pending) app_pending_menu || true ;;
+        pending_trash_menu) app_pending_menu trash || true ;;
         backups) app_backups_menu || true ;;
         backup_create) app_backups_menu create || true ;;
         session_history) app_session_history_screen || status=$? ;;

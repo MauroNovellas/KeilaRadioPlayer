@@ -53,7 +53,8 @@ catalog_start() {
         if stations_catalog_is_fresh; then
             CATALOG_STATUS=''
             catalog_prime_search || true
-            return 0
+            if ! stations_tsv_has_facets && [[ -s "$KEILA_STATIONS_JSON" ]]; then mode=rebuild
+            else return 0; fi
         fi
         if stations_json_is_fresh && ! stations_tsv_valid; then
             mode=rebuild
@@ -98,11 +99,7 @@ catalog_poll() {
     rm -rf "$CATALOG_JOB_DIR"
     CATALOG_JOB_DIR=''
     if [[ "$status" == 0 ]]; then
-        if ((${SEARCH_ACTIVE:-0})) || [[ -n "${SEARCH_QUERY:-}" ]]; then
-            catalog_reload || return 0
-        else
-            catalog_prime_search || true
-        fi
+        catalog_reload || return 0
         CATALOG_STATUS=''
         if declare -F app_message >/dev/null 2>&1; then
             app_message 'Catálogo de emisoras listo. Pulsa B para buscar.' 4

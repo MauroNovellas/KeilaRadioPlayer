@@ -45,6 +45,13 @@ stations_tsv_valid() {
         "$KEILA_STATIONS_TSV" >/dev/null 2>&1
 }
 
+# Compatibilidad: el índice antiguo sigue siendo utilizable mientras se
+# regeneran en segundo plano los campos separados de región y temática.
+stations_tsv_has_facets() {
+    [[ -s "$KEILA_STATIONS_TSV" ]] || return 1
+    awk -F '\t' 'NF >= 5 { ok=(NF >= 9); exit } END { exit !ok }' "$KEILA_STATIONS_TSV"
+}
+
 stations_catalog_is_fresh() {
     stations_tsv_valid || return 1
 
@@ -147,18 +154,19 @@ stations_build_tsv() {
 
     jq -r '
         def clean:
-            tostring | gsub("[\\t\\r\\n]"; " ") | gsub("  +"; " ") | sub("^ +"; "") | sub(" +$"; "");
+            tostring | gsub("[\u0000-\u001f\u007f]"; " ") | gsub("  +"; " ") | sub("^ +"; "") | sub(" +$"; "");
         .[]? |
         (.url_resolved // .url // "") as $url |
         select(($url | type == "string") and ($url | length > 0)) |
         ((.name // "Sin nombre") | clean) as $name |
-        (((.state // "") as $state | (.tags // "") as $tags |
-            if ($state | length) > 0 then $state else $tags end) | clean) as $ambit |
+        ((.state // "") | clean) as $region |
+        ((.tags // "") | clean) as $tags |
+        (if ($region | length) > 0 then $region else $tags end) as $ambit |
         ((.country // .countrycode // "") | clean) as $country |
         (((.codec // "") + (if (.bitrate? // 0) > 0 then " " + ((.bitrate | tostring) + "k") else "" end)) | clean) as $format |
         ($url | clean) as $stream_url |
         ((.countrycode // "") | ascii_upcase | clean) as $countrycode |
-        (($name + " " + $ambit + " " + $country + " " + $format + " " + $countrycode) | ascii_downcase | clean) as $index |
+        (($name + " " + $region + " " + $tags + " " + $country + " " + $format + " " + $countrycode) | ascii_downcase | clean) as $index |
         [
             $name,
             $ambit,
@@ -166,7 +174,9 @@ stations_build_tsv() {
             $format,
             $stream_url,
             $countrycode,
-            $index
+            $index,
+            $region,
+            $tags
         ] | @tsv
     ' "$json_file" > "$tsv_file"
 }
@@ -344,14 +354,14 @@ stations_select_fzf() {
 
     [[ -n "$selection" ]] || return 1
 
-    local record="${selection//$'\t'/$'\x1f'}"
+    local unused record="${selection//$'\t'/$'\x1f'}"
     IFS=$'\x1f' read -r \
         SELECTED_NAME \
         SELECTED_AMBIT \
         SELECTED_COUNTRY \
         SELECTED_FORMAT \
         SELECTED_URL \
-        SELECTED_COUNTRYCODE <<< "$record"
+        SELECTED_COUNTRYCODE unused <<< "$record"
 
     [[ -n "${SELECTED_NAME:-}" && -n "${SELECTED_URL:-}" ]]
 }

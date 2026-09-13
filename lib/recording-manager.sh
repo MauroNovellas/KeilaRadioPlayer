@@ -7,6 +7,10 @@ PENDING_SCAN_GENERATION=0 PENDING_SUMMARY='' PENDING_SCAN_DEADLINE=0 PENDING_SCA
 declare -A PENDING_METADATA=() PENDING_STATES=() PENDING_DOUBTFUL=()
 # shellcheck source=lib/recording-preview.sh
 source "$(dirname "${BASH_SOURCE[0]}")/recording-preview.sh"
+# shellcheck source=lib/recording-files.sh
+source "$(dirname "${BASH_SOURCE[0]}")/recording-files.sh"
+# shellcheck source=lib/recording-file-editor.sh
+source "$(dirname "${BASH_SOURCE[0]}")/recording-file-editor.sh"
 
 pending_signature() {
     [[ -f "$1" && ! -L "$1" && ! -L "$1.pending" ]] || return 1
@@ -20,7 +24,7 @@ pending_busy() {
     [[ "$file" == "${RECORDING_FILE:-}" && ${RECORDING_ACTIVE:-0} == 1 ]] && return 0
     [[ -e "$file.pending" || -L "$file.pending" ]] || return 1
     [[ -f "$file.pending" && ! -L "$file.pending" ]] || return 0
-    IFS= read -r owner < "$file.pending" || true
+    IFS= read -r -n 129 owner < "$file.pending" || true
     [[ "$owner" == closed ]] && return 1
     if [[ "$owner" =~ ^[1-9][0-9]*$ ]]; then
         kill -0 "$owner" 2>/dev/null
@@ -55,8 +59,17 @@ pending_scan_start() {
     (
         trap - EXIT
         shopt -s nullglob
-        local file info state status=0 signature
-        for file in "$RECORDINGS_DIR"/*; do
+        local file info state status=0 signature bucket
+        local -a candidates=()
+        if [[ ${PENDING_VIEW:-library} == trash ]]; then
+            if [[ -d "$RECORDINGS_DIR/.trash" && ! -L "$RECORDINGS_DIR/.trash" ]]; then
+                for bucket in "$RECORDINGS_DIR/.trash"/recording.*; do
+                    [[ -d "$bucket" && ! -L "$bucket" ]] || continue
+                    candidates+=("$bucket"/*)
+                done
+            fi
+        else candidates=("$RECORDINGS_DIR"/*); fi
+        for file in "${candidates[@]}"; do
             case "${file,,}" in *.mp3|*.aac|*.ts|*.ogg|*.flac|*.wav|*.mka|*.mp4|*.m4a|*.opus) : ;; *) continue ;; esac
             [[ -f "$file" && ! -L "$file" ]] || continue
             info=$(stat -c $'%Y\t%s\t%y' -- "$file") || continue
@@ -162,25 +175,6 @@ pending_probe_poll() {
     return 0
 }
 
-# Solo se llama después de confirmar la ruta y firma mostradas al usuario.
-pending_trash() {
-    local file=$1 expected=$2 signature destination
-    [[ "${file%/*}" == "$RECORDINGS_DIR" ]] || return 1
-    signature=$(pending_signature "$file") || return 1
-    [[ "$signature" == "$expected" ]] && ! pending_busy "$file" || return 1
-    [[ "$file" != "$PENDING_TARGET" || -z "$PENDING_PROBE_PID" ]] || return 1
-    mkdir -p -- "$RECORDINGS_DIR/.trash" || return 1
-    [[ ! -L "$RECORDINGS_DIR/.trash" ]] || return 1
-    destination=$(mktemp -d "$RECORDINGS_DIR/.trash/recording.XXXXXX") || return 1
-    mv -- "$file" "$destination/" || return 1
-    if [[ -e "$file.pending" ]] && ! mv -- "$file.pending" "$destination/"; then
-        PENDING_NOTICE="Audio en papelera; marcador no movido: $destination"
-        return 1
-    fi
-    PENDING_NOTICE='Movida a .trash; se puede recuperar manualmente.'
-    pending_scan_start || true
-}
-
 pending_cleanup() {
     pending_preview_stop
     pending_stop_child "$PENDING_PROBE_PID"
@@ -212,11 +206,15 @@ pending_build_panel() {
         fi
         local reason=''
         case "$state" in 'En curso'|'No disponible') reason='No se puede escuchar, comprobar ni borrar mientras esté ocupado o no sea accesible.' ;; esac
-        panel_add_row '' "$name" "Archivo: $file. Fecha de modificación: ${date:0:16}. Tamaño: ${size:-?} B. Estado: $state. Finalizada significa sin cierre pendiente; C comprueba el audio. E abre la escucha con pausa y saltos de 10 segundos. X prepara el traslado a papelera, con confirmación. U actualiza la lista." "$badge" "$reason"
+        local actions='E escucha; N renombra; C comprueba; X mueve a papelera con confirmación; T abre la papelera.'
+        if [[ ${PENDING_VIEW:-library} == trash ]]; then actions='R prepara la recuperación y muestra el destino antes de confirmar. E permite escuchar sin recuperar. No hay borrado definitivo.'; fi
+        panel_add_row '' "$name" "Archivo: $file. Fecha de modificación: ${date:0:16}. Tamaño: ${size:-?} B. Estado: $state. Finalizada significa sin cierre pendiente. $actions U actualiza la lista." "$badge" "$reason"
     done
     if ((${#PENDING_FILES[@]} == 0)); then
         if [[ -n "$PENDING_SCAN_PID" ]]; then
             panel_add_row '' 'Buscando grabaciones' 'La detección se hace en segundo plano. Puedes volver al reproductor mientras termina.'
+        elif [[ ${PENDING_VIEW:-library} == trash ]]; then
+            panel_add_row '' 'La papelera está vacía' 'Los archivos trasladados con X se muestran aquí. Esc vuelve a la biblioteca. No se elimina nada automáticamente.'
         else
             panel_add_row '' 'No hay grabaciones guardadas' "Para grabar una emisora, vuelve al reproductor y pulsa G. Carpeta: $RECORDINGS_DIR. U vuelve a buscar."
         fi
@@ -224,7 +222,8 @@ pending_build_panel() {
 }
 
 pending_draw() {
-    local selected=$1 offset=$2 confirm=${3:-} footer='E escuchar | C comprobar | U actualizar | X papelera | Esc volver'
+    local selected=$1 offset=$2 confirm=${3:-} footer='E escuchar | N nombre | C comprobar | X borrar | T papelera | U actualizar | Esc volver' title=GRABACIONES
+    if [[ ${PENDING_VIEW:-library} == trash ]]; then title='PAPELERA DE GRABACIONES'; footer='R recuperar | E escuchar | U actualizar | Esc volver'; fi
     local -a PANEL_ROWS=()
     # Una biblioteca necesita ancho para nombre + estado/fecha/tamaño. Conserva
     # el marco común y el detalle inferior; no estrecharla con un segundo panel.
@@ -233,10 +232,18 @@ pending_draw() {
     ((UI_COLS < 80)) || PANEL_BADGE_MAX_WIDTH=32
     pending_build_panel "$selected" "$offset"
     [[ -z "$confirm" ]] || footer='Enter confirma | Esc cancela'
-    panel_draw GRABACIONES "$selected" "$offset" "$footer" "$PENDING_NOTICE" "${PENDING_SUMMARY:-${#PENDING_FILES[@]} archivos}"
+    panel_draw "$title" "$selected" "$offset" "$footer" "$PENDING_NOTICE" "${PENDING_SUMMARY:-${#PENDING_FILES[@]} archivos}"
 }
 
 app_pending_menu() {
+    local PENDING_VIEW=${1:-library}
+    if [[ "$PENDING_VIEW" == trash ]]; then
+        # El escaneo hijo no puede publicar una lista de papelera en la biblioteca.
+        local -a PENDING_FILES=()
+        local -A PENDING_METADATA=() PENDING_STATES=()
+        local PENDING_SCAN_PID='' PENDING_SCAN_DIR='' PENDING_SCAN_DEADLINE=0 PENDING_SCAN_AGAIN=0
+        local PENDING_SCAN_GENERATION=0 PENDING_SUMMARY=''
+    fi
     local selected=0 offset=0 file confirm='' signature='' redraw=1 event key selected_file=${PENDING_FILES[0]:-} index snapshot
     local generation=$PENDING_SCAN_GENERATION
     local previous_preferences=$PREFERENCES_ACTIVE
@@ -247,6 +254,11 @@ app_pending_menu() {
     while true; do
         if ((generation != PENDING_SCAN_GENERATION)); then
             generation=$PENDING_SCAN_GENERATION
+            if [[ -n "$RECORDING_FILES_SELECT" ]]; then
+                for index in "${!PENDING_FILES[@]}"; do
+                    if [[ ${PENDING_FILES[index]} == "$RECORDING_FILES_SELECT" ]]; then selected_file=$RECORDING_FILES_SELECT; RECORDING_FILES_SELECT=''; break; fi
+                done
+            fi
             for index in "${!PENDING_FILES[@]}"; do
                 if [[ ${PENDING_FILES[index]} == "$selected_file" ]]; then selected=$index; break; fi
             done
@@ -295,25 +307,41 @@ app_pending_menu() {
                 panel_detail GRABACIONES "$selected" ;;
             KEY)
                 if [[ "$key" == u ]]; then pending_scan_start || true; PENDING_NOTICE='Buscando grabaciones...'; continue; fi
+                if [[ "$key" == t && "$PENDING_VIEW" == library ]]; then
+                    app_pending_menu trash
+                    pending_scan_start || true
+                    continue
+                fi
                 [[ -n "$file" ]] || continue
                 case "$key" in
                     '?')
                         local -a PANEL_ROWS=()
                         pending_build_panel "$selected" "$offset"
                         panel_detail GRABACIONES "$selected" ;;
-                    c) pending_probe_start "$file" || PENDING_NOTICE='No se puede comprobar: archivo ocupado.' ;;
+                    c) [[ "$PENDING_VIEW" == library ]] || continue
+                       pending_probe_start "$file" || PENDING_NOTICE='No se puede comprobar: archivo ocupado.' ;;
                     e) app_recording_preview "$file" || true ;;
-                    x) signature=$(pending_signature "$file") || { PENDING_NOTICE='Archivo no disponible; U actualiza la lista.'; continue; }
+                    n) [[ "$PENDING_VIEW" != library ]] || app_recording_rename "$file" || true ;;
+                    r) [[ "$PENDING_VIEW" != trash ]] || app_recording_restore "$file" || true ;;
+                    x) [[ "$PENDING_VIEW" == library ]] || continue
+                       if ! recording_files_available "$file"; then PENDING_NOTICE='Archivo ocupado o no disponible; no se mueve.'; continue; fi
+                       signature=$(pending_signature "$file") || { PENDING_NOTICE='Archivo no disponible; U actualiza la lista.'; continue; }
                        confirm=$file; PENDING_NOTICE='¿Mover selección a papelera? Enter sí; otra tecla no.' ;;
                 esac ;;
         esac
     done
+    if [[ "$PENDING_VIEW" == trash ]]; then
+        pending_stop_child "$PENDING_SCAN_PID"
+        [[ -z "$PENDING_SCAN_DIR" ]] || rm -rf -- "$PENDING_SCAN_DIR"
+    fi
     pending_preview_stop
     # No finalizar archivos a espaldas del usuario al salir del panel.
-    pending_stop_child "$PENDING_PROBE_PID"
-    PENDING_PROBE_PID=''
-    [[ -z "$PENDING_PROBE_DIR" ]] || rm -rf -- "$PENDING_PROBE_DIR"
-    PENDING_PROBE_DIR=''
+    if [[ "$PENDING_VIEW" == library ]]; then
+        pending_stop_child "$PENDING_PROBE_PID"
+        PENDING_PROBE_PID=''
+        [[ -z "$PENDING_PROBE_DIR" ]] || rm -rf -- "$PENDING_PROBE_DIR"
+        PENDING_PROBE_DIR=''
+    fi
     PREFERENCES_ACTIVE=$previous_preferences
     ((previous_preferences)) || ui_draw
     return 0

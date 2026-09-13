@@ -171,9 +171,9 @@ recording_next_file() {
 
     # No sobreescribimos una grabación si por casualidad se inicia otra en el
     # mismo segundo con el mismo nombre de emisora.
-    while ! (umask 077; set -o noclobber; : > "$file") 2>/dev/null; do
+    while [[ -e "$file.pending" || -L "$file.pending" ]] || ! (umask 077; set -o noclobber; : > "$file") 2>/dev/null; do
         # Distinguir colisión (también enlaces rotos) de permisos/disco lleno.
-        [[ -e "$file" || -L "$file" ]] || return 1
+        [[ -e "$file" || -L "$file" || -e "$file.pending" || -L "$file.pending" ]] || return 1
         file="${base}_${counter}.${extension}"
         ((counter += 1))
     done

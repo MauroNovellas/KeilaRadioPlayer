@@ -7,7 +7,7 @@ export XDG_CONFIG_HOME="$task_tmp/config" XDG_STATE_HOME="$task_tmp/state" XDG_C
 set -- --version
 source "$ROOT_DIR/keila-radio" >/dev/null
 trap 'pending_cleanup; rm -rf -- "$task_tmp"' EXIT
-fail() { printf 'FAIL %s\n' "$*" >&2; exit 1; }
+fail() { printf 'FAIL %s\nAviso del gestor: %s\n' "$*" "$PENDING_NOTICE" >&2; exit 1; }
 recording_init "$task_tmp/recordings"
 file="$RECORDINGS_DIR/Radio con nombre largo para pantalla pequeña.mp3"
 printf 'audio de prueba' > "$file"
@@ -15,6 +15,9 @@ printf '999999999\n' > "$file.pending"
 active="$RECORDINGS_DIR/activa.mp3"
 printf 'audio en curso' > "$active"
 printf '%s\n' "$$" > "$active.pending"
+# Hacer que el refresco ordene la activa antes del objetivo, sin depender de
+# empates de fecha, idioma del sistema o velocidad del proceso de escaneo.
+touch -d "@$((EPOCHSECONDS + 86400))" "$active"
 app_message() { :; }
 wait_scan() {
     local i
@@ -64,7 +67,7 @@ events=0 polls=0
 input_read() {
     ((events+=1)); INPUT_KEY=''
     case "$events" in
-        1) INPUT_EVENT=TICK ;;
+        1) wait_scan; INPUT_EVENT=TICK ;;
         2) INPUT_EVENT=KEY; INPUT_KEY=x ;;
         3) INPUT_EVENT=ESC ;;
         *) INPUT_EVENT=ESC ;;
@@ -77,17 +80,24 @@ while IFS= read -r line || [[ -n "$line" ]]; do
 done < "$task_tmp/render"
 # Detener la búsqueda del menú para que no publique una lista antigua.
 pending_cleanup
+[[ ${PENDING_FILES[0]:-} == "$active" && ${PENDING_FILES[1]:-} == "$file" ]] || fail 'refresco no reordenó la lista de prueba'
+# Reabrir comienza en la primera fila, no en la selección del menú anterior.
+# Primero comprobar la protección de la activa y luego navegar al objetivo.
 events=0
 input_read() {
     ((events+=1)); INPUT_KEY=''
     case "$events" in
         1) INPUT_EVENT=KEY; INPUT_KEY=x ;;
-        2) INPUT_EVENT=ENTER ;;
+        2) [[ -f "$active" && -f "$file" && "$PENDING_NOTICE" == 'Archivo ocupado'* ]] || fail 'X no protege la activa'
+           INPUT_EVENT=DOWN ;;
+        3) INPUT_EVENT=KEY; INPUT_KEY=x ;;
+        4) INPUT_EVENT=ENTER ;;
         *) INPUT_EVENT=ESC ;;
     esac
 }
 app_pending_menu >/dev/null
-[[ ! -e "$file" && ! -e "$file.pending" ]] || fail 'confirmación no elimina'
+[[ ! -e "$file" && ! -e "$file.pending" ]] || fail 'confirmación no mueve el archivo seleccionado a papelera'
+[[ -s "$active" && -f "$active.pending" ]] || fail 'confirmación altera la grabación activa'
 shopt -s nullglob
 trashed=("$RECORDINGS_DIR"/.trash/*/*.mp3)
 [[ ${#trashed[@]} == 1 && -s ${trashed[0]} && -f ${trashed[0]}.pending ]] || fail 'papelera no recuperable'

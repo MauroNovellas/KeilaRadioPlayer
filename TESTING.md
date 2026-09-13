@@ -18,6 +18,14 @@ almacenamiento. No se cambia la configuración personal del reproductor. Las
 pruebas del terminal usan un pseudoterminal y las de audio una señal sintética
 o dobles de prueba, no los altavoces del usuario.
 
+La batería cierra la entrada estándar de cada prueba: ninguna debe leer el
+teclado de la terminal principal. `timeout` usa un grupo de procesos separado;
+heredar el TTY puede detener herramientas como ffmpeg o script y producir un
+124 aunque no haya un fallo de audio. Los tests interactivos crean su propio
+PTY, sin renunciar a comprobar el eco y su restauración. `check-terminal.sh`
+comprueba esta separación lanzando una batería ficticia desde un terminal real.
+Véase el [comportamiento de timeout con el terminal](https://www.gnu.org/software/coreutils/manual/html_node/timeout-invocation.html).
+
 El runner necesita Bash 5, las utilidades habituales de GNU/Linux o Termux
 (incluido `timeout`), `jq`, Python 3 y ShellCheck. Integración necesita además
 `ffmpeg`, `ffprobe`, `script`, `setsid`, `mpv` y `socat`. La falta de una dependencia requerida
@@ -64,6 +72,12 @@ por ese motivo; ejecutarla en un entorno que permita ese IPC local.
 Cada prueba tiene un límite de 180 segundos. Si falla o excede ese límite, el
 runner informa del error, continúa con las restantes y termina con código no
 cero. No confunde el tiempo agotado con una prueba aprobada.
+
+El código 124 significa que se agotó el tiempo, no que una aserción falló. La
+prueba de escucha imprime sus fases (generación, mpv, controles y cierre) para
+localizar un bloqueo. La generación de audio y el probe de terminal tienen
+además límites propios cortos; aumentar el límite global no arregla una espera
+accidental de teclado.
 
 Al terminar muestra un resumen y la carpeta temporal de registros. Cada
 `nombre/output.log` contiene la salida completa de ese script. Los registros y

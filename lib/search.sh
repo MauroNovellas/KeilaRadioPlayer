@@ -13,6 +13,8 @@ SEARCH_DETAILS_VISIBLE=0
 SEARCH_NAMES=()
 SEARCH_AMBITS=()
 SEARCH_COUNTRIES=()
+SEARCH_REGIONS=()
+SEARCH_TAGS=()
 SEARCH_FORMATS=()
 SEARCH_URLS=()
 SEARCH_COUNTRYCODES=()
@@ -25,11 +27,15 @@ KEILA_CATALOG_COUNTRY_FILTER="${KEILA_CATALOG_COUNTRY_FILTER:-ES}"
 SEARCH_SOURCE_FILE=''
 SEARCH_SOURCE_ROWS=''
 declare -A SEARCH_URL_INDEX=()
+# shellcheck source=lib/search-filters.sh
+source "$(dirname "${BASH_SOURCE[0]}")/search-filters.sh"
 
 search_clear_results() {
     SEARCH_NAMES=()
     SEARCH_AMBITS=()
     SEARCH_COUNTRIES=()
+    SEARCH_REGIONS=()
+    SEARCH_TAGS=()
     SEARCH_FORMATS=()
     SEARCH_URLS=()
     SEARCH_COUNTRYCODES=()
@@ -77,50 +83,14 @@ search_source_rows_from_current() {
         countrycode="${SEARCH_COUNTRYCODES[$i]:-}"
         [[ -n "$url" ]] || continue
         index_text="${SEARCH_INDEX_TEXTS[$i]:-${name,,} ${ambit,,} ${country,,} ${format,,} ${countrycode,,}}"
-        printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-            "$name" "$ambit" "$country" "$format" "$url" "$countrycode" "$index_text"
+        printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+            "$name" "$ambit" "$country" "$format" "$url" "$countrycode" "$index_text" "${SEARCH_REGIONS[$i]:-}" "${SEARCH_TAGS[$i]:-}"
     done
 }
 
 search_filter_station_rows() {
     local source_rows="$1"
-    local query="${SEARCH_QUERY,,}"
-
-    if [[ -n "$SEARCH_SOURCE_FILE" ]]; then
-        awk -F '\t' \
-            -v query="$query" \
-            -v country="$KEILA_CATALOG_COUNTRY_FILTER" \
-            -v country_filter="$SEARCH_COUNTRY_FILTER_ENABLED" \
-            -v limit="$SEARCH_MATCH_LIMIT" '
-            BEGIN { if (limit < 100) limit = 300 }
-            NF < 5 || $5 == "" { next }
-            country_filter && toupper($6) != country { next }
-            {
-                text = tolower($1 " " $2 " " $3 " " $4 " " $6)
-                if (query == "" || index(text, query)) {
-                    print
-                    if (++matches >= limit) exit
-                }
-            }
-        ' "$SEARCH_SOURCE_FILE"
-    else
-        awk -F '\t' \
-            -v query="$query" \
-            -v country="$KEILA_CATALOG_COUNTRY_FILTER" \
-            -v country_filter="$SEARCH_COUNTRY_FILTER_ENABLED" \
-            -v limit="$SEARCH_MATCH_LIMIT" '
-            BEGIN { if (limit < 100) limit = 300 }
-            NF < 5 || $5 == "" { next }
-            country_filter && toupper($6) != country { next }
-            {
-                text = ($7 != "" ? $7 : tolower($1 " " $2 " " $3 " " $4 " " $6))
-                if (query == "" || index(text, query)) {
-                    print
-                    if (++matches >= limit) exit
-                }
-            }
-        ' <<< "$source_rows"
-    fi
+    search_filters_awk "${SEARCH_SOURCE_FILE:-/dev/stdin}" <<< "$source_rows"
 }
 
 search_station_line_for_url() {
@@ -135,10 +105,10 @@ search_station_line_for_url() {
 
 search_add_result_line() {
     local line="$1"
-    local name ambit country format url countrycode index index_text record
+    local name ambit country format url countrycode index index_text record region tags
 
     record="${line//$'\t'/$'\x1f'}"
-    IFS=$'\x1f' read -r name ambit country format url countrycode index_text <<< "$record"
+    IFS=$'\x1f' read -r name ambit country format url countrycode index_text region tags <<< "$record"
     [[ -n "$url" ]] || return 1
     [[ -n "$name" ]] || name='Sin nombre'
 
@@ -146,6 +116,8 @@ search_add_result_line() {
     SEARCH_NAMES+=("$name")
     SEARCH_AMBITS+=("$ambit")
     SEARCH_COUNTRIES+=("$country")
+    SEARCH_REGIONS+=("$region")
+    SEARCH_TAGS+=("$tags")
     SEARCH_FORMATS+=("$format")
     SEARCH_URLS+=("$url")
     SEARCH_COUNTRYCODES+=("$countrycode")
@@ -181,11 +153,7 @@ search_filter() {
             [[ -n "${SEARCH_URL_INDEX[$url]+set}" ]] && continue
             line=$(search_station_line_for_url "$url" "$source_rows")
             [[ -n "$line" ]] || continue
-            if ((SEARCH_COUNTRY_FILTER_ENABLED)); then
-                local line_countrycode=''
-                IFS=$'\t' read -r _ _ _ _ _ line_countrycode _ <<< "$line"
-                [[ "$line_countrycode" == "$KEILA_CATALOG_COUNTRY_FILTER" ]] || continue
-            fi
+            search_filters_accept_line "$line" || continue
             search_add_result_line "$line" || true
         done
     fi

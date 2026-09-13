@@ -16,8 +16,10 @@ player_is_running() { return 0; }
 player_toggle_pause() { PLAYER_PAUSED=$((1-PLAYER_PAUSED)); }
 PLAYER_PID=$$ PLAYER_URL=https://radio.invalid PLAYER_PAUSED=0 RECORDING_ACTIVE=0
 file="$task_tmp/prueba.wav"
-ffmpeg -v error -f lavfi -i 'sine=frequency=440:duration=25' "$file" || fail fixture
+printf 'fase: crear audio sintético sin entrada de teclado\n'
+timeout --kill-after=1s 15s ffmpeg -nostdin -v error -f lavfi -i 'sine=frequency=440:duration=25' "$file" || fail fixture
 before=$(sha256sum "$file")
+printf 'fase: iniciar mpv con salida nula e IPC privado\n'
 pending_preview_start "$file" || fail iniciar
 # El directorio se publica en pending_preview_start (módulo cargado).
 # shellcheck disable=SC2153
@@ -30,17 +32,37 @@ for ((i=0; i<300; i++)); do
 done
 ((PENDING_PREVIEW_READY)) || fail 'no abre IPC de mpv real'
 [[ $(ps -o pgid= -p "$pid" | tr -d ' ') == "$pid" ]] || fail 'sin grupo privado'
+printf 'fase: pausa, contador y saltos\n'
 pending_preview_action pause || fail pausa
 pending_preview_command '["get_property","pause"]' || fail consulta
 [[ $PENDING_PREVIEW_RESPONSE == *'"data":true'* ]] || fail 'mpv no pausó'
+read_clock() {
+    for ((clock_i=0; clock_i<150; clock_i++)); do
+        pending_preview_poll || true
+        [[ $PENDING_CLOCK_POSITION != - && $PENDING_CLOCK_DURATION != - ]] && return 0
+        sleep .02
+    done
+    fail 'contador no recibe datos reales'
+}
+read_clock
+[[ $PENDING_CLOCK_DURATION == 25 ]] || fail 'duración incorrecta'
+paused_position=$PENDING_CLOCK_POSITION
+sleep 1.1
+pending_preview_poll || true
+[[ $PENDING_CLOCK_POSITION == "$paused_position" && -z $PENDING_CLOCK_PID ]] || fail 'contador avanza o consulta en pausa'
 pending_preview_action forward || fail avance
+read_clock
+((PENDING_CLOCK_POSITION >= 9 && PENDING_CLOCK_POSITION < 13)) || fail 'contador no sigue avance'
 pending_preview_command '["get_property","time-pos"]' || fail posición
 jq -e '.data >= 9 and .data < 13' <<< "$PENDING_PREVIEW_RESPONSE" >/dev/null || fail 'no avanza diez segundos'
 pending_preview_action back || fail retroceso
 pending_preview_action start || fail inicio
+read_clock
+[[ $PENDING_CLOCK_POSITION == 0 && $PENDING_CLOCK_TIME == '00:00 / 00:25' ]] || fail 'contador no vuelve al inicio'
 pending_preview_command '["get_property","time-pos"]' || fail posición
 jq -e '.data < 1' <<< "$PENDING_PREVIEW_RESPONSE" >/dev/null || fail 'no vuelve al inicio'
 # EOF real y respuesta del canal de control; luego recoger proceso y socket.
+printf 'fase: fin de audio y limpieza del grupo privado\n'
 pending_preview_command '["seek",23,"absolute+exact"]' || fail 'preparar EOF'
 pending_preview_action pause || fail reanudar
 for ((i=0; i<200; i++)); do

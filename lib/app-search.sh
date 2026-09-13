@@ -14,9 +14,10 @@ stations_select_fzf_external() {
     stations_require_search_dependencies || return 1
     stations_ensure_catalog || return 1
 
-    local selection
+    local selection unused
+    local SEARCH_QUERY='' SEARCH_SOURCE_FILE=$KEILA_STATIONS_TSV SEARCH_MATCH_LIMIT=1000000
     selection=$(
-        stations_emit_tsv |
+        search_filter_station_rows '' |
             fzf \
                 --delimiter=$'\t' \
                 --with-nth=1,2,3,4,6 \
@@ -35,7 +36,7 @@ stations_select_fzf_external() {
         SELECTED_COUNTRY \
         SELECTED_FORMAT \
         SELECTED_URL \
-        SELECTED_COUNTRYCODE <<< "$record"
+        SELECTED_COUNTRYCODE unused <<< "$record"
 
     [[ -n "${SELECTED_NAME:-}" && -n "${SELECTED_URL:-}" ]]
 }

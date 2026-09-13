@@ -30,9 +30,12 @@ fast|recent-workflow.sh|
 fast|recording-switch.sh|
 fast|recording-validation.sh|
 fast|recording-preview.sh|
+fast|recording-file-menu.sh|
 fast|render-cache.sh|
 fast|search-favorites.sh|
 fast|search-integrated.sh|
+fast|search-filters.sh|
+fast|station-options.sh|
 fast|search-transition.sh|
 fast|section-shortcuts.sh|
 fast|session-history.sh|
@@ -45,12 +48,14 @@ fast|ui-responsive.sh|
 fast|ui-theme.sh|
 fast|ui-update-status.sh|
 fast|update-check.sh|
+fast|recording-preview-clock.sh|
 fast|resource-profile.py|--self-test
 integration|backup-restore.sh|
 integration|backup-archive.sh|
 integration|backup-manager.sh|
 integration|catalog-startup.sh|
 integration|catalog-startup-fast.sh|
+integration|check-terminal.sh|
 integration|data-protection.sh|
 integration|data-recovery.sh|
 integration|persistence-extended.sh|
@@ -62,6 +67,7 @@ integration|pre-rc.sh|
 integration|recording-formats.sh|
 integration|recording-manager.sh|
 integration|recording-library.sh|
+integration|recording-files.sh|
 integration|recording-preview-audio.sh|
 integration|spectrum.sh|
 integration|ui-terminal-guard.sh|

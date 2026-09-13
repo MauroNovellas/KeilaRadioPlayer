@@ -63,6 +63,8 @@ make_release() {
         favorites.sh
         stations.sh
         search.sh
+        search-filters.sh
+        station-options.sh
         player.sh
         player-failure.sh
         player-events.sh
@@ -74,6 +76,9 @@ make_release() {
         panels.sh
         recording-manager.sh
         recording-preview.sh
+        recording-preview-clock.sh
+        recording-files.sh
+        recording-file-editor.sh
         status-screen.sh
         backup.sh
         backup-archive.sh
