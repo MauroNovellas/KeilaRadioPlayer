@@ -23,12 +23,14 @@ SPECTRUM_SMOOTHING=0
 (
     # timeout ejecuta programas externos: sustituirlo solo dentro de este test.
     timeout() { shift 2; "$@"; }
-    ffmpeg() { printf '%s\n' '-fps_mode[:<stream_spec>] set framerate mode'; }
+    ffmpeg() { printf '%s\n' '-fps_mode[:<stream_spec>] set framerate mode' '   rate <video_rate> set video rate'; }
     spectrum_configure_sync
     assert_eq '-fps_mode passthrough' "${SPECTRUM_SYNC_ARGS[*]}" 'sincronización moderna'
+    [[ "$SPECTRUM_FILTER" == *':rate=20:'* ]] || fail 'filtro moderno'
     ffmpeg() { printf '%s\n' '-vsync set video sync method'; }
     spectrum_configure_sync
     assert_eq '-vsync 0' "${SPECTRUM_SYNC_ARGS[*]}" 'sincronización FFmpeg 4'
+    [[ "$SPECTRUM_FILTER" != *':rate='* && "$SPECTRUM_FILTER" == *'win_size=2048:overlap=0:colors=white,fps=20' ]] || fail 'filtro FFmpeg 4'
 ) || fail 'selección de sincronización'
 
 # Reproduce el reloj localizado, incluidas fracciones que fallaban al leerse

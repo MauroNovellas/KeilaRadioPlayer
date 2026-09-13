@@ -11,8 +11,9 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
   Acciones fijadas a commits y permisos de solo lectura.
 - Compatibilidad verificada por CI: las fracciones negativas de posición al
   inicio en mpv 0.34/0.37 se muestran como 00:00, sin inventar tiempo transcurrido.
-  El espectrograma detecta fps_mode y usa vsync 0 en FFmpeg antiguo; detección
-  fuera del bucle de interfaz. Regresiones para ambos comportamientos.
+  El espectrograma detecta fps_mode y rate; adapta sincronización y filtro a
+  FFmpeg antiguo manteniendo la salida a 20 cuadros/s. Detección fuera del
+  bucle de interfaz. Regresiones para ambos comportamientos.
 
 - README reorganizado con inicio rápido, resumen de funciones y atajos, y
   referencia completa en desplegables. Redacción más compacta y controles,

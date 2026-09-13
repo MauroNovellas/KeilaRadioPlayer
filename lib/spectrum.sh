@@ -89,6 +89,13 @@ spectrum_configure_sync() {
         LC_ALL=C awk '/^-fps_mode/ {found=1} END {exit !found}'; then
         SPECTRUM_SYNC_ARGS=(-fps_mode passthrough)
     fi
+    # showfreqs antiguo tampoco acepta rate: generar ~21.5 cuadros/s con
+    # ventanas sin solapamiento y limitar la salida a 20, sin acelerar el FFT.
+    SPECTRUM_FILTER='showfreqs=s=17x16:mode=bar:ascale=log:fscale=log:win_size=2048:overlap=0:colors=white,fps=20'
+    if timeout --kill-after=.1s 2s ffmpeg -hide_banner -h filter=showfreqs 2>/dev/null |
+        LC_ALL=C awk '$1 == "rate" {found=1} END {exit !found}'; then
+        SPECTRUM_FILTER='showfreqs=s=17x16:rate=20:mode=bar:ascale=log:fscale=log:win_size=1024:overlap=0.5:colors=white'
+    fi
 }
 
 spectrum_start() {
@@ -110,6 +117,7 @@ spectrum_start() {
     (
         trap spectrum_worker_stop TERM INT
         local -a SPECTRUM_SYNC_ARGS=()
+        local SPECTRUM_FILTER=''
         spectrum_configure_sync
         if command -v parec >/dev/null 2>&1; then
             # Pedir entregas pequeñas: el buffer predeterminado puede acumular
@@ -117,12 +125,12 @@ spectrum_start() {
             parec --device="$SPECTRUM_SOURCE" --format=s16le --rate=44100 --channels=1 \
                 --latency-msec=40 --process-time-msec=20 2>/dev/null |
                 ffmpeg -hide_banner -loglevel error -fflags nobuffer -flags low_delay -avioflags direct -probesize 32 -analyzeduration 0 -f s16le -ar 44100 -ac 1 -i - \
-                    -lavfi 'showfreqs=s=17x16:rate=20:mode=bar:ascale=log:fscale=log:win_size=1024:overlap=0.5:colors=white' \
+                    -lavfi "$SPECTRUM_FILTER" \
                     "${SPECTRUM_SYNC_ARGS[@]}" -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
         else
             ffmpeg -hide_banner -loglevel error -fflags nobuffer -flags low_delay -avioflags direct \
                 -f pulse -sample_rate 44100 -channels 1 -fragment_size 1764 -i "$SPECTRUM_SOURCE" \
-                -lavfi 'showfreqs=s=17x16:rate=20:mode=bar:ascale=log:fscale=log:win_size=1024:overlap=0.5:colors=white' \
+                -lavfi "$SPECTRUM_FILTER" \
                     "${SPECTRUM_SYNC_ARGS[@]}" -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
         fi |
             stdbuf -oL od -An -tu1 -w17 -v |
