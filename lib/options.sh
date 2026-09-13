@@ -16,6 +16,10 @@ declare -a OPTIONS_ROWS=()
 declare -A OPTIONS_SELECTIONS=() OPTIONS_OFFSETS=()
 # shellcheck source=lib/station-options.sh
 source "$(dirname "${BASH_SOURCE[0]}")/station-options.sh"
+# shellcheck source=lib/sleep-timer.sh
+source "$(dirname "${BASH_SOURCE[0]}")/sleep-timer.sh"
+# shellcheck source=lib/m3u-menu.sh
+source "$(dirname "${BASH_SOURCE[0]}")/m3u-menu.sh"
 
 options_cancel_confirmation() {
     if [[ -n "${FAVORITES_CONFIRM_URL:-}" ]]; then
@@ -132,6 +136,9 @@ options_action_reason() {
             fi
             ;;
         alarm_cancel) ((ALARM_AT > 0)) || OPTIONS_REASON='No hay ninguna alarma programada.' ;;
+        sleep_cancel) ((${SLEEP_TIMER_AT:-0} > 0)) || OPTIONS_REASON='No hay ninguna parada programada.' ;;
+        m3u_export) ((${#FAVORITE_NAMES[@]} > 0)) || OPTIONS_REASON='Primero añade alguna favorita.' ;;
+        m3u_import) ((${BACKUP_DATA_BUSY:-0} == 0)) || OPTIONS_REASON='Espera a que termine la restauración de datos.' ;;
         catalog_update) [[ -z "${CATALOG_PID:-}" ]] || OPTIONS_REASON='La actualización ya está en curso. Puedes seguir escuchando.' ;;
         volume_up) ((PLAYER_VOLUME < 100)) || OPTIONS_REASON='El volumen ya está al máximo.' ;;
         volume_down) ((PLAYER_VOLUME > 0)) || OPTIONS_REASON='El volumen ya está a cero.' ;;
@@ -163,7 +170,7 @@ options_build_rows() {
             options_add_row P Reproducción 'Pausa, sonido, volumen y grabación de la emisora actual.' menu:playback "$OPTIONS_PLAYBACK"
             options_add_row E Emisoras 'Búsqueda, filtros, alta manual y gestión de favoritas, recientes y comentarios.' menu:stations "$OPTIONS_CATALOG_STATE"
             options_add_row V Visualización 'Espectrograma, ecualizador, colores y símbolos. Las preferencias se guardan al cambiarlas.' menu:visual
-            options_add_row T Temporizador 'La alarma suena una sola vez. Mantén Keila abierto y el equipo despierto; no se restaura al iniciar.' menu:timer "$OPTIONS_ALARM"
+            options_add_row T Temporizador 'Alarma y parada automática de la reproducción. Son ajustes de sesión: mantén Keila abierto; no se restauran al iniciar.' menu:timer "$OPTIONS_ALARM"
             options_add_row G Grabaciones 'Graba el audio o revisa los archivos guardados. El gestor permite comprobarlos, escucharlos y eliminarlos con confirmación.' menu:recordings "$OPTIONS_RECORDING"
             options_add_row S Sesión 'Consulta el registro de canciones de esta ejecución, con su hora y emisora.' menu:session
             options_add_row C Configuración 'Preferencias guardadas y teclas personalizables para la pantalla principal.' menu:config
@@ -187,6 +194,7 @@ options_build_rows() {
             search_filters_summary
             options_add_row L 'Filtros de búsqueda' 'Combina país, región y temática sin ocupar la consulta. Se aplican al catálogo durante esta sesión; no ocultan tus favoritas ni recientes.' menu:filters "$SEARCH_FILTER_SUMMARY"
             options_add_row N 'Añadir emisora manual' 'Introduce nombre y dirección del audio HTTP/HTTPS. Puedes escucharla antes de guardarla en Favoritas; no se envía al catálogo público.' station_manual
+            options_add_row M 'Importar / exportar M3U' 'Intercambia nombres y direcciones de Favoritas con otros reproductores. Vista previa antes de guardar; sin sobrescribir archivos ni sustituir favoritas.' menu:m3u
             options_add_row F 'Ir a Favoritas' 'Cierra Opciones y lleva el cursor a Favoritas.' select_favorites "${#FAVORITE_NAMES[@]} emisoras"
             options_add_row R 'Ir a Recientes' 'Cierra Opciones y lleva el cursor a Recientes.' select_recents "${#RECENT_NAMES[@]} emisoras"
             options_add_row I 'Reproducir selección' "$selected Vuelve al reproductor al iniciar la escucha." play_selected
@@ -220,6 +228,24 @@ options_build_rows() {
             OPTIONS_TITLE='TEMPORIZADOR'
             options_add_row A 'Alarma temporal' 'Escribe HHMM: los dos puntos se añaden solos. Enter guarda; vacío cancela. Sonará la última emisora. Keila debe seguir abierto y el equipo despierto.' alarm "$OPTIONS_ALARM"
             options_add_row X 'Cancelar alarma' 'Desactiva la alarma de esta sesión. Las alarmas nunca se guardan para el siguiente inicio.' alarm_cancel "$OPTIONS_ALARM"
+            sleep_timer_status
+            options_add_row P 'Temporizador de parada' 'Detiene radio y escucha de grabaciones; cierra una grabación activa de forma segura. No apaga el equipo. Las alarmas futuras se conservan; si ambas vencen a la vez, prima la parada.' menu:sleep "$SLEEP_TIMER_STATUS"
+            ;;
+        sleep)
+            OPTIONS_TITLE='TEMPORIZADOR DE PARADA'
+            sleep_timer_status
+            local minutes key=0
+            for minutes in 15 30 45 60 90; do
+                ((key+=1))
+                options_add_row "$key" "Parar en $minutes minutos" 'Programa desde ahora o sustituye el plazo anterior. Solo esta sesión; no apaga el equipo ni cancela una alarma futura.' "sleep:$minutes"
+            done
+            options_add_row M 'Otros minutos' 'Introduce entre 1 y 1440 minutos. Esc conserva el plazo anterior.' sleep_edit "$SLEEP_TIMER_STATUS"
+            options_add_row X 'Cancelar parada' 'Quita solo el temporizador de parada; no modifica reproducción ni alarma.' sleep_cancel "$SLEEP_TIMER_STATUS"
+            ;;
+        m3u)
+            OPTIONS_TITLE='INTERCAMBIAR FAVORITAS'
+            options_add_row E 'Exportar Favoritas a M3U' 'Elige la ruta de un archivo nuevo. Guarda nombres y URL, no comentarios ni ajustes. Las URL pueden contener tokens privados: revisa antes de compartir.' m3u_export
+            options_add_row I 'Importar M3U a Favoritas' 'Lee un archivo local UTF-8 M3U/M3U8 con emisoras HTTP/HTTPS. Revisa la lista y confirma para añadir solo nuevas URL; conserva favoritas existentes, orden y comentarios.' m3u_import
             ;;
         recordings)
             OPTIONS_TITLE='GRABACIONES'
@@ -558,6 +584,11 @@ options_execute() {
         autoplay) options_toggle_preference PREF_AUTOPLAY 'Inicio automático' ;;
         alarm) app_edit_alarm || true ;;
         alarm_cancel) alarm_set '' || true ;;
+        sleep:*) sleep_timer_set "${action#sleep:}" || true ;;
+        sleep_edit) app_edit_sleep_timer || true ;;
+        sleep_cancel) sleep_timer_set '' || true ;;
+        m3u_export) app_m3u_dialog export || true ;;
+        m3u_import) app_m3u_dialog import || true ;;
         pending) app_pending_menu || true ;;
         pending_trash_menu) app_pending_menu trash || true ;;
         backups) app_backups_menu || true ;;
@@ -603,6 +634,10 @@ options_snapshot() {
         "$ALARM_AT" "$ALARM_LABEL" "$CATALOG_PID" "$CATALOG_LAST_ERROR" "$PENDING_SCAN_PID" \
         "${#PENDING_FILES[@]}" "$SPECTRUM_ENABLED" "${UI_MESSAGE:-}" "$UI_SELECTED_INDEX" \
         "${#FAVORITE_NAMES[@]}" "${#RECENT_NAMES[@]}" "${APP_RECONNECT_NEXT_AT:-0}"
+    OPTIONS_SNAPSHOT+="${SLEEP_TIMER_AT:-0}"
+    if [[ "${menu:-}" == sleep || "${menu:-}" == timer ]] && ((${SLEEP_TIMER_AT:-0} > 0)); then
+        OPTIONS_SNAPSHOT+="/$EPOCHSECONDS"
+    fi
 }
 
 options_menu_loop() {

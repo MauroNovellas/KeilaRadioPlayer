@@ -76,6 +76,14 @@ por ese motivo; ejecutarla en un entorno que permita ese IPC local.
 
 ## Resultados y fallos
 
+`sleep-timer.sh` comprueba plazos, edición cancelable, prioridad sobre alarmas
+vencidas, conservación de alarmas futuras y el orden de cierre de audio/grabación.
+`m3u-files.sh` verifica BOM/CRLF, duplicados, límites, entradas no admitidas,
+ida y vuelta, privacidad, fusión bloqueada, escritura fallida y colisiones.
+`m3u-menu.sh` prueba la preparación asíncrona, ticks atendidos, confirmación,
+consulta de detalles y cancelación. Las pruebas de layout incluyen los menús
+y formularios nuevos en 13 tamaños, con ASCII y Unicode.
+
 Cada prueba tiene un límite de 180 segundos. Si falla o excede ese límite, el
 runner informa del error, continúa con las restantes y termina con código no
 cero. No confunde el tiempo agotado con una prueba aprobada.

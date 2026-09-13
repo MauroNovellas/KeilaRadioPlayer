@@ -2,6 +2,19 @@
 
 ## Garantías comprobadas
 
+- M3U se prepara desde una instantánea privada y acotada (256 KiB, 2000 entradas),
+  sin seguir enlaces ni abrir FIFO y sin interpretar comandos o etiquetas como
+  código. La confirmación importa esa vista previa, no una fuente modificada
+  después. Se releen las favoritas bajo bloqueo antes de fusionar URL nuevas:
+  no se reemplazan nombres, orden ni comentarios. Una única publicación y su
+  copia .bak protegen el conjunto; un fallo restaura también los arrays en memoria.
+- La exportación M3U usa un temporal hermano y rename sin reemplazo; una colisión
+  se rechaza también al publicar. No incluye comentarios ni ajustes. Las URL
+  pueden contener tokens privados: el usuario debe revisarlas antes de compartir.
+- El temporizador consume su plazo una sola vez, desactiva reintentos y evita
+  que cerrar la escucha de una grabación reanude la radio. Solicita primero el
+  cierre de la grabación; si mpv aún escribe, lo cierra y vuelve a verificar.
+  Los archivos dudosos se conservan con aviso. No borra audio ni datos personales.
 - El alta manual reutiliza la escritura bloqueada y atómica de Favoritas y sus
   copias de seguridad. No sustituye otra emisora con la misma URL ni publica en
   Radio Browser. Guardar no reproduce; la prueba de escucha es una acción explícita

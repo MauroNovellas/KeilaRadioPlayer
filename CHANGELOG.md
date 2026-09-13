@@ -4,6 +4,19 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - próxima release
 
+- Opciones > Temporizador > Parada: plazos de 15/30/45/60/90 minutos o de 1 a
+  1440, cuenta atrás dentro del menú, modificación y cancelación. Solo sesión,
+  sin procesos ni escrituras periódicas; detiene radio/escucha, cancela reintentos
+  y cierra la grabación conservando archivos dudosos. Respeta alarmas futuras;
+  una parada ya vencida tiene prioridad sobre una alarma también vencida.
+- Opciones > Emisoras > M3U: importación/exportación con ruta editable, preparación
+  asíncrona, vista previa y confirmación. Importa solo URL nuevas bajo un único
+  bloqueo y publicación atómica; mantiene nombres, orden y comentarios previos.
+  Exporta nombres/URL sin sobrescribir destinos. Límites de lectura, rechazo de
+  HLS, binarios, enlaces y URL no admitidas; sin ejecutar ni descargar contenido.
+- Regresiones de temporizador, fusión M3U, colisiones, escritura fallida,
+  cancelación, vista previa estable y nuevas pantallas en ASCII/Unicode.
+
 - Integración de la línea v2.1 en main. El README dirige las nuevas instalaciones
   a main; publicar una nueva etiqueta o release es un paso independiente.
 - CI completa en Ubuntu 22.04 y 24.04, ejecución manual, cancelación de trabajos

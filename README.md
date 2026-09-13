@@ -68,9 +68,10 @@ Puedes acceder a todo lo habitual desde **`O` Opciones**, sin memorizar atajos.
 | Buscar en Radio Browser y actualizar su copia local | Emisoras |
 | Combinar país, región y temática con una búsqueda libre | Emisoras → Filtros de búsqueda |
 | Añadir una emisora por su URL | Emisoras → Añadir emisora manual |
+| Importar o exportar favoritas con otros reproductores | Emisoras → Importar / exportar M3U |
 | Gestionar Favoritas, Recientes, orden y comentarios | Emisoras |
 | Ajustar ecualizador, espectrograma, colores o Unicode | Visualización |
-| Programar una alarma para escuchar la última emisora | Temporizador |
+| Programar una alarma o detener el audio al cabo de un tiempo | Temporizador |
 | Grabar, comprobar, escuchar, renombrar y recuperar audios | Grabaciones |
 | Consultar las canciones anteriores y el TXT de esta sesión | Sesión |
 | Guardar preferencias y personalizar teclas | Configuración |
@@ -148,6 +149,12 @@ KEILA_FZF_SEARCH=1 ./keila-radio
 
 `P` permite probarla: cambia lo que suena y puede aparecer en Recientes y en el registro de sesión, pero no la guarda en Favoritas. Está bloqueado mientras se graba. Salir con `Esc` no guarda el formulario ni deshace una prueba ya iniciada.
 
+**Intercambiar M3U — `O → E → M`.** `E` exporta Favoritas; `I` importa un archivo local M3U/M3U8 en UTF-8. Introduce una ruta (admite `~/…`), revisa la vista previa y confirma con `G` o `Enter` en la primera fila. Las otras filas permiten consultar URL; `Esc` cancela sin guardar. La preparación es en segundo plano, sin reproducir ni descargar emisoras.
+
+Importar añade solo URL HTTP/HTTPS nuevas, al final, conservando nombres existentes, orden y comentarios. Muestra las entradas repetidas y omitidas; acepta listas simples o con `#EXTINF`, CRLF y BOM. Rechaza segmentos HLS, rutas locales, credenciales en el servidor y archivos binarios. Límite: 256 KiB y 2000 emisoras por intercambio; no ejecuta etiquetas de otros reproductores.
+
+Exportar guarda únicamente nombres y URL, **nunca comentarios ni ajustes**, y pide otro destino si el archivo existe. Las URL pueden contener tokens privados: revísalas antes de compartir. Para trasladar todos los datos personales, usa Copias de seguridad.
+
 </details>
 
 <details>
@@ -200,13 +207,17 @@ El análisis trabaja a 20 Hz y la presentación se limita a intervalos de 66 ms,
 </details>
 
 <details>
-<summary>Alarma, silencio y preferencias guardadas</summary>
+<summary>Alarma, temporizador de parada, silencio y preferencias</summary>
 
 **Alarma — `L` o `O → T`.** Escribe `HHMM`: los dos puntos se añaden solos. También admite `HH:MM`. `Enter` programa; vacío cancela; `Esc` conserva lo anterior. Si la hora pasó, se programa para mañana, en hora local, con fecha/hora visibles.
 
 Suena **una sola vez** con la última emisora escuchada, incluso si la cambiaste después de programarla. Desactiva el silencio y usa el volumen configurado; comprueba volumen y conexión antes. Si hay una grabación, aplica el mismo cierre seguro que al cambiar de emisora.
 
 Keila debe seguir abierto y el equipo despierto. No es un despertador del sistema, no despierta Android y no se guarda al cerrar.
+
+**Temporizador de parada — `O → T → P`.** Elige 15, 30, 45, 60 o 90 minutos, o `M` para introducir de 1 a 1440. Un plazo nuevo sustituye al anterior; `X` cancela solo la parada. El tiempo restante se consulta aquí, sin añadir filas a la pantalla principal.
+
+Al vencer detiene la radio o la escucha de un archivo, cancela reconexiones y cierra de forma segura una grabación activa; conserva las dudosas con aviso. **No apaga el equipo ni cierra Keila.** No se guarda entre sesiones. Tras suspender, actúa cuando Keila vuelve a ejecutarse; usa la hora del sistema. Una alarma futura se conserva y puede volver a encender la radio; si alarma y parada ya vencieron al reanudar, prima la parada.
 
 **Silencio — `M`.** No cambia volumen ni interrumpe grabaciones. El indicador es `MUTE`. Una reproducción elegida manualmente vuelve a tener sonido; las reconexiones automáticas conservan el silencio desde el arranque de mpv.
 

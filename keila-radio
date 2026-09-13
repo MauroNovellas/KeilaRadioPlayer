@@ -78,6 +78,7 @@ source "$BASE_DIR/lib/backup.sh"
 source "$BASE_DIR/lib/backup-manager.sh"
 
 cleanup() {
+    m3u_cleanup >/dev/null 2>&1 || true
     backup_manager_cleanup >/dev/null 2>&1 || true
     session_log_close >/dev/null 2>&1 || true
     pending_cleanup >/dev/null 2>&1 || true
@@ -497,6 +498,7 @@ app_update_catalog() {
 }
 
 app_poll_player() {
+    sleep_timer_tick && return 0
     alarm_tick && return 0
     if [[ -n "${PLAYER_PID:-}" ]] && ! player_is_running; then
         local was_recording=$RECORDING_ACTIVE was_paused=${PLAYER_PAUSED:-0} exit_status='?'

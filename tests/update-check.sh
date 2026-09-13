@@ -65,6 +65,9 @@ make_release() {
         search.sh
         search-filters.sh
         station-options.sh
+        m3u.sh
+        m3u-menu.sh
+        sleep-timer.sh
         player.sh
         player-failure.sh
         player-events.sh

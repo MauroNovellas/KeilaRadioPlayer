@@ -35,6 +35,9 @@ update_validate_tree() {
         lib/search.sh
         lib/search-filters.sh
         lib/station-options.sh
+        lib/m3u.sh
+        lib/m3u-menu.sh
+        lib/sleep-timer.sh
         lib/player.sh
         lib/player-failure.sh
         lib/player-events.sh

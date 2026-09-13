@@ -129,6 +129,8 @@ preferences_build_rows() {
         panel_add_row D Diagnóstico 'Estado del reproductor, catálogo y rutas de datos. Flechas recorren todas las filas y ? permite leer valores y rutas completos.'
         panel_add_row ';' Grabaciones 'C comprueba; E escucha o detiene la escucha; X prepara la eliminación. Enter confirma y Esc cancela. Flechas y PgUp/PgDn navegan.'
         panel_add_row '' 'Historial de sesión' 'Opciones > Sesión muestra el TXT de canciones con hora y emisora. Home/End van al principio/final. ? muestra toda la información de la entrada seleccionada.'
+        panel_add_row '' 'Temporizador de parada' 'Opciones > Temporizador > P: 15, 30, 45, 60 o 90 minutos, u otra duración (1–1440). Muestra cuánto queda y permite cancelar. Detiene el audio y cierra grabaciones sin apagar el equipo. Solo esta sesión; conserva alarmas futuras.'
+        panel_add_row '' 'Intercambiar favoritas M3U' 'Opciones > Emisoras > M: exportar o importar un archivo local. Primero elige ruta y revisa la vista previa; G confirma y Esc cancela. Importar solo añade URL nuevas; exportar nunca sobrescribe. No incluye comentarios. Revisa las URL antes de compartir.'
         panel_add_row '' Reconexión 'Keila reintenta los fallos de emisora de forma limitada. Enter vuelve a intentarlo al agotarse los intentos. No se reconecta automáticamente durante una grabación.'
     fi
 }

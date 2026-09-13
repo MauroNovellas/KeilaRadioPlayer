@@ -69,6 +69,7 @@ panel_snapshot() {
         "${PLAYER_VOLUME:-0}" "${PLAYER_STREAM_READY:-0}" "${PLAYER_BUFFERING:-0}" "${PLAYER_NAME:-}" \
         "${ALARM_AT:-0}" "${RECORDING_PHASE:-}" "${UI_MESSAGE:-}" "${CATALOG_PID:-}" "${CATALOG_LAST_ERROR:-}" \
         "${PENDING_SCAN_PID:-}" "${PENDING_SCAN_GENERATION:-0}" "${PENDING_PREVIEW_STATE:-}" "${PENDING_NOTICE:-}" "${PENDING_CLOCK_TIME:-}"
+    PANEL_SNAPSHOT+="${SLEEP_TIMER_AT:-0}"
 }
 
 panel_poll() {

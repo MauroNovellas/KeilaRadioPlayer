@@ -4,6 +4,7 @@ fast|run.sh|
 fast|check-runner.sh|
 fast|backup-menu.sh|
 fast|alarm.sh|
+fast|sleep-timer.sh|
 fast|app-poll-reconnect.sh|
 fast|catalog-status.sh|
 fast|diagnostics.sh|
@@ -68,6 +69,8 @@ integration|recording-formats.sh|
 integration|recording-manager.sh|
 integration|recording-library.sh|
 integration|recording-files.sh|
+integration|m3u-files.sh|
+integration|m3u-menu.sh|
 integration|recording-preview-audio.sh|
 integration|spectrum.sh|
 integration|ui-terminal-guard.sh|
