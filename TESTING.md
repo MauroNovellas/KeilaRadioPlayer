@@ -12,6 +12,13 @@ Ejecuta las pruebas automatizadas con datos locales, sin necesitar una emisora
 real, instalar dependencias ni iniciar una escucha interactiva. GitHub Actions
 llama al mismo comando; no mantiene otra lista de scripts.
 
+CI ejecuta la batería completa en Ubuntu 22.04 y 24.04, en cada push y pull
+request, y permite ejecución manual. Ambas plataformas terminan aunque una
+falle. Los registros de cada prueba y el resumen se pueden descargar durante
+siete días desde la ejecución de Actions; no se suben audios ni perfiles de
+prueba. Un fallo sigue haciendo fallar el trabajo aunque se conserve su salida.
+Las acciones están fijadas a commits y solo reciben permiso de lectura.
+
 Cada script dispone de sus propias rutas XDG y directorio temporal. Los tests de
 datos usan información ficticia; los fallos de disco se simulan sin llenar el
 almacenamiento. No se cambia la configuración personal del reproductor. Las

@@ -9,7 +9,17 @@ export XDG_CONFIG_HOME="$task_tmp/config" XDG_STATE_HOME="$task_tmp/state" XDG_C
 set -- --version
 source "$ROOT_DIR/keila-radio" >/dev/null
 trap 'pending_cleanup; rm -rf -- "$task_tmp"' EXIT
-fail() { printf 'FAIL %s\n' "$*" >&2; [[ ! -f "$task_tmp/mpv.log" ]] || cat "$task_tmp/mpv.log" >&2; exit 1; }
+fail() {
+    printf 'FAIL %s\n' "$*" >&2
+    command mpv --version >&2 || true
+    printf 'Contador: posición=%s duración=%s fuerza=%s pid=%s\n' \
+        "$PENDING_CLOCK_POSITION" "$PENDING_CLOCK_DURATION" "$PENDING_CLOCK_FORCE" "$PENDING_CLOCK_PID" >&2
+    if [[ -S "$PENDING_PREVIEW_SOCKET" ]]; then
+        pending_preview_exchange $'{"command":["get_property","time-pos"],"request_id":1}\n{"command":["get_property","duration"],"request_id":2}' >&2 || true
+    fi
+    [[ ! -f "$task_tmp/mpv.log" ]] || cat "$task_tmp/mpv.log" >&2
+    exit 1
+}
 real_mpv=$(command -v mpv) || fail 'falta mpv'
 mpv() { exec setsid -- "$real_mpv" --ao=null "$@" > "$task_tmp/mpv.log" 2>&1; }
 player_is_running() { return 0; }
