@@ -269,7 +269,8 @@ ui_draw_search() {
     tput cup 0 0 2>/dev/null || true
 
     if [[ "$UI_LAYOUT_MODE" == 'tiny' ]]; then
-        local tiny_width=$UI_COLS
+        local tiny_width
+        tiny_width=$(ui_layout_width "$UI_COLS")
         ((tiny_width > 60)) && tiny_width=60
         local tiny_body_height=$((UI_LINES - 7))
         ((tiny_body_height < 1)) && tiny_body_height=1

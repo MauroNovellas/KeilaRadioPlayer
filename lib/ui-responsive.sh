@@ -224,7 +224,11 @@ ui_draw() {
     tput cup 0 0 2>/dev/null || true
 
     if [[ "$UI_LAYOUT_MODE" == 'tiny' ]]; then
-        local tiny_width=$UI_COLS
+        # ui-safe-width.sh sustituye ui_layout_width por la variante que
+        # reserva la última celda física. Mantener el cálculo aquí evita que
+        # la pantalla de emergencia sea la única que active autowrap.
+        local tiny_width
+        tiny_width=$(ui_layout_width "$UI_COLS")
         ((tiny_width > 60)) && tiny_width=60
         ui_print_padded "$tiny_width" "Keila Radio Player ${KEILA_VERSION:-dev}"
         printf '\n\n'

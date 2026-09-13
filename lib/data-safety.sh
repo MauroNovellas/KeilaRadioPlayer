@@ -50,7 +50,7 @@ data_validate() {
                 key=${line%%=*} value=${line#*=}
                 [[ -n "$key" && -z "${seen[$key]:-}" ]] || return 1
                 case "$key" in
-                    autoplay|color|unicode|spectrum) [[ "$value" == [01] ]] || return 1 ;;
+                    autoplay|color|unicode|spectrum|logo) [[ "$value" == [01] ]] || return 1 ;;
                     key_[bfrcxgpmlzvhoq]) [[ "$value" == [bcefghilmnopqrtuvxyz] ]] || return 1 ;;
                     *) return 1 ;;
                 esac

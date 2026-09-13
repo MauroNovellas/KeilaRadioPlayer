@@ -7,6 +7,7 @@ fast|alarm.sh|
 fast|sleep-timer.sh|
 fast|record-schedule.sh|
 fast|record-schedule-menu.sh|
+fast|station-logo-ui.sh|
 fast|app-poll-reconnect.sh|
 fast|catalog-status.sh|
 fast|diagnostics.sh|
@@ -69,6 +70,8 @@ integration|player-title-probe.sh|
 integration|pre-rc.sh|
 integration|recording-formats.sh|
 integration|record-schedule-audio.sh|
+integration|station-logo-files.sh|
+integration|station-logo-lifecycle.sh|
 integration|recording-manager.sh|
 integration|recording-library.sh|
 integration|recording-files.sh|

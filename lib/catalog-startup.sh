@@ -99,6 +99,7 @@ catalog_poll() {
     rm -rf "$CATALOG_JOB_DIR"
     CATALOG_JOB_DIR=''
     if [[ "$status" == 0 ]]; then
+        LOGO_CATALOG_GENERATION=$((${LOGO_CATALOG_GENERATION:-0}+1))
         catalog_reload || return 0
         CATALOG_STATUS=''
         if declare -F app_message >/dev/null 2>&1; then

@@ -70,6 +70,8 @@ make_release() {
         sleep-timer.sh
         record-schedule.sh
         record-schedule-menu.sh
+        station-logo.sh
+        station-logo-worker.sh
         player.sh
         player-failure.sh
         player-events.sh

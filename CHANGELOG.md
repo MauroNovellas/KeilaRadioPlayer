@@ -4,6 +4,25 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - próxima release
 
+- Logo opcional de la emisora para Debian/Linux de escritorio: se activa desde
+  Opciones → Visualización, reserva un espacio estable en «Ahora suena» y no
+  altera la composición de Termux ni de las pantallas pequeñas. Usa Kitty
+  cuando está disponible, una miniatura RGB en bloques de color con TrueColor y
+  Unicode, e iniciales como fallback. `ffmpeg` no es obligatorio.
+- Descarga en segundo plano únicamente del `favicon` de la emisora actual,
+  con caché privada limitada y caducidad. Se validan URL, DNS público,
+  redirecciones y firma PNG/JPEG antes de normalizar una miniatura RGB; no se
+  ejecuta contenido remoto ni se envían datos personales. Cambiar de emisora,
+  redimensionar, desactivar la opción o salir cancela trabajos pendientes y
+  evita procesos huérfanos.
+- Se reservan seis filas y doce columnas visuales sin desplazar títulos,
+  canciones anteriores, ecualizador ni listas. La carga conserva el fallback
+  visible mientras espera y la selección/columnas permanecen estables.
+- Regresiones de layout en siete geometrías, ASCII/Unicode y Termux; conversión
+  PNG/JPEG, caché y límite, redirecciones a redes privadas, persistencia,
+  cancelación de trabajos y protocolo Kitty. La vista de terminal diminuta
+  también deja de escribir en la última celda física para evitar autowrap.
+
 - Grabación programada: opción P «Parar reproducción al finalizar», desactivada
   por defecto y revisable antes de confirmar. Cierra el archivo antes de detener
   su radio/reintentos; no apaga el dispositivo ni cierra Keila. No actúa sobre

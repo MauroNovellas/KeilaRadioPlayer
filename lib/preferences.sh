@@ -5,6 +5,7 @@ PREF_AUTOPLAY=1
 PREF_COLOR=1
 PREF_UNICODE=1
 PREF_SPECTRUM=1
+PREF_LOGO=0
 PREFERENCES_ACTIVE=0
 declare -a PREF_ACTIONS=(b f r c x g p m l z v h o q)
 declare -a PREF_LABELS=('Buscar emisoras' Favoritas Recientes Comentarios 'Añadir/quitar favorito' Grabación Pausa Silencio 'Alarma temporal' Ecualizador Espectrograma Ayuda Opciones Salir)
@@ -14,7 +15,7 @@ unset pref_action
 
 preferences_defaults() {
     local action
-    PREF_AUTOPLAY=1 PREF_COLOR=1 PREF_UNICODE=1 PREF_SPECTRUM=1
+    PREF_AUTOPLAY=1 PREF_COLOR=1 PREF_UNICODE=1 PREF_SPECTRUM=1 PREF_LOGO=0
     for action in "${PREF_ACTIONS[@]}"; do PREF_KEYS[$action]=$action; done
 }
 
@@ -28,6 +29,7 @@ preferences_load() {
             color:[01]) PREF_COLOR=$value ;;
             unicode:[01]) PREF_UNICODE=$value ;;
             spectrum:[01]) PREF_SPECTRUM=$value ;;
+            logo:[01]) PREF_LOGO=$value ;;
             key_?:?)
                 key=${key#key_}
                 [[ -n "${PREF_KEYS[$key]+yes}" && "$value" =~ ^[bcefghilmnopqrtuvxyz]$ ]] && PREF_KEYS[$key]=$value
@@ -55,6 +57,7 @@ preferences_save() {
     tmp=$(mktemp "$KEILA_CONFIG_DIR/.preferences.XXXXXX") || { lock_release "$lock_dir"; return 1; }
     {
         printf 'autoplay=%s\ncolor=%s\nunicode=%s\nspectrum=%s\n' "$PREF_AUTOPLAY" "$PREF_COLOR" "$PREF_UNICODE" "$PREF_SPECTRUM" || status=1
+        printf 'logo=%s\n' "$PREF_LOGO" || status=1
         for key in "${PREF_ACTIONS[@]}"; do
             printf 'key_%s=%s\n' "$key" "${PREF_KEYS[$key]}" || { status=1; break; }
         done
@@ -66,6 +69,10 @@ preferences_save() {
 }
 
 preferences_apply() {
+    if declare -F logo_cleanup >/dev/null; then
+        logo_cleanup
+        if ((PREF_LOGO)); then LOGO_STATUS='Pendiente de mostrar'; else LOGO_STATUS='Desactivado'; fi
+    fi
     UI_UNICODE=0
     if ((PREF_UNICODE)) && ui_locale_supports_unicode; then UI_UNICODE=1; fi
     ui_configure_glyphs
@@ -123,7 +130,8 @@ preferences_build_rows() {
         panel_add_row "${PREF_KEYS[$action]^^}" "${PREF_LABELS[i]}" "$description"
     done
     if [[ "$mode" == settings ]]; then
-        panel_add_row '' 'Restaurar valores predeterminados' 'Restaura visualización, inicio automático y atajos tras confirmar. Conserva emisoras, comentarios, volumen, grabaciones e historial.'
+        panel_add_row '' 'Logo de la emisora' 'Muestra una miniatura o las iniciales junto a Ahora suena en escritorios amplios. La descarga es opcional, se hace en segundo plano y Termux no cambia.' "${states[PREF_LOGO]}"
+        panel_add_row '' 'Restaurar valores predeterminados' 'Restaura visualización, inicio automático, logo y atajos tras confirmar. Conserva emisoras, comentarios, volumen, grabaciones e historial.'
     else
         panel_add_row ',' Configuración 'Preferencias y atajos persistentes. Si el guardado falla se mantiene el valor anterior.'
         panel_add_row D Diagnóstico 'Estado del reproductor, catálogo y rutas de datos. Flechas recorren todas las filas y ? permite leer valores y rutas completos.'
@@ -133,18 +141,20 @@ preferences_build_rows() {
         panel_add_row '' 'Grabación programada' 'Opciones > Temporizador > G > N: favorita, HHMM y duración (1–1440 min). P alterna parar al finalizar (No por defecto); detiene la radio tras cerrar el archivo, sin apagar el equipo ni cerrar Keila. Revisa fecha, emisora, fin y parada antes de confirmar; ? muestra todo el detalle. X cancela o cierra su grabación tras confirmar, sin activar la parada final. Una reserva por sesión; requiere Keila abierto y equipo despierto. M silencia la escucha, no el archivo: se guarda el audio original, también con volumen cero. No uses pausa para dormir grabando. Puede cambiar la radio; no restaura la anterior. Omite inicios más de 60 s tarde y espera hasta 30 s de audio. No interrumpe otra grabación; la parada automática tiene prioridad.'
         panel_add_row '' 'Intercambiar favoritas M3U' 'Opciones > Emisoras > M: exportar o importar un archivo local. Primero elige ruta y revisa la vista previa; G confirma y Esc cancela. Importar solo añade URL nuevas; exportar nunca sobrescribe. No incluye comentarios. Revisa las URL antes de compartir.'
         panel_add_row '' Reconexión 'Keila reintenta los fallos de emisora de forma limitada. Enter vuelve a intentarlo al agotarse los intentos. No se reconecta automáticamente durante una grabación.'
+        panel_add_row '' 'Logo de la emisora' 'Opciones > Visualización > L activa el logo en escritorio amplio (120 columnas y 24 filas). Descarga solo el actual y lo guarda en caché. Kitty muestra una imagen; terminales TrueColor con Unicode, bloques de color. Sin soporte, imagen o ffmpeg se muestran iniciales. Termux queda sin cambios. Desactivado por defecto; no instala dependencias.'
     fi
 }
 
 app_preferences_menu() {
     local mode=${1:-settings} selected=0 offset=0 capture=0 confirm=0 notice='' event key action other old redraw=1 title='PREFERENCIAS'
     local previous_preferences=$PREFERENCES_ACTIVE
-    local old_auto old_color old_unicode old_spectrum
+    local old_auto old_color old_unicode old_spectrum old_logo
     local -A previous_keys=()
     local -a PANEL_ROWS=()
     local PANEL_SELECTED=0 PANEL_SCROLL=0 PANEL_VISIBLE=1
     [[ "$mode" == help ]] && title='AYUDA'
-    local restore_index=$((4 + ${#PREF_ACTIONS[@]}))
+    local logo_index=$((4 + ${#PREF_ACTIONS[@]}))
+    local restore_index=$((logo_index + 1))
     PREFERENCES_ACTIVE=1
     while true; do
         if ((redraw)); then
@@ -164,6 +174,7 @@ app_preferences_menu() {
         fi
         [[ "$event" != RESIZE ]] || continue
         old_auto=$PREF_AUTOPLAY old_color=$PREF_COLOR old_unicode=$PREF_UNICODE old_spectrum=$PREF_SPECTRUM
+        old_logo=$PREF_LOGO
         for action in "${PREF_ACTIONS[@]}"; do previous_keys[$action]=${PREF_KEYS[$action]}; done
         if ((confirm)); then
             confirm=0
@@ -198,6 +209,7 @@ app_preferences_menu() {
                         1) PREF_COLOR=$((1-PREF_COLOR)) ;;
                         2) PREF_UNICODE=$((1-PREF_UNICODE)) ;;
                         3) PREF_SPECTRUM=$((1-PREF_SPECTRUM)) ;;
+                        "$logo_index") PREF_LOGO=$((1-PREF_LOGO)) ;;
                         "$restore_index") confirm=1; notice='Restaurar ajustes: Enter confirma; Esc cancela.'; continue ;;
                         *) capture=1; notice='Pulsa la nueva letra. Esc cancela.'; continue ;;
                     esac ;;
@@ -209,6 +221,7 @@ app_preferences_menu() {
             notice='Guardado.'
         else
             PREF_AUTOPLAY=$old_auto PREF_COLOR=$old_color PREF_UNICODE=$old_unicode PREF_SPECTRUM=$old_spectrum
+            PREF_LOGO=$old_logo
             for action in "${PREF_ACTIONS[@]}"; do PREF_KEYS[$action]=${previous_keys[$action]}; done
             notice='No se pudo guardar. Se conserva el valor anterior.'
         fi

@@ -97,6 +97,16 @@ ida y vuelta, privacidad, fusión bloqueada, escritura fallida y colisiones.
 consulta de detalles y cancelación. Las pruebas de layout incluyen los menús
 y formularios nuevos en 13 tamaños, con ASCII y Unicode.
 
+`station-logo-ui.sh` comprueba el espacio fijo del logo, el fallback de
+iniciales, bloques de color, cambio de emisora, redimensionado, pantallas
+pequeñas, Termux y el protocolo Kitty sin consultas interactivas.
+`station-logo-files.sh` valida conversiones PNG/JPEG, el formato RGB interno,
+la caché privada con límite/caducidad, rechazos de SVG y ficheros grandes, y
+la protección contra DNS/redirecciones hacia redes privadas.
+`station-logo-lifecycle.sh` comprueba el valor por defecto, guardado, lectura
+de caché, cancelación al cambiar de emisora, limpieza del grupo de procesos y
+rollback si falla el guardado de la preferencia.
+
 Cada prueba tiene un límite de 180 segundos. Si falla o excede ese límite, el
 runner informa del error, continúa con las restantes y termina con código no
 cero. No confunde el tiempo agotado con una prueba aprobada.

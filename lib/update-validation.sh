@@ -40,6 +40,8 @@ update_validate_tree() {
         lib/sleep-timer.sh
         lib/record-schedule.sh
         lib/record-schedule-menu.sh
+        lib/station-logo.sh
+        lib/station-logo-worker.sh
         lib/player.sh
         lib/player-failure.sh
         lib/player-events.sh

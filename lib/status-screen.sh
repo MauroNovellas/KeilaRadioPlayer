@@ -87,6 +87,7 @@ status_build_rows() {
     STATUS_ROWS+=("Copias de seguridad|$KEILA_STATE_DIR/backups")
     STATUS_ROWS+=("Registro sesión|${SESSION_LOG_FILE:-no iniciado}")
     STATUS_ROWS+=("Caché|$KEILA_CACHE_DIR")
+    STATUS_ROWS+=("Logo|${PREF_LOGO:-0} · ${LOGO_STATUS:-desactivado} · ${LOGO_BACKEND:-iniciales}")
     STATUS_ROWS+=("Grabaciones|$KEILA_RECORDINGS_DIR")
     STATUS_ROWS+=("Runtime IPC|${PLAYER_RUNTIME_DIR:-—}")
 }

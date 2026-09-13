@@ -78,6 +78,7 @@ source "$BASE_DIR/lib/backup.sh"
 source "$BASE_DIR/lib/backup-manager.sh"
 
 cleanup() {
+    logo_cleanup 2>/dev/null || true
     m3u_cleanup >/dev/null 2>&1 || true
     backup_manager_cleanup >/dev/null 2>&1 || true
     session_log_close >/dev/null 2>&1 || true
@@ -499,6 +500,8 @@ app_update_catalog() {
 }
 
 app_poll_player() {
+    local logo_changed=1
+    logo_poll && logo_changed=0
     sleep_timer_tick && return 0
     record_plan_tick && return 0
     alarm_tick && return 0
@@ -524,7 +527,7 @@ app_poll_player() {
         return 0
     fi
 
-    player_is_running || return 1
+    player_is_running || return "$logo_changed"
     local changed=1 was_ready=$PLAYER_INFO_READY was_buffering=$PLAYER_BUFFERING
     if player_refresh_info; then
         changed=0
@@ -558,6 +561,7 @@ app_poll_player() {
         changed=0
     fi
     if recording_tick_changed; then changed=0; fi
+    ((logo_changed != 0)) || changed=0
     return "$changed"
 }
 

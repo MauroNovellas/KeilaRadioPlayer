@@ -63,6 +63,7 @@ ui_enter() {
 }
 
 ui_suspend() {
+    logo_hide
     ui_terminal_guard_restore >/dev/null 2>&1 || true
     ui_suspend_without_terminal_guard
 }
@@ -73,6 +74,7 @@ ui_resume() {
 }
 
 ui_leave() {
+    logo_forget
     # Restauramos primero: incluso si algún escape de terminal fallase después,
     # el shell del usuario no debe quedarse jamás sin eco.
     ui_terminal_guard_restore >/dev/null 2>&1 || true

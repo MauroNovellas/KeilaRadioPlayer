@@ -229,6 +229,7 @@ options_build_rows() {
             ((PREF_UNICODE && !UI_UNICODE)) && unicode='Modo ASCII'
             options_add_row C Colores 'Usa colores cuando la terminal lo permite. La selección también se reconoce por el cursor. Cambio persistente.' color "$colors"
             options_add_row U 'Símbolos Unicode' 'Desactiva los símbolos para usar flechas y bordes ASCII. Los textos conservan sus acentos. Cambio persistente.' unicode "$unicode"
+            options_add_row L 'Logo de la emisora' 'Logo opcional en Ahora suena, desde 120x24. Kitty: imagen; TrueColor/Unicode: bloques; resto: iniciales. Descarga y conversión en segundo plano con ffmpeg opcional. Solo el actual, caché limitada. No se activa en Termux ni instala paquetes.' logo "${enabled[PREF_LOGO]} · $LOGO_STATUS"
             options_add_row A 'Preferencias y atajos' 'Abre la configuración completa. Reasigna teclas de la pantalla principal o restaura los ajustes con confirmación.' settings
             ;;
         timer)
@@ -418,6 +419,7 @@ options_draw_row() {
 }
 
 options_draw() {
+    logo_hide
     ui_refresh_size
     local width=$((UI_COLS - 1)) lines=$UI_LINES split=0 body detail_count=0 list_width
     local row title="$OPTIONS_TITLE" summary footer detail state reason count=${#OPTIONS_ROWS[@]}
@@ -536,6 +538,7 @@ options_draw() {
 # El detalle completo también es accesible en una pantalla diminuta. Es una
 # vista de lectura: Enter/derecha aquí nunca ejecutan la acción explicada.
 options_detail_draw() {
+    logo_hide
     ui_refresh_size
     local width=$((UI_COLS - 1)) row text
     ((width < 1)) && width=1
@@ -597,6 +600,7 @@ options_execute() {
         equalizer) app_edit_equalizer || true ;;
         color) options_toggle_preference PREF_COLOR Colores ;;
         unicode) options_toggle_preference PREF_UNICODE Unicode ;;
+        logo) app_toggle_logo || true ;;
         autoplay) options_toggle_preference PREF_AUTOPLAY 'Inicio automático' ;;
         alarm) app_edit_alarm || true ;;
         alarm_cancel) alarm_set '' || true ;;
@@ -654,6 +658,7 @@ options_snapshot() {
         "${#PENDING_FILES[@]}" "$SPECTRUM_ENABLED" "${UI_MESSAGE:-}" "$UI_SELECTED_INDEX" \
         "${#FAVORITE_NAMES[@]}" "${#RECENT_NAMES[@]}" "${APP_RECONNECT_NEXT_AT:-0}"
     OPTIONS_SNAPSHOT+="${SLEEP_TIMER_AT:-0}"
+    OPTIONS_SNAPSHOT+="/logo=${PREF_LOGO:-0},${LOGO_STATUS:-}"
     OPTIONS_SNAPSHOT+="/$RECORD_PLAN_STATE/$RECORD_PLAN_AT/$RECORD_PLAN_NOTE/$RECORD_PLAN_FILE"
     if [[ "${menu:-}" == sleep || "${menu:-}" == timer ]] && ((${SLEEP_TIMER_AT:-0} > 0)); then
         OPTIONS_SNAPSHOT+="/$EPOCHSECONDS"

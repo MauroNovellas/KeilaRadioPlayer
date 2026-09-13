@@ -11,13 +11,13 @@ source "$ROOT_DIR/keila-radio" >/dev/null
 declare -A PREF_KEYS
 trap 'rm -rf -- "$task_tmp"' EXIT
 fail() { printf 'FAIL %s\n' "$*"; exit 1; }
-PREF_AUTOPLAY=0 PREF_COLOR=0 PREF_UNICODE=0 PREF_SPECTRUM=0
+PREF_AUTOPLAY=0 PREF_COLOR=0 PREF_UNICODE=0 PREF_SPECTRUM=0 PREF_LOGO=1
 PREF_KEYS[b]=n
 preferences_save || fail guardar
-PREF_AUTOPLAY=1 PREF_COLOR=1 PREF_UNICODE=1 PREF_SPECTRUM=1
+PREF_AUTOPLAY=1 PREF_COLOR=1 PREF_UNICODE=1 PREF_SPECTRUM=1 PREF_LOGO=0
 PREF_KEYS[b]=b
 preferences_load
-[[ "$PREF_AUTOPLAY:$PREF_COLOR:$PREF_UNICODE:$PREF_SPECTRUM" == 0:0:0:0 ]] || fail persistencia
+[[ "$PREF_AUTOPLAY:$PREF_COLOR:$PREF_UNICODE:$PREF_SPECTRUM:$PREF_LOGO" == 0:0:0:0:1 ]] || fail persistencia
 preferences_translate_key N
 [[ "$PREF_TRANSLATED" == b ]] || fail reasignación
 preferences_translate_key b

@@ -72,6 +72,7 @@ Puedes acceder a todo lo habitual desde **`O` Opciones**, sin memorizar atajos.
 | Importar o exportar favoritas con otros reproductores | Emisoras → Importar / exportar M3U |
 | Gestionar Favoritas, Recientes, orden y comentarios | Emisoras |
 | Ajustar ecualizador, espectrograma, colores o Unicode | Visualización |
+| Mostrar opcionalmente el logo de la emisora en Debian | Visualización |
 | Programar una alarma o detener el audio al cabo de un tiempo | Temporizador |
 | Grabar, comprobar, escuchar, renombrar y recuperar audios | Grabaciones |
 | Consultar las canciones anteriores y el TXT de esta sesión | Sesión |
@@ -205,6 +206,10 @@ Los cambios se aplican y guardan al editar; `Z`, `Enter` o `Esc` vuelven sin des
 
 El análisis trabaja a 20 Hz y la presentación se limita a intervalos de 66 ms, con repintado parcial independiente. `parec` solicita entregas de 20 ms y latencia de 40 ms; el servidor puede ajustarlas. Una columna de guarda evita perder la última banda de `showfreqs`. Las barras permanecen antes de recibir señal; si falta captura compatible se indica «No disponible».
 
+**Logo de la emisora — `O → V → L`.** Es una preferencia opcional para Debian y otras terminales Linux de escritorio con al menos `120×24`. Se muestra junto a «Ahora suena»: Kitty recibe una imagen RGB; una terminal con TrueColor, Unicode y VTE recibe una miniatura de bloques de color; en el resto se muestran las iniciales de la emisora. Termux y las pantallas pequeñas conservan su diseño.
+
+La descarga se hace solo para la emisora actual, en segundo plano, desde el campo `favicon` del catálogo local de Radio Browser. `ffmpeg` es opcional: sin él, sin soporte de color o sin imagen válida se mantiene el fallback de iniciales. La caché está limitada, caduca y no guarda datos personales; no se envían favoritos, comentarios ni configuración al servidor. Desactivarlo libera el espacio visual y cancela cualquier descarga pendiente.
+
 </details>
 
 <details>
@@ -232,7 +237,7 @@ Con la parada final activa, primero cierra el archivo y después detiene la radi
 
 Si al inicio ya grabas, escuchas un archivo o restauras datos, se omite. También si vuelve de suspensión más de 60 s tarde o fuera del intervalo. Una alarma ya vencida tiene prioridad antes de empezar a grabar; después se protege la grabación. La parada automática puede interrumpirla y conserva reservas futuras. Los archivos dudosos quedan para revisión; ante un cierre atascado puede detener el reproductor para liberar el archivo. Cambiar manualmente de emisora o cerrar su grabación interrumpe la programación; no abre otro archivo para reemplazarla.
 
-**Preferencias — `,` o Configuración.** Guarda inicio automático, colores, Unicode, espectrograma y teclas. Volumen, ecualizador y última emisora también se recuperan; solo una emisora que llegó a dar audio reemplaza la última escucha válida. Puedes desactivar el arranque automático; una URL pasada al ejecutar Keila tiene prioridad.
+**Preferencias — `,` o Configuración.** Guarda inicio automático, colores, Unicode, espectrograma, logo y teclas. Volumen, ecualizador y última emisora también se recuperan; solo una emisora que llegó a dar audio reemplaza la última escucha válida. Puedes desactivar el arranque automático; una URL pasada al ejecutar Keila tiene prioridad.
 
 Para reasignar una acción: selecciónala, `Enter` y la nueva letra. Si estaba ocupada, se intercambian ambas. Flechas, números y `A/D/W/S/J/K` quedan reservados; los encabezados muestran los atajos actuales. Los menús, editores y búsqueda mantienen sus teclas locales.
 
@@ -306,7 +311,7 @@ Rutas predeterminadas, respetando `XDG_CONFIG_HOME`, `XDG_STATE_HOME` y `XDG_CAC
 | --- | --- |
 | `~/.config/keila-radio/` | `config`, `favorites`, `labels`, `preferences`, `equalizer` y respaldos previos |
 | `~/.local/state/keila-radio/` | `state`, `history`, `sessions/keila-session-*.txt` y `backups/` |
-| `~/.cache/keila-radio/` | `radio.json` y `radio.tsv` |
+| `~/.cache/keila-radio/` | `radio.json`, `radio.tsv` y la caché opcional de logos |
 | `grabaciones/` junto a Keila, o carpeta configurada | Audios, marcadores y `.trash/` |
 
 La configuración es texto interpretado como datos, nunca ejecutado con `source`. Las escrituras usan temporales y bloqueos portables con `mkdir`; se conserva el último estado válido ante fallos. Cada instancia tiene su socket privado, y las operaciones por índice conservan la identidad por URL frente a cambios de otra instancia.

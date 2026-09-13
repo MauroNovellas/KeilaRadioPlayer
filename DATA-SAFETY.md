@@ -58,6 +58,16 @@
   `$XDG_STATE_HOME/keila-radio/sessions/` con permisos privados. Se escribe en
   modo append, como texto legible, y no participa en los archivos estructurados
   que se restauran automáticamente desde `.bak`.
+- El logo es opcional y no forma parte de los datos personales restaurables.
+  Solo se consulta el `favicon` de la emisora actual a través de una tarea
+  separada; se rechazan credenciales, rutas locales, IPv4 privadas/reservadas,
+  redirecciones no públicas, tipos distintos de PNG/JPEG y ficheros de más de
+  1 MiB. La imagen se convierte a un formato RGB interno sin conservar el
+  contenido remoto original ni ejecutar metadatos o protocolos secundarios.
+  La caché vive en `~/.cache/keila-radio/logos/`, tiene permisos privados,
+  máximo 64 entradas y caducidad de siete días. Cambiar de emisora o cerrar
+  Keila cancela el proceso y elimina su temporal; si no hay soporte visual se
+  usan iniciales y no se realiza la descarga.
 
 ## Copia anterior y recuperación
 

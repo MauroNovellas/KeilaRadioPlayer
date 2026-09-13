@@ -3,6 +3,8 @@
 # Ajuste de composición desktop: "Ahora suena" ocupa el panel principal de la
 # izquierda y Favoritos queda como columna de navegación a la derecha.
 # Se carga después de ui-desktop.sh y redefine solo geometría/render desktop.
+# shellcheck source=lib/station-logo.sh
+source "$(dirname "${BASH_SOURCE[0]}")/station-logo.sh"
 
 declare -a UI_SPECTRUM_CURSOR=()
 declare -a UI_SPECTRUM_CURSOR_CACHE=()
@@ -40,7 +42,9 @@ ui_draw_player_info_only() {
     local history_count=0 body_height i line
     body_height=$(ui_desktop_body_height)
     history_count=$(ui_desktop_track_history_slots "$body_height")
-    [[ "$UI_PLAYER_INFO_CURSOR_KEY" == "${TERM:-}|$UI_COLS|$UI_LINES|$UI_DESKTOP_LEFT_WIDTH|$history_count" ]] || return 1
+    local logo_key=''
+    ((${UI_LOGO_LAYOUT:-0} == 0)) || logo_key='|logo'
+    [[ "$UI_PLAYER_INFO_CURSOR_KEY" == "${TERM:-}|$UI_COLS|$UI_LINES|$UI_DESKTOP_LEFT_WIDTH|$history_count$logo_key" ]] || return 1
     [[ -n "$UI_PLAYER_TITLE_CURSOR" && -n "$UI_PLAYER_AUDIO_CURSOR" ]] || return 1
     if ((history_count > 0)); then
         [[ -n "$UI_PLAYER_HISTORY_HEADER_CURSOR" ]] || return 1
@@ -55,21 +59,26 @@ ui_draw_player_info_only() {
     ui_audio_info state
     audio=$UI_AUDIO_INFO
     printf '%s' "$UI_PLAYER_TITLE_CURSOR"
-    ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$title" "$style"
+    logo_line_width 1
+    ui_print_styled_padded "$UI_PLAYER_LINE_WIDTH" "$title" "$style"
     if ((history_count > 0)); then
         printf '%s' "$UI_PLAYER_HISTORY_HEADER_CURSOR"
-        ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" '  Canciones anteriores' accent
+        logo_line_width 2
+        ui_print_styled_padded "$UI_PLAYER_LINE_WIDTH" '  Canciones anteriores' accent
         for ((i = 0; i < history_count; i++)); do
-            line=$(track_history_line "$i" "$UI_DESKTOP_LEFT_WIDTH" 2>/dev/null || true)
+            logo_line_width "$((i+3))"
+            line=$(track_history_line "$i" "$UI_PLAYER_LINE_WIDTH" 2>/dev/null || true)
             printf '%s' "${UI_PLAYER_HISTORY_CURSORS[i]}"
-            ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$line" muted
+            ui_print_styled_padded "$UI_PLAYER_LINE_WIDTH" "$line" muted
         done
-        line=$(track_history_session_line "$UI_DESKTOP_LEFT_WIDTH" 2>/dev/null || true)
+        logo_line_width "$((history_count+3))"
+        line=$(track_history_session_line "$UI_PLAYER_LINE_WIDTH" 2>/dev/null || true)
         printf '%s' "$UI_PLAYER_HISTORY_LOG_CURSOR"
-        ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$line" muted
+        ui_print_styled_padded "$UI_PLAYER_LINE_WIDTH" "$line" muted
     fi
     printf '%s' "$UI_PLAYER_AUDIO_CURSOR"
-    ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$audio" muted
+    if ((history_count)); then logo_line_width "$((history_count+4))"; else logo_line_width 2; fi
+    ui_print_styled_padded "$UI_PLAYER_LINE_WIDTH" "$audio" muted
     return 0
 }
 
@@ -135,7 +144,7 @@ ui_desktop_row() {
         printf '%s' "$UI_V"
         ui_style_end
         printf ' '
-        ui_print_split_styled "$UI_DESKTOP_LEFT_WIDTH" "$left_text" "$left_badge" "$left_style" "$left_badge_style"
+        logo_print_left "$left_text" "$left_badge" "$left_style" "$left_badge_style" "${row:-0}"
         printf ' '
         ui_style_begin muted
         printf '%s' "$UI_ML"
@@ -157,7 +166,7 @@ ui_desktop_row() {
     printf '%s' "$UI_V"
     ui_style_end
     printf ' '
-    ui_print_split_styled "$UI_DESKTOP_LEFT_WIDTH" "$left_text" "$left_badge" "$left_style" "$left_badge_style"
+    logo_print_left "$left_text" "$left_badge" "$left_style" "$left_badge_style" "${row:-0}"
     printf ' '
     if [[ "$right_style" == separator ]]; then
         # La regla ocupa también los márgenes y conecta con ambos bordes.
@@ -194,6 +203,7 @@ ui_draw_desktop() {
     body_height=$(ui_desktop_body_height)
 
     ui_desktop_pane_widths "$width"
+    logo_prepare_layout
     ui_desktop_sync_selection "$body_height"
     local track_history_count=0 history_header_row=2 history_first_row=3 history_log_row=3 audio_row=2 volume_row=3 equalizer_start_row=5
     track_history_count=$(ui_desktop_track_history_slots "$body_height")
@@ -204,6 +214,7 @@ ui_draw_desktop() {
         equalizer_start_row=$((volume_row + 2))
     fi
     local info_key="${TERM:-}|$UI_COLS|$UI_LINES|$UI_DESKTOP_LEFT_WIDTH|$track_history_count"
+    ((UI_LOGO_LAYOUT == 0)) || info_key+='|logo'
     if [[ "$info_key" != "$UI_PLAYER_INFO_CURSOR_KEY" ]]; then
         UI_PLAYER_TITLE_CURSOR=$(tput cup 4 2 2>/dev/null || true)
         UI_PLAYER_HISTORY_HEADER_CURSOR=''

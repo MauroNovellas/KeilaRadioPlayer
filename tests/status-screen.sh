@@ -41,5 +41,6 @@ status_text=$(printf '%s\n' "${STATUS_ROWS[@]}")
 [[ "$status_text" == *'Volumen|64%'* ]] || fail 'falta volumen'
 [[ "$status_text" == *'Pendientes|1'* ]] || fail 'falta pendientes'
 [[ "$status_text" == *"Config|$KEILA_CONFIG_FILE"* ]] || fail 'falta ruta config'
+[[ "$status_text" == *'Logo|0 ·'* ]] || fail 'falta estado del logo'
 
 printf 'ok   diagnóstico TUI: estado, catálogo, rutas y contadores\n'

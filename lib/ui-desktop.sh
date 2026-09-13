@@ -375,6 +375,8 @@ ui_draw_desktop() {
 ui_draw() {
     ((UI_ACTIVE)) || return 0
     ((UI_SUSPENDED)) && return 0
+    logo_hide
+    UI_LOGO_LAYOUT=0
 
     ui_refresh_size
     UI_LAYOUT_MODE=$(ui_layout_mode "$UI_COLS" "$UI_LINES")
@@ -384,6 +386,7 @@ ui_draw() {
         local width
         width=$(ui_layout_width "$UI_COLS")
         ui_draw_desktop "$width"
+        logo_draw
         return 0
     fi
 
