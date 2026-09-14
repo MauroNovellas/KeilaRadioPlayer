@@ -272,7 +272,10 @@ track_history_session_line() {
 track_history_summary() {
     local width="${1:-80}" count available sep=' · ' sep_total each output title i
 
-    count=$(track_history_visible_count)
+    track_history_display_limit state
+    count=$((${#TRACK_HISTORY_TITLES[@]} - 1))
+    ((count < 0)) && count=0
+    ((count > TRACK_HISTORY_LIMIT)) && count=$TRACK_HISTORY_LIMIT
     ((count > 0)) || return 1
     [[ "$width" =~ ^[0-9]+$ ]] || width=80
 
@@ -286,7 +289,8 @@ track_history_summary() {
     for ((i = 1; i <= count; i++)); do
         ((i > 1)) && output+="$sep"
         title="${TRACK_HISTORY_TITLES[i]:-}"
-        output+="$(session_log_truncate "$title" "$each")"
+        session_log_truncate "$title" "$each" state
+        output+="$SESSION_LOG_TRUNCATED"
     done
 
     printf '%s' "$output"

@@ -1158,10 +1158,12 @@ ui_draw() {
         if ((track_history_count > 0)); then
             ui_box_line "$width" '  Canciones anteriores' accent
             for ((track_history_index = 0; track_history_index < track_history_count; track_history_index++)); do
-                track_history_info=$(track_history_line "$track_history_index" "$((width - 4))" 2>/dev/null || true)
+                track_history_line "$track_history_index" "$((width - 4))" state || true
+                track_history_info=$TRACK_HISTORY_LINE
                 ui_box_line "$width" "$track_history_info" muted
             done
-            track_history_info=$(track_history_session_line "$((width - 4))" 2>/dev/null || true)
+            track_history_session_line "$((width - 4))" state || true
+            track_history_info=$TRACK_HISTORY_LINE
             ui_box_line "$width" "$track_history_info" muted
         fi
         local audio_info
