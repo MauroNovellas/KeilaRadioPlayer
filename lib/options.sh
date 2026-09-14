@@ -314,7 +314,28 @@ options_clamp_selection() {
 # Anchura en celdas para nombres internacionales. Camino rápido para latín;
 # las marcas combinantes no ocupan celdas y CJK/emoji se reservan como anchos.
 # Se sobreestima alguna secuencia emoji unida, evitando desbordar el terminal.
+declare -A OPTIONS_FIT_TEXT_CACHE=() OPTIONS_FIT_WIDTH_CACHE=()
 options_fit_text() {
+    # El ancho depende solo del texto, límite, elipsis y locale. Acotar la
+    # caché evita retener indefinidamente títulos/estados que van cambiando.
+    local fit_key="${LC_ALL:-}|${LC_CTYPE:-}|${LANG:-}|$2|${3:-1}|$1"
+    if [[ -n ${OPTIONS_FIT_WIDTH_CACHE[$fit_key]+cached} ]]; then
+        OPTIONS_FITTED=${OPTIONS_FIT_TEXT_CACHE[$fit_key]}
+        OPTIONS_FITTED_WIDTH=${OPTIONS_FIT_WIDTH_CACHE[$fit_key]}
+        return 0
+    fi
+    options_fit_text_uncached "$@"
+    if ((${#OPTIONS_FIT_WIDTH_CACHE[@]} >= 256)); then
+        OPTIONS_FIT_TEXT_CACHE=() OPTIONS_FIT_WIDTH_CACHE=()
+    fi
+    # No retener cadenas desproporcionadas procedentes de archivos externos.
+    if ((${#1} <= 2048)); then
+        OPTIONS_FIT_TEXT_CACHE[$fit_key]=$OPTIONS_FITTED
+        OPTIONS_FIT_WIDTH_CACHE[$fit_key]=$OPTIONS_FITTED_WIDTH
+    fi
+}
+
+options_fit_text_uncached() {
     local text=${1//[[:cntrl:]]/ } max=$2 ellipsis=${3:-1} char code cells i prefix='' prefix_width=0
     local latin_pattern='^[ -~À-ÿ]*$'
     OPTIONS_FITTED='' OPTIONS_FITTED_WIDTH=0

@@ -67,12 +67,14 @@ ui_draw_player_info_only() {
         ui_print_styled_padded "$UI_PLAYER_LINE_WIDTH" '  Canciones anteriores' accent
         for ((i = 0; i < history_count; i++)); do
             logo_line_width "$((i+3))"
-            line=$(track_history_line "$i" "$UI_PLAYER_LINE_WIDTH" 2>/dev/null || true)
+            track_history_line "$i" "$UI_PLAYER_LINE_WIDTH" state || true
+            line=$TRACK_HISTORY_LINE
             printf '%s' "${UI_PLAYER_HISTORY_CURSORS[i]}"
             ui_print_styled_padded "$UI_PLAYER_LINE_WIDTH" "$line" muted
         done
         logo_line_width "$((history_count+3))"
-        line=$(track_history_session_line "$UI_PLAYER_LINE_WIDTH" 2>/dev/null || true)
+        track_history_session_line "$UI_PLAYER_LINE_WIDTH" state || true
+        line=$TRACK_HISTORY_LINE
         printf '%s' "$UI_PLAYER_HISTORY_LOG_CURSOR"
         ui_print_styled_padded "$UI_PLAYER_LINE_WIDTH" "$line" muted
     fi
@@ -284,7 +286,7 @@ ui_draw_desktop() {
         main_badge_style='favorite'
     fi
 
-    local audio_info='' track_history_line=''
+    local audio_info='' history_text=''
     player_is_running && audio_info=$(ui_audio_info)
 
     local volume_bar_width volume_left volume_hint
@@ -328,12 +330,15 @@ ui_draw_desktop() {
             main_text='  Canciones anteriores'
             main_style='accent'
         elif ((track_history_count > 0 && row >= history_first_row && row < history_first_row + track_history_count)); then
-            track_history_line=$(track_history_line "$((row - history_first_row))" "$UI_DESKTOP_LEFT_WIDTH" 2>/dev/null || true)
-            main_text="$track_history_line"
+            logo_line_width "$row"
+            track_history_line "$((row - history_first_row))" "$UI_PLAYER_LINE_WIDTH" state || true
+            history_text=$TRACK_HISTORY_LINE
+            main_text="$history_text"
             main_style='muted'
         elif ((track_history_count > 0 && row == history_log_row)); then
-            track_history_line=$(track_history_session_line "$UI_DESKTOP_LEFT_WIDTH" 2>/dev/null || true)
-            main_text="$track_history_line"
+            track_history_session_line "$UI_DESKTOP_LEFT_WIDTH" state || true
+            history_text=$TRACK_HISTORY_LINE
+            main_text="$history_text"
             main_style='muted'
         elif ((row == audio_row)); then
             if [[ -n "$audio_info" ]]; then

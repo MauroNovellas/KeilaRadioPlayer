@@ -48,3 +48,34 @@ for ((frame=0; frame<100; frame++)); do
 done
 finish=${EPOCHREALTIME//[.,]/}
 printf 'Solo metadatos: %d microsegundos por dibujo (media de 100)\n' "$(((finish-start)/100))"
+
+# Reproducción e historial: el caso vacío no ejercita las filas de canciones.
+TERM=xterm-256color
+unset TERMUX_VERSION PREFIX
+player_is_running() { return 0; }
+PLAYER_PID=$$ PLAYER_NAME='Radio de prueba' PLAYER_URL=https://example.invalid/radio
+TRACK_HISTORY_TITLES=('Actual' 'Primera' 'Segunda' 'Tercera' 'Cuarta' 'Quinta' 'Sexta' 'Séptima' 'Octava')
+TRACK_HISTORY_TIMES=('12:00' '11:59' '11:58' '11:57' '11:56' '11:55' '11:54' '11:53' '11:52')
+for PREF_LOGO in 0 1; do
+    ui_draw >/dev/null
+    ((UI_LOGO_LAYOUT == PREF_LOGO)) || { printf 'No se ejercitó el espacio del logo\n' >&2; exit 1; }
+    start=${EPOCHREALTIME//[.,]/}
+    for ((frame=0; frame<20; frame++)); do ui_draw >/dev/null; done
+    finish=${EPOCHREALTIME//[.,]/}
+    printf 'Reproducción con historial, logo %d: %d us/dibujo\n' "$PREF_LOGO" "$(((finish-start)/20))"
+    start=${EPOCHREALTIME//[.,]/}
+    for ((frame=0; frame<20; frame++)); do
+        PLAYER_STREAM_TITLE="Tema $frame"
+        ui_draw_player_info_only >/dev/null || exit 1
+    done
+    finish=${EPOCHREALTIME//[.,]/}
+    printf 'Metadatos con historial, logo %d: %d us/dibujo\n' "$PREF_LOGO" "$(((finish-start)/20))"
+done
+options_build_rows visual
+start=${EPOCHREALTIME//[.,]/}
+for ((frame=0; frame<20; frame++)); do
+    OPTIONS_SELECTED=$((frame % ${#OPTIONS_ROWS[@]}))
+    options_draw >/dev/null
+done
+finish=${EPOCHREALTIME//[.,]/}
+printf 'Navegación Visualización: %d us/dibujo\n' "$(((finish-start)/20))"

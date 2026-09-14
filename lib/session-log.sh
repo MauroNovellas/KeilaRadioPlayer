@@ -42,30 +42,34 @@ session_log_truncate() {
     local text="$1" max="$2"
 
     if ((max <= 0)); then
-        printf ''
+        SESSION_LOG_TRUNCATED=''
     elif ((${#text} <= max)); then
-        printf '%s' "$text"
+        SESSION_LOG_TRUNCATED=$text
     elif ((max <= 3)); then
-        printf '%s' "${text:0:max}"
+        SESSION_LOG_TRUNCATED=${text:0:max}
     else
-        printf '%s...' "${text:0:max-3}"
+        SESSION_LOG_TRUNCATED="${text:0:max-3}..."
     fi
+    [[ ${3:-} == state ]] || printf '%s' "$SESSION_LOG_TRUNCATED"
+    return 0
 }
 
 session_log_truncate_left() {
     local text="$1" max="$2" keep offset
 
     if ((max <= 0)); then
-        printf ''
+        SESSION_LOG_TRUNCATED=''
     elif ((${#text} <= max)); then
-        printf '%s' "$text"
+        SESSION_LOG_TRUNCATED=$text
     elif ((max <= 3)); then
-        printf '%s' "${text:0:max}"
+        SESSION_LOG_TRUNCATED=${text:0:max}
     else
         keep=$((max - 3))
         offset=$((${#text} - keep))
-        printf '...%s' "${text:offset}"
+        SESSION_LOG_TRUNCATED="...${text:offset}"
     fi
+    [[ ${3:-} == state ]] || printf '%s' "$SESSION_LOG_TRUNCATED"
+    return 0
 }
 
 track_history_display_limit() {
@@ -74,7 +78,9 @@ track_history_display_limit() {
     [[ "$limit" =~ ^[0-9]+$ ]] || limit=8
     ((limit < 1)) && limit=1
     ((limit > 20)) && limit=20
-    printf '%s\n' "$limit"
+    TRACK_HISTORY_LIMIT=$limit
+    [[ ${1:-} == state ]] || printf '%s\n' "$limit"
+    return 0
 }
 
 session_log_init() {
@@ -228,7 +234,9 @@ track_history_line() {
 
     [[ "$index" =~ ^[0-9]+$ ]] || return 1
     [[ "$width" =~ ^[0-9]+$ ]] || width=80
-    limit=$(track_history_display_limit)
+    TRACK_HISTORY_LINE=''
+    track_history_display_limit state
+    limit=$TRACK_HISTORY_LIMIT
     ((index < limit)) || return 1
 
     array_index=$((index + 1))
@@ -236,22 +244,29 @@ track_history_line() {
     time="${TRACK_HISTORY_TIMES[array_index]:---:--:--}"
     title="${TRACK_HISTORY_TITLES[array_index]:-—}"
 
-    prefix=$(printf '  %2d. %s  ' "$array_index" "$time")
+    printf -v prefix '  %2d. %s  ' "$array_index" "$time"
     available=$((width - ${#prefix}))
     ((available < 4)) && available=4
-    printf '%s%s' "$prefix" "$(session_log_truncate "$title" "$available")"
+    session_log_truncate "$title" "$available" state
+    TRACK_HISTORY_LINE="$prefix$SESSION_LOG_TRUNCATED"
+    [[ ${3:-} == state ]] || printf '%s' "$TRACK_HISTORY_LINE"
+    return 0
 }
 
 track_history_session_line() {
     local width="${1:-80}" number prefix path available
 
     [[ "$width" =~ ^[0-9]+$ ]] || width=80
-    number=$(($(track_history_display_limit) + 1))
-    prefix=$(printf '  %2d. TXT sesión: ' "$number")
+    track_history_display_limit state
+    number=$((TRACK_HISTORY_LIMIT + 1))
+    printf -v prefix '  %2d. TXT sesión: ' "$number"
     path="${SESSION_LOG_FILE:-registro no iniciado}"
     available=$((width - ${#prefix}))
     ((available < 4)) && available=4
-    printf '%s%s' "$prefix" "$(session_log_truncate_left "$path" "$available")"
+    session_log_truncate_left "$path" "$available" state
+    TRACK_HISTORY_LINE="$prefix$SESSION_LOG_TRUNCATED"
+    [[ ${2:-} == state ]] || printf '%s' "$TRACK_HISTORY_LINE"
+    return 0
 }
 
 track_history_summary() {

@@ -4,6 +4,12 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - próxima release
 
+- Optimización del historial de canciones: el dibujo completo y la actualización
+  parcial formatean las filas en el proceso principal, sin lanzar subprocesos por
+  canción. El recorte junto al logo es consistente en ambos tipos de dibujo.
+- Los menús reutilizan medidas de texto Unicode con una caché limitada a 256
+  entradas, sensible al ancho y al locale. Las pruebas de rendimiento incluyen
+  ahora reproducción con historial y navegación por Visualización.
 - Logo opcional de la emisora para Debian/Linux de escritorio: se activa desde
   Opciones → Visualización, reserva un espacio estable en «Ahora suena» y no
   altera la composición de Termux ni de las pantallas pequeñas. Usa Kitty

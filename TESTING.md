@@ -56,6 +56,9 @@ bash tests/check.sh --list
 - `performance`: búsqueda con 50.000 emisoras sintéticas y tiempos de render.
   La búsqueda comprueba su presupuesto existente de 1.500 ms; el benchmark de
   render informa medidas, no impone un límite de CPU, memoria o batería.
+  Incluye reproducción simulada con ocho canciones anteriores, actualización
+  parcial de metadatos, reserva de logo y navegación por Visualización. No mide
+  la descarga del logo, el decodificador de audio ni el pintado del emulador.
 - `packaging`: comprobación optativa del empaquetado Debian existente, fuera
   de `all` y de CI. No implica retomar el desarrollo del paquete.
 - `manual`: inventario de herramientas para sesiones reales. `--list` las
