@@ -7,6 +7,8 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 - Optimización del historial de canciones: el dibujo completo y la actualización
   parcial formatean las filas en el proceso principal, sin lanzar subprocesos por
   canción. El recorte junto al logo es consistente en ambos tipos de dibujo.
+- La búsqueda agrupa repeticiones consecutivas de una misma tecla, incluido
+  Retroceso, para evitar un filtrado y redibujado por cada repetición del teclado.
 - Los menús reutilizan medidas de texto Unicode con una caché limitada a 256
   entradas, sensible al ancho y al locale. Las pruebas de rendimiento incluyen
   ahora reproducción con historial y navegación por Visualización.

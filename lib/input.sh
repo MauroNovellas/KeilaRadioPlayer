@@ -124,8 +124,8 @@ input_read_buffered_event() {
     return 0
 }
 
-# Solo agrupamos acciones que tiene sentido mantener pulsadas. Durante búsqueda
-# las letras son texto, por lo que nunca agrupamos KEY mientras SEARCH_ACTIVE=1.
+# Agrupamos también una misma tecla de texto durante una búsqueda. Esto evita
+# filtrar y redibujar una pantalla completa por cada repetición de Retroceso.
 input_event_is_repeatable() {
     local event="$1" key="${2:-}"
 
@@ -134,7 +134,10 @@ input_event_is_repeatable() {
             return 0
             ;;
         KEY)
-            ((${SEARCH_ACTIVE:-0})) && return 1
+            if ((${SEARCH_ACTIVE:-0})); then
+                [[ "$key" == $'\x7f' || "$key" == $'\x08' || "$key" == [[:print:]] ]] && return 0
+                return 1
+            fi
             case "$key" in
                 a|A|d|D|w|W|s|S) return 0 ;;
             esac

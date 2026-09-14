@@ -42,10 +42,17 @@ stations_select_fzf_external() {
 }
 
 search_handle_key() {
-    local key="$1"
+    local key="$1" count="${INPUT_REPEAT_COUNT:-1}" i
+    [[ "$count" =~ ^[0-9]+$ ]] || count=1
+    ((count < 1)) && count=1
+    ((count > 8)) && count=8
     case "$key" in
-        $'\x7f'|$'\x08') search_backspace || true ;;
-        *) search_append "$key" || return 1 ;;
+        $'\x7f'|$'\x08')
+            for ((i = 0; i < count; i++)); do search_backspace || break; done
+            ;;
+        *)
+            for ((i = 0; i < count; i++)); do search_append "$key" || return 1; done
+            ;;
     esac
     return 0
 }

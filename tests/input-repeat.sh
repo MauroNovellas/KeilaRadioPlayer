@@ -59,14 +59,14 @@ assert_eq '' "$INPUT_KEY" 'Supr no debe dejar tecla textual'
 assert_eq '1' "$INPUT_REPEAT_COUNT" 'Supr no hereda autorepeat'
 exec 6<&-
 
-# Dentro del buscador las letras son contenido de la consulta, no acciones de
-# navegación/volumen, por lo que nunca deben agruparse aunque sean iguales.
+# Dentro del buscador una misma tecla repetida se agrupa para reducir el
+# filtrado/redibujado; la tecla sigue siendo contenido de la consulta.
 SEARCH_ACTIVE=1
 exec 5< <(printf 'dddd')
 input_read <&5 || fail 'no leyó texto de búsqueda'
 assert_eq 'KEY' "$INPUT_EVENT" 'texto de búsqueda sigue siendo KEY'
 assert_eq 'd' "$INPUT_KEY" 'letra de búsqueda correcta'
-assert_eq '1' "$INPUT_REPEAT_COUNT" 'texto repetido no se coalesce en búsqueda'
+assert_eq '3' "$INPUT_REPEAT_COUNT" 'texto repetido no se coalesce en búsqueda'
 exec 5<&-
 SEARCH_ACTIVE=0
 
