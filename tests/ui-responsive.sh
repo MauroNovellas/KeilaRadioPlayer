@@ -47,6 +47,17 @@ top_render="$(ui_box_rule 12 "$UI_TL" "$UI_TR"; printf 'X')"
 [[ "$top_render" == *$'\nX' ]] || fail 'el borde superior dejó de avanzar de fila'
 bottom_render="$(ui_box_rule 12 "$UI_BL" "$UI_BR"; printf 'X')"
 [[ "$bottom_render" != *$'\nX' ]] || fail 'el borde inferior todavía provoca scroll vertical'
+UI_UNICODE=0
+ui_configure_glyphs
+for border in top middle; do
+    if [[ $border == top ]]; then left=$UI_TL right=$UI_TR; else left=$UI_ML right=$UI_MR; fi
+    rendered="$(ui_box_rule 12 "$left" "$right"; printf 'X')"
+    [[ $rendered == *$'\nX' ]] || fail "borde ASCII $border no avanza de fila"
+done
+rendered="$(ui_box_rule 12 "$UI_BL" "$UI_BR" '' muted final; printf 'X')"
+[[ $rendered != *$'\nX' ]] || fail 'borde ASCII final provoca scroll'
+UI_UNICODE=1
+ui_configure_glyphs
 
 UI_HELP_VISIBLE=1
 UI_LAYOUT_MODE=wide

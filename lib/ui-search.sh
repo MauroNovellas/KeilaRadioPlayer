@@ -3,6 +3,77 @@
 # Render de la búsqueda integrada. No modifica el estado del catálogo ni del
 # reproductor: solo presenta SEARCH_* y reutiliza los helpers visuales actuales.
 
+UI_SEARCH_QUERY_CURSOR=''
+UI_SEARCH_QUERY_FRAME_KEY=''
+UI_SEARCH_QUERY_CURSOR_KEY=''
+UI_SEARCH_QUERY_KIND=''
+UI_SEARCH_QUERY_WIDTH=0
+
+ui_search_query_signature() {
+    UI_SEARCH_QUERY_SIGNATURE="${TERM:-}|$UI_COLS|$UI_LINES|$UI_LAYOUT_MODE|$UI_COLOR|$UI_UNICODE|$UI_HELP_VISIBLE"
+}
+
+# Se llama al dibujar el campo completo. tput se utiliza solo al cambiar su
+# posición; las pulsaciones posteriores reutilizan el cursor preparado.
+ui_search_query_prepare() {
+    local kind=$1 row=$2 col=$3 width=$4 cursor_key
+    UI_SEARCH_QUERY_FRAME_KEY=''
+    ((${SEARCH_ACTIVE:-0} && !${LABEL_EDITOR_ACTIVE:-0} && !${PREFERENCES_ACTIVE:-0})) || return 0
+    ((row >= 0 && row < UI_LINES && col >= 0 && width > 0 && col + width < UI_COLS)) || return 0
+    ui_search_query_signature
+    cursor_key="$UI_SEARCH_QUERY_SIGNATURE|$kind|$row|$col|$width"
+    if [[ "$cursor_key" != "$UI_SEARCH_QUERY_CURSOR_KEY" ]]; then
+        UI_SEARCH_QUERY_CURSOR=$(tput cup "$row" "$col" 2>/dev/null) || UI_SEARCH_QUERY_CURSOR=''
+        UI_SEARCH_QUERY_CURSOR_KEY=$cursor_key
+    fi
+    if [[ -z "$UI_SEARCH_QUERY_CURSOR" ]]; then
+        UI_SEARCH_QUERY_CURSOR_KEY=''
+        return 0
+    fi
+    UI_SEARCH_QUERY_KIND=$kind UI_SEARCH_QUERY_WIDTH=$width
+    UI_SEARCH_QUERY_FRAME_KEY=$UI_SEARCH_QUERY_SIGNATURE
+}
+
+ui_search_query_desktop_parts() {
+    UI_SEARCH_QUERY_TEXT="Buscar: ${SEARCH_QUERY}_"
+    if ((SEARCH_FILTER_DIRTY)); then
+        UI_SEARCH_QUERY_BADGE='filtrando'
+    elif [[ -n "$SEARCH_REGION_FILTER$SEARCH_TAG_FILTER" ]]; then
+        UI_SEARCH_QUERY_BADGE="filtros · ${#SEARCH_MATCHES[@]} resultados"
+    elif ((SEARCH_COUNTRY_FILTER_ENABLED)); then
+        UI_SEARCH_QUERY_BADGE="$KEILA_CATALOG_COUNTRY_FILTER · ${#SEARCH_MATCHES[@]} resultados"
+    else
+        UI_SEARCH_QUERY_BADGE="global · ${#SEARCH_MATCHES[@]} resultados"
+    fi
+}
+
+ui_search_query_print() {
+    local kind=$1 width=$2
+    case "$kind" in
+        desktop)
+            ui_search_query_desktop_parts
+            ui_print_split_styled "$width" "$UI_SEARCH_QUERY_TEXT" "$UI_SEARCH_QUERY_BADGE" selected selected ;;
+        single)
+            search_filters_badge
+            ui_print_split_styled "$width" 'Buscar:' "${SEARCH_QUERY}_  [$SEARCH_FILTER_BADGE]" accent selected ;;
+        modal-desktop)
+            ui_print_split_styled "$width" 'Buscar:' "${SEARCH_QUERY}_" accent selected ;;
+        tiny) ui_print_padded "$width" "Buscar: ${SEARCH_QUERY}_" ;;
+        *) return 1 ;;
+    esac
+}
+
+ui_draw_search_query_only() {
+    ((UI_ACTIVE && !UI_SUSPENDED && ${SEARCH_ACTIVE:-0} && !${INPUT_RESIZE_PENDING:-0} &&
+        !${LABEL_EDITOR_ACTIVE:-0} && !${PREFERENCES_ACTIVE:-0})) || return 1
+    ui_search_query_signature
+    [[ -n "$UI_SEARCH_QUERY_CURSOR" && "$UI_SEARCH_QUERY_FRAME_KEY" == "$UI_SEARCH_QUERY_SIGNATURE" ]] || return 1
+    printf '%s' "$UI_SEARCH_QUERY_CURSOR"
+    # Rellenar el ancho reservado borra el texto anterior sin tocar bordes,
+    # resultados, reproductor o logo, y sin emitir saltos de línea.
+    ui_search_query_print "$UI_SEARCH_QUERY_KIND" "$UI_SEARCH_QUERY_WIDTH"
+}
+
 ui_search_result_parts() {
     local source_index="$1"
     UI_SEARCH_NAME="${SEARCH_NAMES[$source_index]}"
@@ -87,6 +158,7 @@ ui_search_desktop() {
 
         case "$row" in
             0)
+                ui_search_query_prepare modal-desktop 3 2 "$UI_DESKTOP_LEFT_WIDTH"
                 left_text='Buscar:'
                 left_badge="${SEARCH_QUERY}_"
                 left_style='accent'
@@ -175,7 +247,7 @@ ui_search_desktop() {
     else
         ui_box_line "$width" ''
     fi
-    ui_box_rule "$width" "$UI_BL" "$UI_BR"
+    ui_box_rule "$width" "$UI_BL" "$UI_BR" '' muted final
     tput ed 2>/dev/null || true
 }
 
@@ -193,6 +265,7 @@ ui_search_single_column() {
     ui_box_rule "$width" "$UI_ML" "$UI_MR" '[B] BUSQUEDA EMISORAS' accent
     search_filters_badge
     local country_filter=$SEARCH_FILTER_BADGE
+    ui_search_query_prepare single 3 2 "$((width - 4))"
     ui_box_split_line "$width" 'Buscar:' "${SEARCH_QUERY}_  [$country_filter]" 0 accent selected
     local detail_header=''
     if ui_search_show_details; then detail_header=$(ui_labels_header "$((width - 4))"); fi
@@ -256,13 +329,14 @@ ui_search_single_column() {
     else
         ui_box_line "$width" ''
     fi
-    ui_box_rule "$width" "$UI_BL" "$UI_BR"
+    ui_box_rule "$width" "$UI_BL" "$UI_BR" '' muted final
     tput ed 2>/dev/null || true
 }
 
 ui_draw_search() {
     ((UI_ACTIVE)) || return 0
     ((UI_SUSPENDED)) && return 0
+    UI_SEARCH_QUERY_FRAME_KEY=''
 
     ui_refresh_size
     UI_LAYOUT_MODE=$(ui_layout_mode "$UI_COLS" "$UI_LINES")
@@ -280,6 +354,7 @@ ui_draw_search() {
         if ((${LABEL_EDITOR_ACTIVE:-0})); then
             ui_print_padded "$tiny_width" "$UI_MESSAGE"
         else
+            ui_search_query_prepare tiny 2 0 "$tiny_width"
             ui_print_padded "$tiny_width" "Buscar: ${SEARCH_QUERY}_"
         fi
         printf '\n'

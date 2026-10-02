@@ -79,3 +79,31 @@ for ((frame=0; frame<20; frame++)); do
 done
 finish=${EPOCHREALTIME//[.,]/}
 printf 'Navegación Visualización: %d us/dibujo\n' "$(((finish-start)/20))"
+
+# Comparar una pulsación + repintado con el antiguo recorrido de frame completo.
+# Los resultados ya están cargados; no se mide la pausa deliberada del filtro.
+ui_refresh_size() { :; }
+SEARCH_ACTIVE=1 INPUT_REPEAT_COUNT=1 PREF_LOGO=0
+for geometry in '132 40' '40 10'; do
+    read -r UI_COLS UI_LINES <<< "$geometry"
+    SEARCH_QUERY='rock' SEARCH_FILTER_DIRTY=1
+    search_draw_view > /dev/null
+    start=${EPOCHREALTIME//[.,]/}
+    for ((frame=0; frame<10; frame++)); do
+        search_handle_key x
+        search_draw_view > /dev/null
+        search_handle_key $'\x7f'
+        search_draw_view > /dev/null
+    done
+    finish=${EPOCHREALTIME//[.,]/}
+    printf 'Consulta %s, teclado + frame completo: %d us/pulsación\n' "$geometry" "$(((finish-start)/20))"
+    start=${EPOCHREALTIME//[.,]/}
+    for ((frame=0; frame<50; frame++)); do
+        search_handle_key x
+        ui_draw_search_query_only > /dev/null || exit 1
+        search_handle_key $'\x7f'
+        ui_draw_search_query_only > /dev/null || exit 1
+    done
+    finish=${EPOCHREALTIME//[.,]/}
+    printf 'Consulta %s, teclado + campo parcial: %d us/pulsación\n' "$geometry" "$(((finish-start)/100))"
+done

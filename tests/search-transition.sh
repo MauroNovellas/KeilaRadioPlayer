@@ -197,4 +197,60 @@ assert_eq 1 "$REBUILD_CALLS" 'B no reconstruyó el TSV desde JSON'
 assert_eq 1 "$OPEN_CALLS" 'B no abrió la búsqueda tras reconstruir TSV'
 assert_eq 1 "$DRAW_CALLS" 'B no pintó la búsqueda tras reconstruir TSV'
 
+# La edición solo repinta el campo. Un TICK temprano no filtra; navegar y
+# reproducir sí deben actualizar resultados antes de usar la selección.
+source "$ROOT_DIR/lib/search.sh"
+search_load_catalog() {
+    SEARCH_SOURCE_FILE=''
+    SEARCH_SOURCE_ROWS=$'Rock FM\tMadrid\tEspaña\tMP3\thttps://example.invalid/rock\tES\trock fm\nJazz FM\tMadrid\tEspaña\tMP3\thttps://example.invalid/jazz\tES\tjazz fm'
+}
+search_open() { search_reset; search_load_catalog; search_filter; SEARCH_ACTIVE=1; }
+FIELD_CALLS=0 DRAW_CALLS=0 TEST_EVENT=0
+ui_draw_search_query_only() { ((FIELD_CALLS+=1)); return 0; }
+catalog_poll() { return 1; }
+app_poll_player() { return 1; }
+ui_message_tick() { return 1; }
+input_read() {
+    ((TEST_EVENT+=1))
+    INPUT_REPEAT_COUNT=1
+    case "$TEST_EVENT" in
+        1) INPUT_EVENT=KEY INPUT_KEY=j ;;
+        2)
+            INPUT_EVENT=TICK
+            # Forzar un tick antes de vencer el plazo, sin depender del reloj.
+            SEARCH_QUERY_EDIT_AT_US=$(( ${EPOCHREALTIME//[.,]/} + 1000000 )) ;;
+        3)
+            ((SEARCH_FILTER_DIRTY && ${#SEARCH_MATCHES[@]} == 2)) || fail 'tick temprano filtra'
+            INPUT_EVENT=KEY INPUT_KEY=a ;;
+        4) INPUT_EVENT=DELETE ;;
+        5) INPUT_EVENT=KEY INPUT_KEY=j ;;
+        6) INPUT_EVENT=KEY INPUT_KEY=a ;;
+        7) INPUT_EVENT=DOWN ;;
+        8)
+            [[ ${#SEARCH_MATCHES[@]} == 1 && $SEARCH_FILTER_DIRTY == 0 && ${SEARCH_NAMES[0]} == 'Jazz FM' ]] || fail 'cursor usa resultados antiguos'
+            INPUT_EVENT=KEY INPUT_KEY=z ;;
+        9) INPUT_EVENT=ENTER ;;
+        *) return 1 ;;
+    esac
+    return 0
+}
+stations_select_fzf || fail 'Enter no reproduce la consulta vigente'
+[[ $SELECTED_NAME == 'Jazz FM' && $SEARCH_QUERY == jaz ]] || fail 'Enter conserva selección antigua'
+((FIELD_CALLS == 6 && DRAW_CALLS == 2)) || fail 'editar redibuja toda la pantalla'
+
+# Si no hay cursor parcial válido, se conserva el camino completo de dibujo.
+FIELD_CALLS=0 DRAW_CALLS=0 TEST_EVENT=0
+ui_draw_search_query_only() { ((FIELD_CALLS+=1)); return 1; }
+stations_select_fzf || fail 'fallback impide reproducir'
+((FIELD_CALLS == 6 && DRAW_CALLS == 8)) || fail 'fallback no repinta la pantalla'
+
+# El filtro diferido se aplica una vez vencido el intervalo de escritura.
+SEARCH_QUERY=rock SEARCH_FILTER_DIRTY=1
+SEARCH_QUERY_EDIT_AT_US=$(( ${EPOCHREALTIME//[.,]/} + 1000000 ))
+search_query_filter_due && fail 'sin pausa aplica filtro'
+SEARCH_QUERY_EDIT_AT_US=0
+search_query_filter_due || fail 'no aplica filtro vencido'
+search_apply_pending_filter || fail 'no procesa consulta pendiente'
+[[ ${SEARCH_NAMES[0]} == 'Rock FM' && $SEARCH_FILTER_DIRTY == 0 ]] || fail 'resultados diferidos incorrectos'
+
 printf 'ok   búsqueda integrada: transición sin suspend/resume ni borrado completo\n'

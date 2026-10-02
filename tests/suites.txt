@@ -41,6 +41,7 @@ fast|search-integrated.sh|
 fast|search-filters.sh|
 fast|station-options.sh|
 fast|search-transition.sh|
+fast|search-query-redraw.sh|
 fast|section-shortcuts.sh|
 fast|session-history.sh|
 fast|session-log.sh|

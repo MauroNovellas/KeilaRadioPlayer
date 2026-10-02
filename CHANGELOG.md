@@ -4,6 +4,12 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - próxima release
 
+- La edición de búsqueda repinta únicamente la consulta con una posición de
+  cursor preparada, sin recorrer resultados ni redibujar el reproductor.
+  El filtro espera una pausa de 80 ms; Enter y los cursores lo aplican antes de
+  actuar. Redimensionar o no disponer de cursor válido utiliza el dibujo completo.
+- Corregidos los saltos de fila de los bordes ASCII: cabeceras y separadores
+  avanzan de línea y solo el borde final evita el salto para no desplazar la TUI.
 - Corrección de entrada en búsqueda: las ráfagas de texto y Retroceso conservan
   todas sus repeticiones, sin el recorte de pasos usado para navegar. Se verifica
   un pegado Unicode seguido de borrado y Enter, también con drenaje limitado.

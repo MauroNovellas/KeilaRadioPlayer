@@ -124,6 +124,8 @@ Buscar, ir a Favoritas/Recientes o iniciar una emisora desde Opciones devuelve e
 
 **Buscar — `B`.** Escribe nombre, región, temática, país, formato o un comentario personal. `↑`/`↓` navegan y `Enter` reproduce; `Home`/`End` y `PgUp`/`PgDn` permiten saltar. Retroceso borra un carácter y `Supr` vacía la consulta. `Esc` sale conservándola; `B` permite seguir editándola.
 
+La consulta se muestra al escribir y los resultados se actualizan tras una breve pausa. Navegar o pulsar `Enter` aplica antes la consulta pendiente.
+
 Dentro del buscador, `P` mayúscula activa/desactiva el país preferido; `X` gestiona Favoritas, `C` edita el comentario, `M` alterna silencio y `F`/`R` vuelve a esas listas. Las minúsculas y los números no activan estos comandos.
 
 En los tamaños `tiny` y `minimal` se muestran inicialmente solo nombres. `→` despliega los datos disponibles en todas las filas visibles; `←` los oculta. En ese contexto no cambian el volumen.

@@ -57,7 +57,8 @@ bash tests/check.sh --list
   La búsqueda comprueba su presupuesto existente de 1.500 ms; el benchmark de
   render informa medidas, no impone un límite de CPU, memoria o batería.
   Incluye reproducción simulada con ocho canciones anteriores, actualización
-  parcial de metadatos, reserva de logo y navegación por Visualización. No mide
+  parcial de metadatos, reserva de logo y navegación por Visualización. Compara
+  escritura y borrado con dibujo completo y con repintado de consulta. No mide
   la descarga del logo, el decodificador de audio ni el pintado del emulador.
 - `packaging`: comprobación optativa del empaquetado Debian existente, fuera
   de `all` y de CI. No implica retomar el desarrollo del paquete.
@@ -69,6 +70,11 @@ secuencial. Medir rendimiento en una máquina sobrecargada puede dar resultados
 distintos: repetir aisladamente y revisar el tiempo antes de cambiar el umbral.
 Las pruebas individuales siguen siendo ejecutables con `bash tests/nombre.sh`.
 `tests/run.sh` conserva sus comprobaciones básicas, pero no es la batería completa.
+
+`search-query-redraw.sh` compara el campo parcial con el dibujo completo en ocho
+tamaños, ASCII y Unicode; comprueba borrado, redimensionado y suspensión sin
+consultar `tput` ni recorrer resultados durante la edición. `search-transition.sh`
+verifica el filtro diferido y que Enter/cursores usan la consulta vigente.
 
 La escucha de grabaciones se verifica también con mpv real: genera un WAV
 sintético, lo reproduce mediante `--ao=null` y comprueba pausa, saltos, posición,

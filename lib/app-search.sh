@@ -217,14 +217,14 @@ stations_select_fzf() {
             return 1
         fi
 
-        local redraw=0
+        local redraw=0 query_redraw=0 previous_query=$SEARCH_QUERY
         case "$INPUT_EVENT" in
             TICK)
                 if declare -F catalog_poll >/dev/null && catalog_poll; then redraw=1; fi
                 favorites_confirm_expire >/dev/null 2>&1 || true
                 # El teclado se pinta inmediatamente. El filtro pesado se aplica
                 # después de una breve pausa natural de input (timeout/TICK).
-                if search_apply_pending_filter; then
+                if search_query_filter_due && search_apply_pending_filter; then
                     redraw=1
                 fi
                 app_poll_player && redraw=1
@@ -288,8 +288,7 @@ stations_select_fzf() {
                 ;;
             DELETE)
                 favorites_confirm_clear
-                search_clear || true
-                redraw=1
+                search_clear && query_redraw=1
                 ;;
             ENTER)
                 favorites_confirm_clear
@@ -333,12 +332,16 @@ stations_select_fzf() {
                 else
                     favorites_confirm_clear
                     if search_handle_key "$INPUT_KEY"; then
-                        redraw=1
+                        [[ "$SEARCH_QUERY" == "$previous_query" ]] || query_redraw=1
                     fi
                 fi
                 ;;
         esac
 
-        ((redraw)) && search_draw_view
+        if ((redraw)); then
+            search_draw_view
+        elif ((query_redraw)); then
+            ui_draw_search_query_only || search_draw_view
+        fi
     done
 }

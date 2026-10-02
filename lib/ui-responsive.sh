@@ -352,6 +352,6 @@ ui_draw() {
     else
         ui_box_line "$width" ''
     fi
-    ui_box_rule "$width" "$UI_BL" "$UI_BR"
+    ui_box_rule "$width" "$UI_BL" "$UI_BR" '' muted final
     tput ed 2>/dev/null || true
 }

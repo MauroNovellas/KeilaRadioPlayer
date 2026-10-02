@@ -229,22 +229,13 @@ ui_desktop_row() {
             :
         elif ((search_row == 0 && query_rows)); then
             if ((SEARCH_ACTIVE)); then
-                right_text="Buscar: ${SEARCH_QUERY}_"
+                ui_search_query_prepare desktop "$((row + 3))" "$((UI_DESKTOP_LEFT_WIDTH + 5))" "$UI_DESKTOP_RIGHT_WIDTH"
+                ui_search_query_desktop_parts
+                right_text=$UI_SEARCH_QUERY_TEXT
+                right_badge=$UI_SEARCH_QUERY_BADGE
                 right_style='accent'
                 selected=1
-                if ((SEARCH_FILTER_DIRTY)); then
-                    right_badge='filtrando'
-                    right_badge_style='muted'
-                else
-                    if [[ -n "$SEARCH_REGION_FILTER$SEARCH_TAG_FILTER" ]]; then
-                        right_badge="filtros · ${#SEARCH_MATCHES[@]} resultados"
-                    elif ((SEARCH_COUNTRY_FILTER_ENABLED)); then
-                        right_badge="$KEILA_CATALOG_COUNTRY_FILTER · ${#SEARCH_MATCHES[@]} resultados"
-                    else
-                        right_badge="global · ${#SEARCH_MATCHES[@]} resultados"
-                    fi
-                    right_badge_style='muted'
-                fi
+                right_badge_style='muted'
             elif [[ -n "${SEARCH_QUERY:-}" ]]; then
                 right_text="Buscar: $SEARCH_QUERY"
                 right_badge='B editar'

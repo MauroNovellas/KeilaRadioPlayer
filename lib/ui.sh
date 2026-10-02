@@ -408,7 +408,7 @@ ui_box_rule() {
     fi
     printf '%s' "$right"
     ui_style_end
-    printf '\n'
+    [[ ${6:-} == final ]] || printf '\n'
 }
 
 ui_box_line() {
@@ -1224,7 +1224,7 @@ ui_draw() {
     fi
 
     if [[ -n "$UI_MESSAGE" ]]; then ui_box_line "$width" "$UI_MESSAGE"; else ui_box_line "$width" ''; fi
-    ui_box_rule "$width" "$UI_BL" "$UI_BR"
+    ui_box_rule "$width" "$UI_BL" "$UI_BR" '' muted final
     tput ed 2>/dev/null || true
 }
 

@@ -89,7 +89,9 @@ ui_box_rule() {
 
     # El borde inferior es la última línea del frame: no avanzamos a una fila
     # inexistente para evitar que el terminal desplace toda la pantalla.
-    if [[ "$left" != "$UI_BL" || "$right" != "$UI_BR" ]]; then
+    # En ASCII todos los bordes son '+': la fila final debe indicarse de forma
+    # explícita para no confundir cabeceras/separadores con el borde inferior.
+    if [[ ${6:-} != final && ( "$left" != "$UI_BL" || "$right" != "$UI_BR" || ${UI_UNICODE:-1} == 0 ) ]]; then
         printf '\n'
     fi
 }

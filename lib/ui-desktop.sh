@@ -368,13 +368,14 @@ ui_draw_desktop() {
     else
         ui_box_line "$width" ''
     fi
-    ui_box_rule "$width" "$UI_BL" "$UI_BR"
+    ui_box_rule "$width" "$UI_BL" "$UI_BR" '' muted final
     tput ed 2>/dev/null || true
 }
 
 ui_draw() {
     ((UI_ACTIVE)) || return 0
     ((UI_SUSPENDED)) && return 0
+    UI_SEARCH_QUERY_FRAME_KEY=''
     logo_hide
     UI_LOGO_LAYOUT=0
 

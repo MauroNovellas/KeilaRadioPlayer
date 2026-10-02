@@ -8,6 +8,7 @@ SEARCH_QUERY=''
 SEARCH_SELECTED_INDEX=0
 SEARCH_SCROLL_OFFSET=0
 SEARCH_FILTER_DIRTY=0
+SEARCH_QUERY_EDIT_AT_US=0
 SEARCH_DETAILS_VISIBLE=0
 
 SEARCH_NAMES=()
@@ -50,6 +51,7 @@ search_reset() {
     SEARCH_SELECTED_INDEX=0
     SEARCH_SCROLL_OFFSET=0
     SEARCH_FILTER_DIRTY=0
+    SEARCH_QUERY_EDIT_AT_US=0
     SEARCH_DETAILS_VISIBLE=0
     search_clear_results
 }
@@ -186,6 +188,19 @@ search_apply_pending_filter() {
     return 0
 }
 
+search_query_filter_due() {
+    ((SEARCH_FILTER_DIRTY)) || return 1
+    local now=${EPOCHREALTIME//[.,]/}
+    # La espera afecta a resultados, nunca a la consulta visible. Navegar o
+    # reproducir sigue aplicando el filtro inmediatamente mediante prepare.
+    ((now - SEARCH_QUERY_EDIT_AT_US >= 80000))
+}
+
+search_query_changed() {
+    SEARCH_FILTER_DIRTY=1
+    SEARCH_QUERY_EDIT_AT_US=${EPOCHREALTIME//[.,]/}
+}
+
 search_open() {
     # Cerrar la búsqueda deja la consulta visible en el panel desktop con
     # "B editar". Al volver a entrar conservamos esa consulta de verdad, pero
@@ -212,7 +227,7 @@ search_append() {
     SEARCH_QUERY+="$char"
     SEARCH_SELECTED_INDEX=0
     SEARCH_SCROLL_OFFSET=0
-    SEARCH_FILTER_DIRTY=1
+    search_query_changed
 }
 
 search_backspace() {
@@ -220,7 +235,7 @@ search_backspace() {
     SEARCH_QUERY="${SEARCH_QUERY%?}"
     SEARCH_SELECTED_INDEX=0
     SEARCH_SCROLL_OFFSET=0
-    SEARCH_FILTER_DIRTY=1
+    search_query_changed
 }
 
 search_clear() {
@@ -228,7 +243,7 @@ search_clear() {
     SEARCH_QUERY=''
     SEARCH_SELECTED_INDEX=0
     SEARCH_SCROLL_OFFSET=0
-    SEARCH_FILTER_DIRTY=1
+    search_query_changed
 }
 
 search_move() {
