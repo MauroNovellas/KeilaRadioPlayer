@@ -66,8 +66,24 @@ exec 5< <(printf 'dddd')
 input_read <&5 || fail 'no leyó texto de búsqueda'
 assert_eq 'KEY' "$INPUT_EVENT" 'texto de búsqueda sigue siendo KEY'
 assert_eq 'd' "$INPUT_KEY" 'letra de búsqueda correcta'
-assert_eq '3' "$INPUT_REPEAT_COUNT" 'texto repetido no se coalesce en búsqueda'
+assert_eq '4' "$INPUT_REPEAT_COUNT" 'texto repetido se conserva completo'
 exec 5<&-
+# Ejercicio de extremo a extremo: lectura real, Unicode, repetición, borrado
+# y Enter. Un drenaje pequeño fuerza varias ráfagas sin perder ningún byte.
+source "$ROOT_DIR/lib/app-search.sh"
+SEARCH_ACTIVE=1 SEARCH_QUERY='' INPUT_REPEAT_DRAIN_LIMIT=2
+exec 7< <(printf 'áááááááááááá\177\177\177\177\177rock\n')
+search_reads=0
+while input_read <&7; do
+    ((search_reads += 1))
+    [[ $INPUT_EVENT != ENTER ]] || break
+    [[ $INPUT_EVENT != KEY ]] || search_handle_key "$INPUT_KEY" || true
+done
+exec 7<&-
+assert_eq 'ááááááárock' "$SEARCH_QUERY" 'pegado y borrado conservan todo el texto'
+assert_eq ENTER "$INPUT_EVENT" 'Enter posterior no se pierde'
+((search_reads < 22)) || fail 'no reduce operaciones de edición'
+INPUT_REPEAT_DRAIN_LIMIT=512
 SEARCH_ACTIVE=0
 
 # Prueba los wrappers finales que convierten el contador agrupado en un único

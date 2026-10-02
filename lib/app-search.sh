@@ -45,13 +45,20 @@ search_handle_key() {
     local key="$1" count="${INPUT_REPEAT_COUNT:-1}" i
     [[ "$count" =~ ^[0-9]+$ ]] || count=1
     ((count < 1)) && count=1
-    ((count > 8)) && count=8
+    # La consulta admite 80 caracteres; borrar como máximo 80 también basta.
+    # No limitar a los pasos de navegación: perderíamos letras de un pegado.
+    ((count > 80)) && count=80
     case "$key" in
         $'\x7f'|$'\x08')
             for ((i = 0; i < count; i++)); do search_backspace || break; done
             ;;
         *)
-            for ((i = 0; i < count; i++)); do search_append "$key" || return 1; done
+            local changed=0
+            for ((i = 0; i < count; i++)); do
+                search_append "$key" || break
+                changed=1
+            done
+            ((changed)) || return 1
             ;;
     esac
     return 0

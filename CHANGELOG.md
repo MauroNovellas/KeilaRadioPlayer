@@ -4,6 +4,9 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - próxima release
 
+- Corrección de entrada en búsqueda: las ráfagas de texto y Retroceso conservan
+  todas sus repeticiones, sin el recorte de pasos usado para navegar. Se verifica
+  un pegado Unicode seguido de borrado y Enter, también con drenaje limitado.
 - Optimización del historial de canciones: el dibujo completo y la actualización
   parcial formatean las filas en el proceso principal, sin lanzar subprocesos por
   canción. El recorte junto al logo es consistente en ambos tipos de dibujo.

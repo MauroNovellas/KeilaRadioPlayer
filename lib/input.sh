@@ -205,7 +205,11 @@ input_coalesce_repeat_burst() {
 
     INPUT_EVENT="$original_event"
     INPUT_KEY="$original_key"
-    if ((seen > cap)); then
+    # Texto y Retroceso son datos: nunca aplicar el límite pensado para
+    # navegación/volumen. El límite de drenaje conserva el resto en el buffer.
+    if ((${SEARCH_ACTIVE:-0})) && [[ "$original_event" == KEY ]]; then
+        INPUT_REPEAT_COUNT=$seen
+    elif ((seen > cap)); then
         INPUT_REPEAT_COUNT=$cap
     else
         INPUT_REPEAT_COUNT=$seen
