@@ -4,6 +4,11 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar] - próxima release
 
+- Corregido Retroceso perdido entre lecturas del teclado: la TUI mantiene
+  desactivados el eco y el modo canónico mientras está activa, sin alterar
+  Ctrl-C. Restaura el estado exacto al suspender/salir. Regresión con un TTY
+  real: DEL, Ctrl-H, Unicode, ráfagas, Supr y cursores durante el procesado,
+  con ambas configuraciones de la tecla de borrado y drenaje limitado.
 - La edición de búsqueda repinta únicamente la consulta con una posición de
   cursor preparada, sin recorrer resultados ni redibujar el reproductor.
   El filtro espera una pausa de 80 ms; Enter y los cursores lo aplican antes de

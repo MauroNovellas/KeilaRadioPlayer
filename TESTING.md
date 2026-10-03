@@ -76,6 +76,14 @@ tamaños, ASCII y Unicode; comprueba borrado, redimensionado y suspensión sin
 consultar `tput` ni recorrer resultados durante la edición. `search-transition.sh`
 verifica el filtro diferido y que Enter/cursores usan la consulta vigente.
 
+`input-tty.py` envía teclas a un pseudoterminal real mientras la aplicación
+está procesando, no esperando teclado: reproduce el Retroceso que el modo
+canónico absorbía entre lecturas. Comprueba DEL/Ctrl-H, borrado Unicode,
+ráfagas, Enter, Supr y cursores, con drenajes de 2/512 y ambas configuraciones
+de VERASE. Verifica que no se desactivan las señales, que suspender/salir
+restauran el estado exacto y que reanudar reactiva la entrada de la TUI.
+Las pruebas por tuberías no cubren este comportamiento de la terminal.
+
 La escucha de grabaciones se verifica también con mpv real: genera un WAV
 sintético, lo reproduce mediante `--ao=null` y comprueba pausa, saltos, posición,
 fin de archivo y limpieza del grupo privado. No envía audio a los altavoces.

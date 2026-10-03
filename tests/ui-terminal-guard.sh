@@ -10,7 +10,7 @@ fail() {
 }
 
 if ! command -v script >/dev/null 2>&1; then
-    printf 'skip protección de eco: falta script(1)\n'
+    printf 'skip protección de entrada del terminal: falta script(1)\n'
     exit 0
 fi
 
@@ -27,6 +27,8 @@ ui_enter() { :; }
 ui_suspend() { :; }
 ui_resume() { :; }
 ui_leave() { :; }
+logo_hide() { :; }
+logo_forget() { :; }
 
 source "$ROOT_DIR/lib/ui-terminal-guard.sh"
 
@@ -37,6 +39,9 @@ flags=$(stty -a | tr '\n' ' ') || exit 12
 if ! grep -Eq '(^|[;[:space:]])-echo([;[:space:]]|$)' <<< "$flags"; then
     exit 13
 fi
+if ! grep -Eq '(^|[;[:space:]])-icanon([;[:space:]]|$)' <<< "$flags"; then
+    exit 23
+fi
 
 ui_suspend || exit 14
 after_suspend=$(stty -g) || exit 15
@@ -46,6 +51,9 @@ ui_resume || exit 17
 flags=$(stty -a | tr '\n' ' ') || exit 18
 if ! grep -Eq '(^|[;[:space:]])-echo([;[:space:]]|$)' <<< "$flags"; then
     exit 19
+fi
+if ! grep -Eq '(^|[;[:space:]])-icanon([;[:space:]]|$)' <<< "$flags"; then
+    exit 24
 fi
 
 ui_leave || exit 20
@@ -66,4 +74,4 @@ output=$(ROOT_DIR="$ROOT_DIR" KEILA_GUARD_PROBE="$probe" timeout --kill-after=1s
 
 [[ "$output" == *'__KEILA_TERMINAL_GUARD_OK__'* ]] || fail 'la prueba de pseudo-terminal no terminó correctamente'
 
-printf 'ok   TUI mantiene echo desactivado entre lecturas y lo restaura al suspender/salir\n'
+printf 'ok   TUI mantiene eco y modo canónico desactivados y restaura el TTY al suspender/salir\n'

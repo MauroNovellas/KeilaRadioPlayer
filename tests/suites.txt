@@ -80,6 +80,7 @@ integration|m3u-files.sh|
 integration|m3u-menu.sh|
 integration|recording-preview-audio.sh|
 integration|spectrum.sh|
+integration|input-tty.py|
 integration|ui-terminal-guard.sh|
 integration|profile-live.sh|--self-test
 performance|search-performance.sh|

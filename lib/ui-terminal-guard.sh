@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 
-# Mantiene desactivado el eco del terminal durante toda la vida activa de la
-# TUI. `read -s` oculta teclas mientras espera input, pero Bash restaura el eco
-# entre lecturas; si el usuario pulsa varias teclas mientras Keila procesa IPC o
-# redibuja, el propio terminal puede imprimirlas antes de que input_read las
-# consuma. Conservamos el estado exacto para restaurarlo al suspender o salir.
+# Mantiene el terminal sin eco y no canónico durante toda la vida activa de la
+# TUI. `read -sn1` cambia estos modos solo mientras lee y después los restaura.
+# Si entre lecturas vuelve ICANON, el terminal absorbe Retroceso (VERASE) antes
+# de que input_read lo reciba: escribir funciona, pero borrar parece lento.
+# No usamos modo raw: las señales, incluido Ctrl-C, conservan su configuración.
+# Guardamos el estado exacto para restaurarlo al suspender o salir.
 
 UI_TTY_STATE=''
 UI_TTY_GUARD_ACTIVE=0
@@ -21,7 +22,7 @@ ui_terminal_guard_capture() {
 
 ui_terminal_guard_enable() {
     ui_terminal_guard_capture || return 1
-    stty -echo 2>/dev/null || return 1
+    stty -echo -icanon min 1 time 0 2>/dev/null || return 1
     UI_TTY_GUARD_ACTIVE=1
 }
 
