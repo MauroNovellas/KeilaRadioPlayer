@@ -25,6 +25,11 @@ almacenamiento. No se cambia la configuración personal del reproductor. Las
 pruebas del terminal usan un pseudoterminal y las de audio una señal sintética
 o dobles de prueba, no los altavoces del usuario.
 
+Las pruebas de grabación programada y calidad con mpv real usan un nombre de
+socket corto dentro de su temporal privado. La ruta XDG habitual, al anidarla
+en el TMPDIR del runner, superaba el límite del socket Unix en CI; no se evita
+el IPC ni se omiten esas comprobaciones.
+
 La batería cierra la entrada estándar de cada prueba: ninguna debe leer el
 teclado de la terminal principal. `timeout` usa un grupo de procesos separado;
 heredar el TTY puede detener herramientas como ffmpeg o script y producir un

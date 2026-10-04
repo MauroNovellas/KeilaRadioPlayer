@@ -8,6 +8,9 @@ task_tmp=$(mktemp -d) || exit 1
 export XDG_CONFIG_HOME="$task_tmp/config" XDG_STATE_HOME="$task_tmp/state" XDG_CACHE_HOME="$task_tmp/cache" XDG_RUNTIME_DIR="$task_tmp/runtime"
 set -- --version
 source "$ROOT_DIR/keila-radio" >/dev/null
+# Socket real en la carpeta privada del test, sin sumar prefijos largos de CI.
+PLAYER_RUNTIME_DIR=$task_tmp
+PLAYER_SOCKET="$task_tmp/mpv.sock"
 trap 'player_stop; quality_cleanup; rm -rf -- "$task_tmp"' EXIT
 fail() { printf 'FAIL %s: %s / %s\n' "$*" "$QUALITY_NOTICE" "$RECORDING_LAST_ERROR" >&2; [[ ! -f $task_tmp/mpv.log ]] || tail -n 25 "$task_tmp/mpv.log" >&2; exit 1; }
 real_mpv=$(command -v mpv) || fail dependencia

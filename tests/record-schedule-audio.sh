@@ -7,6 +7,11 @@ task_tmp=$(mktemp -d) || exit 1
 export XDG_CONFIG_HOME="$task_tmp/config" XDG_STATE_HOME="$task_tmp/state" XDG_CACHE_HOME="$task_tmp/cache" XDG_RUNTIME_DIR="$task_tmp/runtime"
 set -- --version
 source "$ROOT_DIR/keila-radio" >/dev/null
+# El runner anida TMPDIR por prueba. No usar ese prefijo más runtime/keila-radio
+# y el nombre habitual: en CI supera los 107 bytes del socket Unix de Linux.
+# La carpeta ya es privada y única; mantener dentro un socket corto y real.
+PLAYER_RUNTIME_DIR=$task_tmp
+PLAYER_SOCKET="$task_tmp/mpv.sock"
 trap 'player_stop; rm -rf -- "$task_tmp"' EXIT
 fail() {
     printf 'FAIL %s: estado=%s fase=%s aviso=%s\n' "$*" "$RECORD_PLAN_STATE" "$RECORDING_PHASE" "$RECORD_PLAN_NOTE" >&2

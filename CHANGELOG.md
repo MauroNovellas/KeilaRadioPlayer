@@ -11,6 +11,9 @@ Resumen de uso y actualización en [notas de la versión](docs/releases/2.2.0.md
 - Publicación de runtime Linux limpio con SHA-256 verificable desde cualquier
   carpeta: la suma usa el nombre del archivo, no la ruta del equipo de desarrollo.
   Regresión de descarga trasladada a otra carpeta y extracción del launcher.
+- Pruebas de audio real con socket corto dentro del temporal privado: evita
+  superar el límite de ruta IPC al anidar TMPDIR en GitHub Actions, sin omitir
+  grabación programada ni selección de calidad.
 
 - Menos procesos durante el dibujo y la navegación: geometría, altura del
   historial, recortes, barra de volumen y autorepetición se calculan directamente
