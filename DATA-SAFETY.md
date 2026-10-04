@@ -2,6 +2,23 @@
 
 ## Garantías comprobadas
 
+- Las calidades se guardan en `qualities` como datos HTTP/HTTPS y bitrate
+  canónico, nunca como código. Publicación bloqueada/atómica, permisos privados,
+  respaldo y recuperación. Cada guardado relee y conserva elecciones de otras
+  emisoras; volver al original elimina solo su entrada. No modifica Favoritas,
+  comentarios ni Recientes. Fallo de guardado conserva memoria y reproducción.
+  Un cambio de audio requiere seleccionar y pulsar Enter; navegar o cancelar no
+  aplica cambios. Conserva volumen/silencio/
+  pausa y bloquea grabaciones, cierres y escuchas de archivo. Si no inicia el IPC,
+  intenta restaurar preferencia y audio anterior; disco y conexión no forman una
+  transacción y la disponibilidad de audio no se garantiza por iniciar el IPC.
+- El selector de calidad consulta solo el catálogo local y, para HLS, un master
+  de la emisora actual. No descarga segmentos; verifica DNS/IPv4 pública y cada
+  redirección, con DNS fijado, HTTP/HTTPS y límite de 64 KiB. La tarea privada
+  caduca a los 25 segundos y se cancela al salir. No envía favoritos, comentarios
+  ni ajustes. Se guardan URLs maestras, no variantes temporales; el bitrate es
+  declarado, no una certificación de sonido o disponibilidad. Las URL guardadas
+  pueden contener tokens: las copias personales no deben compartirse sin revisar.
 - La parada final de una grabación es optativa, de sesión y confirmada con el
   horario. Solo se ejecuta tras cerrar su archivo y comprobar de nuevo la ruta,
   URL y proceso; no detiene otra escucha ni se activa por una cancelación manual.
@@ -59,21 +76,30 @@
   modo append, como texto legible, y no participa en los archivos estructurados
   que se restauran automáticamente desde `.bak`.
 - El logo es opcional y no forma parte de los datos personales restaurables.
-  Solo se consulta el `favicon` de la emisora actual a través de una tarea
+  Solo se consultan los iconos del catálogo o de la web de la emisora actual
+  a través de una tarea
   separada; se rechazan credenciales, rutas locales, IPv4 privadas/reservadas,
-  redirecciones no públicas, tipos distintos de PNG/JPEG y ficheros de más de
-  1 MiB. La imagen se convierte a un formato RGB interno sin conservar el
+  redirecciones no públicas, tipos distintos de PNG/JPEG/ICO/WebP/GIF y ficheros
+  de más de 1 MiB. La imagen se convierte a un formato RGB interno sin conservar el
   contenido remoto original ni ejecutar metadatos o protocolos secundarios.
   La caché vive en `~/.cache/keila-radio/logos/`, tiene permisos privados,
-  máximo 64 entradas y caducidad de siete días. Cambiar de emisora o cerrar
+  máximo 64 emisoras y revisión tras 24 horas al volver a necesitarlas. La copia
+  se muestra primero y sobrevive a fallos de red, trabajos interrumpidos o imágenes
+  nuevas inválidas. Fallos aplazan intentos una hora; no encontrar candidatos, un
+  día. RGB, plazos y SIXEL se publican bajo bloqueo mediante temporales privados
+  y rename; no se ejecuta su contenido. SIXEL está ligado a los píxeles exactos y
+  a su tamaño: una publicación parcial/concurrente no mezcla versiones. Máximo
+  40 KiB de RGB y 300 KiB de SIXEL preparado por entrada, sin conservar originales.
+  Renovar una entrada existente no expulsa otra; la evicción retira únicamente
+  nombres propios reconocidos y sus auxiliares. Cambiar de emisora o cerrar
   Keila cancela el proceso y elimina su temporal; si no hay soporte visual se
   usan iniciales y no se realiza la descarga.
 
 ## Copia anterior y recuperación
 
 Favoritos (`favorites`), comentarios (`labels`), volumen/última emisora (`state`),
-preferencias del selector (`preferences`), recientes (`history`) y ecualizador
-(`equalizer`) conservan una copia privada `.bak`
+preferencias del selector (`preferences`), recientes (`history`), ecualizador
+(`equalizer`) y calidades (`qualities`) conservan una copia privada `.bak`
 en el mismo directorio. Es una sola versión anterior, no un historial ilimitado.
 El primer guardado de un archivo nuevo crea también su respaldo. Un guardado
 idéntico no hace avanzar una copia válida, evitando perderla por guardados
@@ -89,7 +115,7 @@ Si no se puede respaldar la edición, la carga falla y conserva ambos archivos.
 Para volver a los valores por defecto, editar los valores o retirar el archivo
 **y su copia**; retirar solo `config` activa la recuperación, no un reinicio.
 
-Al arrancar se valida la estructura de estos siete archivos. Si uno falta o
+Al arrancar se valida la estructura de estos ocho archivos. Si uno falta o
 está malformado y su copia es válida, se restaura automáticamente. Antes de
 reemplazar un archivo dañado se conserva íntegro en `nombre.corrupt.XXXXXX`,
 con permisos privados. Se imprime su ruta y se muestra un aviso en el reproductor.
@@ -131,7 +157,7 @@ para eso hace falta una copia externa.
 
 `./keila-radio --backup [archivo.tar.gz]` crea una copia privada de los datos
 personales pequeños: configuración, favoritos, comentarios, preferencias,
-volumen/última emisora, historial y ecualizador. No incluye grabaciones, cachés
+volumen/última emisora, historial, ecualizador y calidades. No incluye grabaciones, cachés
 ni el catálogo de Radio Browser. Los registros de sesión con canciones y marcas
 de tiempo tampoco se exportan por defecto, por privacidad y para evitar copias
 crecientes sin límite.
@@ -144,7 +170,7 @@ y las copias antiguas con nombre `keila-backup-*` junto al programa. Importar
 consiste en colocar un `.tar.gz` en la carpeta de copias y actualizar la lista.
 
 Crear una copia ya no inicializa la aplicación ni recarga ajustes en memoria.
-Se toma una instantánea bajo los bloqueos de los siete archivos. La compresión
+Se toma una instantánea bajo los bloqueos de los ocho archivos. La compresión
 se hace en un temporal y se publica de forma exclusiva: un archivo existente,
 incluido un enlace roto o una colisión durante la compresión, nunca se sustituye.
 Si algo falla, no se borra una copia creada por otra sesión.
@@ -162,7 +188,8 @@ ni rutas de escape. Máximos: 8 MiB comprimidos, 4 MiB por archivo y 16 MiB de
 datos en total; las consultas de TAR y su extracción tienen tiempo limitado.
 Estas copias son para datos personales pequeños, no para audio ni archivos
 arbitrarios. Una instantánea privada impide cambiar los bytes entre validación
-y publicación. El formato sigue siendo `keila-backup-v1`.
+y publicación. El formato sigue siendo `keila-backup-v1`: una copia anterior
+sin `qualities` conserva las elecciones actuales, no las elimina.
 
 En la interfaz, seleccionar o consultar detalles no restaura. `R` verifica en
 segundo plano y muestra el contenido antes de la confirmación con `Enter`.
@@ -279,7 +306,7 @@ errores, pausa previa, IPC rechazado, timeout y saltos reales con audio sintéti
 
 - Esto no demuestra durabilidad ante pérdida eléctrica: no hay sincronización
   explícita de archivos y directorios a almacenamiento físico.
-- La copia anterior y la recuperación cubren únicamente los siete archivos
+- La copia anterior y la recuperación cubren únicamente los ocho archivos
   indicados y sus errores estructurales detectables, no cualquier corrupción.
 - Los registros de sesión son append-only: no tienen `.bak`, no se validan al
   arrancar y pueden truncarse si el sistema se apaga justo durante la escritura.

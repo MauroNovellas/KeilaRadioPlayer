@@ -22,6 +22,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/sleep-timer.sh"
 source "$(dirname "${BASH_SOURCE[0]}")/m3u-menu.sh"
 # shellcheck source=lib/record-schedule-menu.sh
 source "$(dirname "${BASH_SOURCE[0]}")/record-schedule-menu.sh"
+# shellcheck source=lib/quality-menu.sh
+source "$(dirname "${BASH_SOURCE[0]}")/quality-menu.sh"
 
 options_cancel_confirmation() {
     if [[ -n "${FAVORITES_CONFIRM_URL:-}" ]]; then
@@ -123,6 +125,11 @@ options_read_state() {
 options_action_reason() {
     OPTIONS_REASON=''
     case "$1" in
+        quality)
+            if ((OPTIONS_RUNNING == 0)); then OPTIONS_REASON='Primero reproduce una emisora.'
+            elif ((RECORDING_ACTIVE)) || record_plan_busy; then OPTIONS_REASON='Espera al cierre de la grabación o programación en curso.'
+            elif [[ -n ${PENDING_PREVIEW_PID:-} ]]; then OPTIONS_REASON='Termina la escucha de la grabación.'; fi ;;
+        filter_region) ((SEARCH_COUNTRY_FILTER_ENABLED)) || OPTIONS_REASON='Elige primero un país; la zona es opcional.' ;;
         pause|mute) ((OPTIONS_RUNNING)) || OPTIONS_REASON='Primero reproduce una emisora.' ;;
         record_toggle) ((OPTIONS_RUNNING || RECORDING_ACTIVE)) || OPTIONS_REASON='Primero reproduce una emisora.' ;;
         play_selected|favorite_toggle|comment) [[ -n "$OPTIONS_STATION_URL" ]] || OPTIONS_REASON='Selecciona una emisora en Favoritas o Recientes.' ;;
@@ -193,13 +200,14 @@ options_build_rows() {
             options_add_row + 'Subir volumen' "Aumenta el volumen en $KEILA_VOLUME_STEP puntos. El nivel se guarda para el próximo inicio." volume_up "$PLAYER_VOLUME%"
             options_add_row - 'Bajar volumen' "Reduce el volumen en $KEILA_VOLUME_STEP puntos. El nivel se guarda para el próximo inicio." volume_down "$PLAYER_VOLUME%"
             options_add_row G "$OPTIONS_RECORD_LABEL" 'Graba el stream actual. Al detenerlo se espera al cierre del archivo antes de validarlo.' record_toggle "$OPTIONS_RECORDING"
+            options_add_row C 'Calidad / versiones' "También disponible directamente con ${PREF_KEYS[t]^^} junto a lo que suena. Consulta emisiones alternativas y variantes HLS en segundo plano. Muestra formato, bitrate declarado y consumo aproximado. Flechas seleccionan; Enter aplica y Esc cancela. Guarda la elección por emisora; conserva volumen, silencio, pausa, favoritas y comentarios. Puede haber un corte breve. No cambia mientras se graba." quality
             ;;
         stations)
             OPTIONS_TITLE='EMISORAS'
             options_add_row B 'Buscar emisoras' 'Abre la búsqueda. Escribe el nombre; Supr limpia la consulta y Enter reproduce. Esc vuelve al reproductor.' search
             options_add_row U 'Actualizar catálogo' 'Actualiza la copia local de Radio Browser en segundo plano. Conserva la copia anterior si falla la descarga.' catalog_update "$OPTIONS_CATALOG_STATE"
             search_filters_summary
-            options_add_row L 'Filtros de búsqueda' 'Combina país, región y temática sin ocupar la consulta. Se aplican al catálogo durante esta sesión; no ocultan tus favoritas ni recientes.' menu:filters "$SEARCH_FILTER_SUMMARY"
+            options_add_row L 'Filtros de búsqueda' 'Elige un país y, opcionalmente, una zona declarada dentro de él; combina temática y búsqueda libre. Sin jerarquías geográficas inventadas. Filtros de sesión: no ocultan tus favoritas ni recientes.' menu:filters "$SEARCH_FILTER_SUMMARY"
             options_add_row N 'Añadir emisora manual' 'Introduce nombre y dirección del audio HTTP/HTTPS. Puedes escucharla antes de guardarla en Favoritas; no se envía al catálogo público.' station_manual
             options_add_row M 'Importar / exportar M3U' 'Intercambia nombres y direcciones de Favoritas con otros reproductores. Vista previa antes de guardar; sin sobrescribir archivos ni sustituir favoritas.' menu:m3u
             options_add_row F 'Ir a Favoritas' 'Cierra Opciones y lleva el cursor a Favoritas.' select_favorites "${#FAVORITE_NAMES[@]} emisoras"
@@ -214,8 +222,8 @@ options_build_rows() {
             OPTIONS_TITLE='FILTROS DE BÚSQUEDA'
             local country='Todos'
             ((SEARCH_COUNTRY_FILTER_ENABLED == 0)) || country=$KEILA_CATALOG_COUNTRY_FILTER
-            options_add_row P País 'Elige por nombre o código. Cambiar el país quita la región anterior, pero conserva temática y consulta. Los filtros duran esta sesión.' filter_country "$country"
-            options_add_row R 'Región / ámbito' 'Ubicación declarada en el catálogo, dentro del país elegido. Las emisoras sin ubicación quedan fuera al activar este filtro; no se deduce por su nombre.' filter_region "${SEARCH_REGION_FILTER:-Todas}"
+            options_add_row P País 'Elige por nombre o código. Cambiar o desactivar el país quita la zona anterior, pero conserva temática y consulta. Los filtros duran esta sesión.' filter_country "$country"
+            options_add_row R 'Zona dentro del país' 'Opcional: solo nombres declarados por las emisoras del país elegido. No se deducen provincias, estados ni equivalencias. Todo el país incluye también emisoras sin zona declarada.' filter_region "${SEARCH_REGION_FILTER:-Todo el país}"
             options_add_row T Temática 'Etiquetas del catálogo, por ejemplo rock o noticias. Coincidencia de etiqueta completa: rock no equivale a hard rock. Puedes seguir escribiendo en la búsqueda.' filter_tag "${SEARCH_TAG_FILTER:-Todas}"
             options_add_row X 'Quitar todos los filtros' 'Vuelve a buscar en todo el catálogo sin borrar tu consulta. Supr dentro de la búsqueda solo borra la consulta, nunca los filtros.' filter_clear
             options_add_row B 'Buscar con estos filtros' 'Cierra Opciones y abre la búsqueda con la consulta y los filtros actuales.' search
@@ -229,7 +237,7 @@ options_build_rows() {
             ((PREF_UNICODE && !UI_UNICODE)) && unicode='Modo ASCII'
             options_add_row C Colores 'Usa colores cuando la terminal lo permite. La selección también se reconoce por el cursor. Cambio persistente.' color "$colors"
             options_add_row U 'Símbolos Unicode' 'Desactiva los símbolos para usar flechas y bordes ASCII. Los textos conservan sus acentos. Cambio persistente.' unicode "$unicode"
-            options_add_row L 'Logo de la emisora' 'Logo opcional en Ahora suena, desde 120x24. Kitty: imagen; TrueColor/Unicode: bloques; resto: iniciales. Descarga y conversión en segundo plano con ffmpeg opcional. Solo el actual, caché limitada. No se activa en Termux ni instala paquetes.' logo "${enabled[PREF_LOGO]} · $LOGO_STATUS"
+            options_add_row L 'Logo de la emisora' 'Logo opcional en Ahora suena, desde 120x24. Kitty/foot (SIXEL): imagen; TrueColor/Unicode: bloques; resto: iniciales. Muestra primero la copia guardada y la revisa tras 24 horas en segundo plano. Si falla conserva la anterior; una imagen idéntica no parpadea. Hasta 64 emisoras; foot reutiliza SIXEL y resize no descarga ni decodifica otra vez. ffmpeg solo para imágenes nuevas. No se activa en Termux ni instala paquetes.' logo "${enabled[PREF_LOGO]} · $LOGO_STATUS"
             options_add_row A 'Preferencias y atajos' 'Abre la configuración completa. Reasigna teclas de la pantalla principal o restaura los ajustes con confirmación.' settings
             ;;
         timer)
@@ -601,6 +609,7 @@ options_execute() {
         play_selected) app_play_selected && OPTIONS_CLOSE_REQUESTED=1 ;;
         pause) app_toggle_pause || true ;;
         mute) app_toggle_mute || true ;;
+        quality) app_quality_menu || true ;;
         volume_up) app_change_volume "$KEILA_VOLUME_STEP" || true ;;
         volume_down) app_change_volume "$((-KEILA_VOLUME_STEP))" || true ;;
         record_toggle) app_toggle_recording || true ;;

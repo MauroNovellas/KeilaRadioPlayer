@@ -42,7 +42,7 @@ stations_select_fzf_external() {
 }
 
 search_handle_key() {
-    local key="$1" count="${INPUT_REPEAT_COUNT:-1}" i
+    local key="$1" count="${INPUT_REPEAT_COUNT:-1}" room
     [[ "$count" =~ ^[0-9]+$ ]] || count=1
     ((count < 1)) && count=1
     # La consulta admite 80 caracteres; borrar como máximo 80 también basta.
@@ -50,21 +50,34 @@ search_handle_key() {
     ((count > 80)) && count=80
     case "$key" in
         $'\x7f'|$'\x08')
-            for ((i = 0; i < count; i++)); do search_backspace || break; done
+            [[ -n $SEARCH_QUERY ]] || return 1
+            ((count <= ${#SEARCH_QUERY})) || count=${#SEARCH_QUERY}
+            SEARCH_QUERY=${SEARCH_QUERY:0:${#SEARCH_QUERY}-count}
             ;;
         *)
-            local changed=0
-            for ((i = 0; i < count; i++)); do
-                search_append "$key" || break
-                changed=1
-            done
-            ((changed)) || return 1
+            [[ $key == [[:print:]] ]] || return 1
+            room=$((80-${#SEARCH_QUERY}))
+            ((room > 0)) || return 1
+            ((count <= room)) || count=$room
+            local repeated
+            printf -v repeated '%*s' "$count" ''
+            SEARCH_QUERY+=${repeated// /"$key"}
             ;;
     esac
+    SEARCH_SELECTED_INDEX=0 SEARCH_SCROLL_OFFSET=0
+    search_query_changed
     return 0
 }
 
 search_prepare_results() {
+    # Reutilizar un snapshot ya terminado evita repetir el filtro al pulsar
+    # Enter/cursores. Si aún trabaja o pertenece a otra consulta, sincronizar.
+    if ((SEARCH_FILTER_DIRTY)) && [[ -n $SEARCH_WORK_PID ]]; then
+        search_async_signature
+        if [[ $SEARCH_WORK_REQUEST == "$SEARCH_WORK_SIGNATURE" ]] && ! kill -0 "$SEARCH_WORK_PID" 2>/dev/null; then
+            search_async_tick || true
+        fi
+    fi
     search_apply_pending_filter || true
 }
 
@@ -224,7 +237,7 @@ stations_select_fzf() {
                 favorites_confirm_expire >/dev/null 2>&1 || true
                 # El teclado se pinta inmediatamente. El filtro pesado se aplica
                 # después de una breve pausa natural de input (timeout/TICK).
-                if search_query_filter_due && search_apply_pending_filter; then
+                if search_query_filter_due && search_async_tick; then
                     redraw=1
                 fi
                 app_poll_player && redraw=1
@@ -311,6 +324,10 @@ stations_select_fzf() {
                     return 1
                 elif [[ "$INPUT_KEY" == 'M' ]]; then
                     app_toggle_mute || true
+                    redraw=1
+                elif [[ "$INPUT_KEY" == 'T' ]]; then
+                    favorites_confirm_clear
+                    app_quality_menu || true
                     redraw=1
                 elif [[ "$INPUT_KEY" == 'P' ]]; then
                     favorites_confirm_clear

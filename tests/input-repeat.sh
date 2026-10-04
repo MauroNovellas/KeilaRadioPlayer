@@ -59,6 +59,25 @@ assert_eq '' "$INPUT_KEY" 'Supr no debe dejar tecla textual'
 assert_eq '1' "$INPUT_REPEAT_COUNT" 'Supr no hereda autorepeat'
 exec 6<&-
 
+# La geometría asíncrona de foot no roba cifras ni teclas de la búsqueda.
+SEARCH_ACTIVE=1
+exec 8< <(printf 'r\033[6;16;8to\177\033[6~\n')
+input_read <&8 || fail 'no leyó letra antes de geometría'
+assert_eq r "$INPUT_KEY" 'letra anterior al informe conservada'
+input_read <&8 || fail 'no leyó informe de celda'
+assert_eq TICK "$INPUT_EVENT" 'informe no se convierte en texto'
+assert_eq 16 "$INPUT_CELL_HEIGHT" 'alto de celda'
+assert_eq 8 "$INPUT_CELL_WIDTH" 'ancho de celda'
+input_read <&8 || fail 'no leyó letra tras geometría'
+assert_eq o "$INPUT_KEY" 'letra posterior conservada'
+input_read <&8 || fail 'no leyó borrado tras geometría'
+assert_eq $'\177' "$INPUT_KEY" 'Retroceso posterior conservado'
+input_read <&8 || fail 'no leyó Page Down'
+assert_eq PAGE_DOWN "$INPUT_EVENT" 'CSI 6 tilde sigue siendo Page Down'
+input_read <&8 || fail 'no leyó Enter tras geometría'
+assert_eq ENTER "$INPUT_EVENT" 'Enter posterior conservado'
+exec 8<&-
+
 # Dentro del buscador una misma tecla repetida se agrupa para reducir el
 # filtrado/redibujado; la tecla sigue siendo contenido de la consulta.
 SEARCH_ACTIVE=1
@@ -85,6 +104,37 @@ assert_eq ENTER "$INPUT_EVENT" 'Enter posterior no se pierde'
 ((search_reads < 22)) || fail 'no reduce operaciones de edición'
 INPUT_REPEAT_DRAIN_LIMIT=512
 SEARCH_ACTIVE=0
+
+# Los valores internos se validan sin command substitution por pulsación.
+input_repeat_cap_value state
+input_repeat_drain_limit_value state
+assert_eq 3 "$INPUT_CAP_VALUE" 'límite de navegación por estado'
+assert_eq 512 "$INPUT_DRAIN_LIMIT_VALUE" 'límite de drenaje por estado'
+for setting in invalid 0 9999; do
+    INPUT_REPEAT_CAP=$setting INPUT_REPEAT_DRAIN_LIMIT=$setting
+    input_repeat_cap_value state
+    input_repeat_drain_limit_value state
+    case $setting in
+        invalid) expected_cap=3 expected_limit=512 ;;
+        0) expected_cap=1 expected_limit=1 ;;
+        9999) expected_cap=8 expected_limit=4096 ;;
+    esac
+    assert_eq "$expected_cap" "$INPUT_CAP_VALUE" 'validación de cap sin fork'
+    assert_eq "$expected_limit" "$INPUT_DRAIN_LIMIT_VALUE" 'validación de drenaje sin fork'
+done
+INPUT_REPEAT_CAP=3 INPUT_REPEAT_DRAIN_LIMIT=512
+cap_definition=$(declare -f input_repeat_cap_value)
+drain_definition=$(declare -f input_repeat_drain_limit_value)
+eval "${cap_definition/input_repeat_cap_value ()/original_cap ()}"
+eval "${drain_definition/input_repeat_drain_limit_value ()/original_drain ()}"
+# Definiciones de prueba constantes: se sustituyen después de ejercitar las
+# originales cargadas desde input.sh, igual que las clonaciones anteriores.
+eval 'input_repeat_cap_value() { ((BASH_SUBSHELL == 0)) || fail "cap lanza un subshell por tecla"; original_cap "$@"; }'
+eval 'input_repeat_drain_limit_value() { ((BASH_SUBSHELL == 0)) || fail "drenaje lanza un subshell por tecla"; original_drain "$@"; }'
+exec 9< <(printf 'dd')
+input_read <&9 || fail 'lectura sin forks'
+exec 9<&-
+assert_eq 3 "$INPUT_CAP_VALUE" 'estado modificado en el proceso principal'
 
 # Prueba los wrappers finales que convierten el contador agrupado en un único
 # movimiento/cambio de volumen por frame. Se invocan indirectamente al clonar

@@ -63,6 +63,8 @@ make_release() {
         favorites.sh
         stations.sh
         search.sh
+        search-async.sh
+        search-worker.sh
         search-filters.sh
         station-options.sh
         m3u.sh
@@ -72,6 +74,14 @@ make_release() {
         record-schedule-menu.sh
         station-logo.sh
         station-logo-worker.sh
+        station-logo-cache.sh
+        station-logo-links.awk
+        station-logo-sixel.awk
+        quality.sh
+        quality-menu.sh
+        quality-worker.sh
+        quality-candidates.jq
+        quality-hls.awk
         player.sh
         player-failure.sh
         player-events.sh

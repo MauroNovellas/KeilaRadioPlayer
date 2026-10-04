@@ -91,7 +91,9 @@ ui_input_repeat_count() {
     [[ "$count" =~ ^[0-9]+$ ]] || count=1
     ((count < 1)) && count=1
     ((count > 8)) && count=8
-    printf '%s\n' "$count"
+    UI_INPUT_REPEAT_COUNT=$count
+    [[ ${1:-} == state ]] || printf '%s\n' "$count"
+    return 0
 }
 
 if ! declare -F ui_move_selection_without_input_repeat >/dev/null 2>&1; then
@@ -112,20 +114,23 @@ fi
 ui_move_selection() {
     local delta="$1"
     local repeat
-    repeat=$(ui_input_repeat_count)
+    ui_input_repeat_count state
+    repeat=$UI_INPUT_REPEAT_COUNT
     ui_move_selection_without_input_repeat "$((delta * repeat))"
 }
 
 player_change_volume() {
     local delta="$1"
     local repeat
-    repeat=$(ui_input_repeat_count)
+    ui_input_repeat_count state
+    repeat=$UI_INPUT_REPEAT_COUNT
     player_change_volume_without_input_repeat "$((delta * repeat))"
 }
 
 search_move() {
     local delta="$1"
     local repeat
-    repeat=$(ui_input_repeat_count)
+    ui_input_repeat_count state
+    repeat=$UI_INPUT_REPEAT_COUNT
     search_move_without_input_repeat "$((delta * repeat))"
 }

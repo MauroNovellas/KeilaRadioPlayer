@@ -383,7 +383,7 @@ recording_start() {
 
     local stream_format extension file payload
     stream_format=$(recording_stream_format 2>/dev/null || true)
-    extension=$(recording_extension_for_stream "$stream_format" "${PLAYER_CODEC:-}" "${PLAYER_URL:-}")
+    extension=$(recording_extension_for_stream "$stream_format" "${PLAYER_CODEC:-}" "${PLAYER_INPUT_URL:-${PLAYER_URL:-}}")
 
     file=$(recording_next_file "$station_name" "$extension") || return 1
     # Marcador persistente: un cierre abrupto no debe parecer una finalización.

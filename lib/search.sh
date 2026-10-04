@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 # Estado y filtrado de la búsqueda integrada de emisoras.
-# El catálogo se carga una vez al abrir la vista y después se filtra en memoria.
+# El catálogo local se filtra desde el TSV; solo los resultados visibles se
+# cargan en arrays. La edición usa un worker y las acciones sincronizan antes.
 
 SEARCH_ACTIVE=0
 SEARCH_QUERY=''
@@ -47,6 +48,8 @@ search_clear_results() {
 }
 
 search_reset() {
+    search_async_cleanup
+    SEARCH_ASYNC_FAILED=0
     SEARCH_QUERY=''
     SEARCH_SELECTED_INDEX=0
     SEARCH_SCROLL_OFFSET=0
@@ -57,6 +60,7 @@ search_reset() {
 }
 
 search_load_catalog() {
+    search_async_cleanup
     search_clear_results
     SEARCH_SOURCE_FILE=''
     SEARCH_SOURCE_ROWS=''
@@ -174,6 +178,7 @@ search_filter() {
 search_country_filter_toggle() {
     if ((SEARCH_COUNTRY_FILTER_ENABLED)); then
         SEARCH_COUNTRY_FILTER_ENABLED=0
+        SEARCH_REGION_FILTER=''
     else
         SEARCH_COUNTRY_FILTER_ENABLED=1
     fi
@@ -184,6 +189,7 @@ search_country_filter_toggle() {
 
 search_apply_pending_filter() {
     ((SEARCH_FILTER_DIRTY)) || return 1
+    search_async_cleanup
     search_filter
     return 0
 }
@@ -214,6 +220,7 @@ search_open() {
 }
 
 search_close() {
+    search_async_cleanup
     SEARCH_ACTIVE=0
     SEARCH_SCROLL_OFFSET=0
     SEARCH_FILTER_DIRTY=0
@@ -303,3 +310,6 @@ search_selected_load() {
 
     [[ -n "$SELECTED_NAME" && -n "$SELECTED_URL" ]]
 }
+
+# shellcheck source=lib/search-async.sh
+source "$(dirname "${BASH_SOURCE[0]}")/search-async.sh"

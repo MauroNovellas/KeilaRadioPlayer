@@ -61,4 +61,53 @@ for width in 12 40 120; do
     track_history_session_line "$width" state
     [[ $TRACK_HISTORY_LINE == "$expected" ]] || fail 'ruta sesión state distinta'
 done
+# Geometría y barras sin subshells: misma salida que la API de texto, con
+# reproducción detenida/activa, ayuda, móvil y escritorio. No fijar tamaños
+# constantes que oculten una invalidación incorrecta al redimensionar.
+player_is_running() { ((test_playing)); }
+for test_playing in 0 1; do
+    for dimensions in '132 40' '112 20' '80 24' '62 16' '50 13' '42 11' '40 10'; do
+        read -r UI_COLS UI_LINES <<< "$dimensions"
+        expected=$(ui_layout_mode "$UI_COLS" "$UI_LINES")
+        ui_layout_mode "$UI_COLS" "$UI_LINES" state
+        [[ $UI_LAYOUT_MODE_VALUE == "$expected" ]] || fail 'modo state distinto'
+        UI_LAYOUT_MODE=$UI_LAYOUT_MODE_VALUE
+        expected=$(ui_layout_width "$UI_COLS")
+        ui_layout_width "$UI_COLS" state
+        [[ $UI_LAYOUT_WIDTH == "$expected" ]] || fail 'ancho state distinto'
+        for UI_HELP_VISIBLE in 0 1; do
+            expected=$(ui_control_line_count)
+            ui_control_line_count state
+            [[ $UI_CONTROL_LINE_COUNT == "$expected" ]] || fail 'controles state distintos'
+            expected=$(ui_stream_info_line_count)
+            ui_stream_info_line_count state
+            [[ $UI_STREAM_INFO_LINE_COUNT == "$expected" ]] || fail 'metadatos state distintos'
+            expected=$(ui_list_height)
+            ui_list_height state
+            [[ $UI_LIST_HEIGHT == "$expected" ]] || fail 'altura state distinta'
+            expected=$(ui_desktop_body_height)
+            ui_desktop_body_height state
+            [[ $UI_DESKTOP_BODY_HEIGHT == "$expected" ]] || fail 'cuerpo state distinto'
+            expected=$(ui_desktop_track_history_slots "$UI_DESKTOP_BODY_HEIGHT")
+            ui_desktop_track_history_slots "$UI_DESKTOP_BODY_HEIGHT" state
+            [[ $UI_DESKTOP_TRACK_HISTORY_SLOTS == "$expected" ]] || fail 'huecos historial state distintos'
+        done
+    done
+done
+for UI_UNICODE in 0 1; do
+    ui_configure_glyphs
+    for PLAYER_VOLUME in 0 5 50 100; do
+        for width in 0 4 48; do
+            filled=$((PLAYER_VOLUME*width/100))
+            expected=$(ui_repeat_char "$UI_BAR_FULL" "$filled"; ui_repeat_char "$UI_BAR_EMPTY" "$((width-filled))")
+            ui_volume_bar "$width" state
+            [[ $UI_VOLUME_BAR == "$expected" ]] || fail 'barra state distinta'
+        done
+    done
+done
+for INPUT_REPEAT_COUNT in 0 1 3 8 99 invalid; do
+    expected=$(ui_input_repeat_count)
+    ui_input_repeat_count state
+    [[ $UI_INPUT_REPEAT_COUNT == "$expected" ]] || fail 'repetición state distinta'
+done
 printf 'ok   cachés de render y metadatos equivalentes\n'

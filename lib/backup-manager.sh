@@ -57,7 +57,7 @@ backup_reload_runtime() {
     local selected_url='' index=$UI_SELECTED_INDEX status=0
     if ((index < ${#FAVORITE_URLS[@]})); then selected_url=${FAVORITE_URLS[index]:-}
     else selected_url=${RECENT_URLS[index-${#FAVORITE_URLS[@]}]:-}; fi
-    favorites_load && labels_load && history_load && state_load && preferences_load && equalizer_load || status=1
+    favorites_load && labels_load && history_load && state_load && preferences_load && equalizer_load && quality_load || status=1
     config_load "$BASE_DIR/grabaciones" || status=1
     history_recent_refresh
     preferences_apply

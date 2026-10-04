@@ -8,6 +8,12 @@ fast|sleep-timer.sh|
 fast|record-schedule.sh|
 fast|record-schedule-menu.sh|
 fast|station-logo-ui.sh|
+fast|station-logo-redraw.sh|
+fast|station-logo-candidates.sh|
+fast|quality.sh|
+fast|quality-metadata.sh|
+fast|quality-menu.sh|
+fast|quality-access.sh|
 fast|app-poll-reconnect.sh|
 fast|catalog-status.sh|
 fast|diagnostics.sh|
@@ -41,6 +47,7 @@ fast|search-integrated.sh|
 fast|search-filters.sh|
 fast|station-options.sh|
 fast|search-transition.sh|
+fast|search-async.sh|
 fast|search-query-redraw.sh|
 fast|section-shortcuts.sh|
 fast|session-history.sh|
@@ -50,6 +57,7 @@ fast|status-screen.sh|
 fast|ui-desktop.sh|
 fast|ui-desktop-search-pane.sh|
 fast|ui-responsive.sh|
+fast|ui-size-cache.sh|
 fast|ui-theme.sh|
 fast|ui-update-status.sh|
 fast|update-check.sh|
@@ -71,8 +79,12 @@ integration|player-title-probe.sh|
 integration|pre-rc.sh|
 integration|recording-formats.sh|
 integration|record-schedule-audio.sh|
+integration|quality-files.sh|
+integration|quality-audio.sh|
 integration|station-logo-files.sh|
+integration|station-logo-sixel.sh|
 integration|station-logo-lifecycle.sh|
+integration|station-logo-cache.sh|
 integration|recording-manager.sh|
 integration|recording-library.sh|
 integration|recording-files.sh|
@@ -84,7 +96,9 @@ integration|input-tty.py|
 integration|ui-terminal-guard.sh|
 integration|profile-live.sh|--self-test
 performance|search-performance.sh|
+performance|search-latency.py|
 performance|render-benchmark.sh|
+performance|logo-cache-performance.sh|
 # Fuera de la batería habitual: el empaquetado Debian sigue aplazado.
 packaging|package-debian.sh|
 # Solo inventario: requieren una sesión real y nunca se lanzan automáticamente.

@@ -22,6 +22,19 @@ mv "$job/rgb" "$task_tmp/png.rgb"; mv "$job/small" "$task_tmp/png.small"
 timeout 10s ffmpeg -nostdin -v error -f lavfi -i 'color=c=red:s=32x32' -frames:v 1 -threads 1 "$task_tmp/source.jpg" || fail fixture
 cp "$task_tmp/source.jpg" "$job/image"
 logo_convert "$job" || fail 'conversión JPEG'
+timeout 10s ffmpeg -nostdin -v error -i "$task_tmp/source.png" -frames:v 1 -threads 1 "$task_tmp/source.webp" || fail 'fixture WebP'
+cp "$task_tmp/source.webp" "$job/image"
+logo_convert "$job" || fail 'conversión WebP sin extensión'
+timeout 10s ffmpeg -nostdin -v error -i "$task_tmp/source.png" -frames:v 1 -threads 1 "$task_tmp/source.gif" || fail 'fixture GIF'
+cp "$task_tmp/source.gif" "$job/image"
+logo_convert "$job" || fail 'primer cuadro GIF'
+python3 "$ROOT_DIR/tests/fixtures/logo-icons.py" "$task_tmp" || fail 'fixtures ICO'
+for icon in png bmp; do
+    cp "$task_tmp/$icon.ico" "$job/image"
+    logo_convert "$job" || fail "conversión ICO/$icon"
+done
+printf '\000\000\001\000' > "$job/image"
+logo_convert "$job" && fail 'acepta cabecera ICO truncada'
 printf '<svg><script>contenido no permitido</script></svg>' > "$job/image"
 logo_convert "$job" && fail 'acepta SVG'
 truncate -s 1048577 "$job/image"
@@ -74,4 +87,4 @@ printf -v name '%064x' 65
 logo_cache_store "$cache" "$name" "$task_tmp/valid.logo" || fail publicar
 entries=("$cache"/*.logo)
 [[ ${#entries[@]} == 64 && $(<"$cache/personal.txt") == conservar ]] || fail 'límite o archivo ajeno'
-printf 'ok   logos: PNG/JPEG, caché privada limitada, caducidad, payload y red segura\n'
+printf 'ok   logos: PNG/JPEG/ICO/WebP/GIF, caché privada limitada, caducidad, payload y red segura\n'

@@ -1,8 +1,8 @@
-# Keila Radio Player 2.1.1
+# Keila Radio Player 2.2.0
 
 Radio por Internet en tu terminal: busca emisoras, organiza tus favoritas, graba programas y escucha sin salir del teclado. Escrito en Bash, con `mpv` como motor de audio.
 
-Linux de escritorio es la plataforma principal; también se ha probado en Termux/Android, incluidas pantallas pequeñas. Esta guía describe `main`, que integra las mejoras de la línea **2.1.1**. Los cambios pendientes de una nueva release se distinguen en el [historial de cambios](CHANGELOG.md).
+Linux de escritorio es la plataforma principal; también se ha probado en Termux/Android, incluidas pantallas pequeñas. Esta guía corresponde a **2.2.0**, consolidada en `main`. Consulta el [resumen de la versión](docs/releases/2.2.0.md) o el [historial completo](CHANGELOG.md).
 
 [Empezar](#empezar) · [Funciones](#funciones) · [Atajos](#atajos) · [Referencia completa](#referencia-completa) · [Pruebas y desarrollo](#pruebas-y-desarrollo)
 
@@ -65,8 +65,9 @@ Puedes acceder a todo lo habitual desde **`O` Opciones**, sin memorizar atajos.
 | Quiero… | Dónde |
 | --- | --- |
 | Reproducir, pausar, silenciar o cambiar volumen | Reproducción |
+| Elegir otra calidad o versión disponible de la emisora | `T` junto a lo que suena · Reproducción → Calidad / versiones |
 | Buscar en Radio Browser y actualizar su copia local | Emisoras |
-| Combinar país, región y temática con una búsqueda libre | Emisoras → Filtros de búsqueda |
+| Elegir país, zona opcional y temática sin perder la búsqueda libre | Emisoras → Filtros de búsqueda |
 | Añadir una emisora por su URL | Emisoras → Añadir emisora manual |
 | Programar una grabación con hora y duración | Temporizador → Grabación programada |
 | Importar o exportar favoritas con otros reproductores | Emisoras → Importar / exportar M3U |
@@ -95,6 +96,7 @@ Son los valores predeterminados de la **pantalla principal**. Puedes personaliza
 | `B` · `U` | Buscar · actualizar **el catálogo**, no el programa |
 | `X` · `C` · `J`/`K` | Favorita · comentario · bajar/subir una favorita |
 | `P` · `M` | Pausa · silencio |
+| `T` | Elegir calidad / versión de la emisora actual |
 | `G` · `;` | Iniciar/detener grabación · biblioteca de grabaciones |
 | `Z` · `V` · `L` | Ecualizador · espectrograma · alarma |
 | `O` · `,` · `H` o `?` · `D` | Opciones · configuración · ayuda · diagnóstico |
@@ -124,17 +126,17 @@ Buscar, ir a Favoritas/Recientes o iniciar una emisora desde Opciones devuelve e
 
 **Buscar — `B`.** Escribe nombre, región, temática, país, formato o un comentario personal. `↑`/`↓` navegan y `Enter` reproduce; `Home`/`End` y `PgUp`/`PgDn` permiten saltar. Retroceso borra un carácter y `Supr` vacía la consulta. `Esc` sale conservándola; `B` permite seguir editándola.
 
-La consulta se muestra al escribir y los resultados se actualizan tras una breve pausa. Navegar o pulsar `Enter` aplica antes la consulta pendiente.
+La consulta se muestra al escribir; tras una pausa de 80 ms, los resultados se filtran en segundo plano sin bloquear la edición. Navegar o pulsar `Enter` aplica antes la consulta pendiente, para no seleccionar resultados antiguos.
 
 Dentro del buscador, `P` mayúscula activa/desactiva el país preferido; `X` gestiona Favoritas, `C` edita el comentario, `M` alterna silencio y `F`/`R` vuelve a esas listas. Las minúsculas y los números no activan estos comandos.
 
 En los tamaños `tiny` y `minimal` se muestran inicialmente solo nombres. `→` despliega los datos disponibles en todas las filas visibles; `←` los oculta. En ese contexto no cambian el volumen.
 
-**Filtrar — `O → E → L`.** Combina país, región/ámbito y temática sin ocupar la consulta: elige España y después busca `rock`, o elige la etiqueta `rock` y busca un nombre. Los selectores admiten escritura, flechas y `Enter`; `Esc` conserva el valor anterior y `Supr` limpia su texto.
+**Filtrar — `O → E → L`.** Elige un país y después busca `rock`; opcionalmente limita a una **zona dentro de ese país** o una temática. No necesitas conocer divisiones administrativas: las zonas son las etiquetas declaradas en el catálogo, no una jerarquía geográfica propia. Los selectores admiten escritura, flechas y `Enter`; `Esc` conserva el valor anterior y `Supr` limpia su texto.
 
 - Los filtros duran la sesión y no ocultan Favoritas ni Recientes.
-- Cambiar el país limpia la región anterior, pero conserva temática y consulta.
-- «Sin este filtro» quita uno; `X` en el menú de filtros los quita todos. Borrar la consulta no los desactiva.
+- Cambiar o desactivar el país (también con `P` en búsqueda) limpia la zona anterior, pero conserva temática y consulta.
+- «Todo el país» quita la zona; «Sin este filtro» quita país o temática; `X` en el menú de filtros los quita todos. Borrar la consulta no los desactiva.
 - País usa el código ISO; región y temática usan los datos declarados, sin inventar ubicaciones ni traducir etiquetas. `rock` no equivale a `hard rock`. Una emisora sin el dato requerido queda fuera.
 - Los comentarios también respetan los filtros. Cada selector muestra hasta 300 coincidencias: afina el texto para encontrar otras.
 - El resumen completo está en Opciones; el indicador existente de búsqueda deja de decir «global» cuando hay filtros, sin añadir filas al reproductor.
@@ -158,6 +160,24 @@ KEILA_FZF_SEARCH=1 ./keila-radio
 Importar añade solo URL HTTP/HTTPS nuevas, al final, conservando nombres existentes, orden y comentarios. Muestra las entradas repetidas y omitidas; acepta listas simples o con `#EXTINF`, CRLF y BOM. Rechaza segmentos HLS, rutas locales, credenciales en el servidor y archivos binarios. Límite: 256 KiB y 2000 emisoras por intercambio; no ejecuta etiquetas de otros reproductores.
 
 Exportar guarda únicamente nombres y URL, **nunca comentarios ni ajustes**, y pide otro destino si el archivo existe. Las URL pueden contener tokens privados: revísalas antes de compartir. Para trasladar todos los datos personales, usa Copias de seguridad.
+
+</details>
+
+<details>
+<summary>Calidad y versiones de la emisión</summary>
+
+**Elegir — `T`, visible junto a lo que suena.** Abre un selector compacto en escritorio y un panel a pantalla completa en Termux o terminales pequeñas. Muestra versiones, formato, bitrate declarado y consumo aproximado en MB/h; **Actual** señala la que suena. Flechas seleccionan sin modificar el audio; un `Enter` aplica, `Esc` cancela, `?` muestra detalles y `U` vuelve a consultar. También está en `O → P → C`. Puede haber un breve corte al reconectar: conserva volumen, silencio y pausa.
+
+El atajo principal es personalizable; si un mapa antiguo ya utilizaba T para otra acción, se conserva y Calidad recibe una letra libre. Dentro de la búsqueda el acceso local siempre es `T` mayúscula; `t` minúscula sigue escribiendo la consulta. Volver del selector conserva la búsqueda.
+
+- Consulta el catálogo local y, si es HLS, su lista de variantes de audio en segundo plano. No descarga canciones ni analiza todas las emisoras; la búsqueda y el arranque siguen usando su ruta rápida.
+- Solo agrupa otras URL con identidad coincidente —nombre, país, zona y web— y sin contradicciones. No agrupa cadenas ni homónimos solo por nombre. Las alternativas del catálogo **no están comprobadas en vivo**: confirma que conservan la programación.
+- En HLS guarda la lista principal y el bitrate, nunca una URL hija temporal. Solo ofrece variantes de audio explícitas y distinguibles; una sola variante no se presenta como varias calidades. La comprobación de red requiere `getent`; si falta, siguen disponibles las alternativas del catálogo.
+- El bitrate y el consumo son orientativos; más kb/s no garantizan mejor sonido entre codecs distintos. El consumo no incluye cabeceras ni reintentos. Datos ausentes se indican sin inventarlos.
+- Recuerda la elección por emisora al arrancar, reconectar, activar la alarma o grabar una programación. Conserva identidad, favorita, comentarios y Recientes. «Original» elimina solo esa elección; no modifica las URL de favoritas ni las exportaciones M3U.
+- No permite cambios durante una grabación, cierre o escucha de archivo. No cambia de calidad automáticamente si falla la conexión. Si mpv no consigue abrir su IPC al cambiar, intenta recuperar la elección anterior; una conexión iniciada aún puede fallar al recibir audio.
+
+**Sin alternativas detectadas** significa que esta consulta no encontró más versiones, no que no existan: puedes reintentar con `U`. Las elecciones viven en `~/.config/keila-radio/qualities`, con permisos privados, `.bak` y recuperación al arrancar; se incluyen en Copias de seguridad.
 
 </details>
 
@@ -208,9 +228,11 @@ Los cambios se aplican y guardan al editar; `Z`, `Enter` o `Esc` vuelven sin des
 
 El análisis trabaja a 20 Hz y la presentación se limita a intervalos de 66 ms, con repintado parcial independiente. `parec` solicita entregas de 20 ms y latencia de 40 ms; el servidor puede ajustarlas. Una columna de guarda evita perder la última banda de `showfreqs`. Las barras permanecen antes de recibir señal; si falta captura compatible se indica «No disponible».
 
-**Logo de la emisora — `O → V → L`.** Es una preferencia opcional para Debian y otras terminales Linux de escritorio con al menos `120×24`. Se muestra junto a «Ahora suena»: Kitty recibe una imagen RGB; una terminal con TrueColor, Unicode y VTE recibe una miniatura de bloques de color; en el resto se muestran las iniciales de la emisora. Termux y las pantallas pequeñas conservan su diseño.
+**Logo de la emisora — `O → V → L`.** Opcional en Debian/Linux de escritorio desde `120×24`, junto a «Ahora suena». Kitty muestra una imagen RGB; foot usa SIXEL, adaptado al espacio físico de sus celdas (hasta `96×96` píxeles). El logo se conserva al navegar o actualizar estados, sin borrarlo ni reenviarlo. Otras terminales TrueColor con Unicode usan bloques de color; el resto, iniciales. Termux y pantallas pequeñas conservan su diseño. No necesita Chafa ni paquetes adicionales; `ffmpeg` sigue siendo opcional.
 
-La descarga se hace solo para la emisora actual, en segundo plano, desde el campo `favicon` del catálogo local de Radio Browser. `ffmpeg` es opcional: sin él, sin soporte de color o sin imagen válida se mantiene el fallback de iniciales. La caché está limitada, caduca y no guarda datos personales; no se envían favoritos, comentarios ni configuración al servidor. Desactivarlo libera el espacio visual y cancela cualquier descarga pendiente.
+**Guardado primero.** Conserva los logos utilizados en `~/.cache/keila-radio/logos/`: al volver a una emisora muestra su copia sin esperar a una búsqueda o descarga, también sin conexión. Tras 24 horas la revisa en segundo plano al volver a necesitarla; si falla conserva la anterior. Una actualización idéntica no borra ni retransmite la imagen. foot reutiliza también el SIXEL preparado; cambiar su tamaño solo trabaja con el RGB guardado, sin red ni decodificar otra vez el original.
+
+Solo descarga para la emisora actual, en segundo plano: prueba los iconos del catálogo y, si fallan, los enlaces estáticos a iconos de su web. Puede reconocer favoritos antiguos por nombre exacto normalizado si no hay conflicto de país/web. Admite PNG, JPEG, ICO, WebP y el primer cuadro de GIF; **no procesa SVG remoto**. Valida destinos públicos, redirecciones y límites de tamaño; mantiene iniciales si no hay imagen válida. La caché privada está limitada a 64 emisoras, incluidos los intentos sin logo: los fallos aplazan otro intento una hora, la ausencia de candidatos un día. No descarga todo el catálogo ni envía favoritos, comentarios o ajustes. Desactivarlo libera el espacio y cancela trabajos pendientes, sin borrar las copias guardadas.
 
 </details>
 
@@ -289,13 +311,13 @@ No hay borrado definitivo ni vaciado automático. Solo se retiran los contenedor
 
 **`O → A` Datos y almacenamiento:** `C` crea una copia privada y `R` abre las disponibles, con nombre, fecha y tamaño. En la lista, `C` crea, `U` actualiza, `Enter`/`?` muestra el detalle y `R` verifica para restaurar. Después, solo `Enter` confirma; `Esc` cancela. Navegar o redimensionar no confirma.
 
-Las copias incluyen configuración, Favoritas, comentarios, preferencias, volumen/última emisora guardados, Recientes y ecualizador. **No incluyen audios grabados, catálogo, registros de canciones ni alarmas.** No se borran automáticamente ni se sobrescriben.
+Las copias incluyen configuración, Favoritas, comentarios, preferencias, calidades elegidas, volumen/última emisora guardados, Recientes y ecualizador. **No incluyen audios grabados, catálogo, registros de canciones ni alarmas.** No se borran automáticamente ni se sobrescriben.
 
 Para importar de otro dispositivo, coloca el `.tar.gz` en `~/.local/state/keila-radio/backups/` y actualiza la lista. También reconoce respaldos previos de configuración y copias antiguas junto al programa, sin recorrer el equipo ni seguir enlaces.
 
 Crear y verificar copias no interrumpe la radio. Restaurar exige detener grabaciones y escuchas de la biblioteca, valida el archivo y crea un respaldo previo; si falla, no comienza. Una vez publicando, `Esc` espera a que termine. Un cierre forzado puede dejar una restauración parcial, con el respaldo previo completo conservado.
 
-La restauración desde la TUI recarga favoritas, comentarios, recientes, preferencias y ecualizador, **sin cambiar emisora actual, volumen, silencio ni alarma**. El volumen/última emisora guardados y la carpeta importada de grabaciones se usan al reiniciar.
+La restauración desde la TUI recarga favoritas, comentarios, recientes, preferencias, calidades y ecualizador, **sin cambiar emisora actual, volumen, silencio ni alarma**. La calidad restaurada se usa al abrir de nuevo una emisora; una copia antigua sin ese dato conserva las elecciones actuales. El volumen/última emisora guardados y la carpeta importada de grabaciones se usan al reiniciar.
 
 También existe la vía de terminal:
 
@@ -311,7 +333,7 @@ Rutas predeterminadas, respetando `XDG_CONFIG_HOME`, `XDG_STATE_HOME` y `XDG_CAC
 
 | Directorio | Contenido |
 | --- | --- |
-| `~/.config/keila-radio/` | `config`, `favorites`, `labels`, `preferences`, `equalizer` y respaldos previos |
+| `~/.config/keila-radio/` | `config`, `favorites`, `labels`, `preferences`, `equalizer`, `qualities` y respaldos previos |
 | `~/.local/state/keila-radio/` | `state`, `history`, `sessions/keila-session-*.txt` y `backups/` |
 | `~/.cache/keila-radio/` | `radio.json`, `radio.tsv` y la caché opcional de logos |
 | `grabaciones/` junto a Keila, o carpeta configurada | Audios, marcadores y `.trash/` |
@@ -432,7 +454,7 @@ python3 tests/resource-profile.py --spectrum off
 python3 tests/resource-profile.py --self-test
 ```
 
-Son ejecuciones separadas. Con `profile-live.sh` escucha unos 30 segundos y sal con `Q`: informa captura, IPC, teclado y dibujo, sin contenido de emisoras; la instrumentación añade trabajo y no se deben sumar etapas anidadas.
+Son ejecuciones separadas. Con `profile-live.sh` escucha y prueba escribir/borrar en `B`; sal con `Q`: informa captura, IPC, teclado, búsqueda y dibujo, sin contenido de emisoras. La instrumentación añade trabajo y no se deben sumar etapas anidadas.
 
 Para comparar recursos, usa la misma emisora y tamaño durante al menos un minuto por sesión; sal con `Q`. No cambies emisora, grabes ni pulses `V`, y no combines ambos perfiladores. `off` desactiva la captura solo en esa sesión. Python 3 solo es necesario para este medidor, no para escuchar radio.
 
@@ -446,7 +468,7 @@ bash scripts/package-linux.sh
 
 Crea un `.tar.gz` y su SHA-256 en `dist/` con launcher, documentación, `defaults/` y `lib/`, sin Git ni datos personales. Extrae con `tar -xzf archivo.tar.gz` y ejecuta `./keila-radio` dentro de la carpeta extraída.
 
-El código se organiza en `keila-radio` (entrada), `lib/` (módulos), `defaults/` (semilla), `scripts/` (distribución) y `tests/` (regresiones). La v1 está en el historial de Git, no en el árbol actual. La línea 2.1 prioriza correcciones, compatibilidad y pruebas; no implica que cada cambio de desarrollo sea una release publicada.
+El código se organiza en `keila-radio` (entrada), `lib/` (módulos), `defaults/` (semilla), `scripts/` (distribución) y `tests/` (regresiones). La v1 está en el historial de Git, no en el árbol actual. Las versiones publicadas se identifican mediante etiquetas y releases de GitHub; `main` puede incluir cambios posteriores.
 
 </details>
 

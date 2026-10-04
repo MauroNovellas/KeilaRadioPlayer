@@ -66,7 +66,7 @@ search_filters_summary() {
     SEARCH_FILTER_SUMMARY='Sin filtros'
     local parts=()
     ((SEARCH_COUNTRY_FILTER_ENABLED == 0)) || parts+=("País: $KEILA_CATALOG_COUNTRY_FILTER")
-    [[ -z "$SEARCH_REGION_FILTER" ]] || parts+=("Región: $SEARCH_REGION_FILTER")
+    [[ -z "$SEARCH_REGION_FILTER" ]] || parts+=("Zona: $SEARCH_REGION_FILTER")
     [[ -z "$SEARCH_TAG_FILTER" ]] || parts+=("Tema: $SEARCH_TAG_FILTER")
     if ((${#parts[@]})); then local IFS=';'; SEARCH_FILTER_SUMMARY="${parts[*]}"; fi
 }

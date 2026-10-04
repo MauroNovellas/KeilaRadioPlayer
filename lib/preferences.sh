@@ -7,8 +7,8 @@ PREF_UNICODE=1
 PREF_SPECTRUM=1
 PREF_LOGO=0
 PREFERENCES_ACTIVE=0
-declare -a PREF_ACTIONS=(b f r c x g p m l z v h o q)
-declare -a PREF_LABELS=('Buscar emisoras' Favoritas Recientes Comentarios 'Añadir/quitar favorito' Grabación Pausa Silencio 'Alarma temporal' Ecualizador Espectrograma Ayuda Opciones Salir)
+declare -a PREF_ACTIONS=(b f r c x g p m l z v h o q t)
+declare -a PREF_LABELS=('Buscar emisoras' Favoritas Recientes Comentarios 'Añadir/quitar favorito' Grabación Pausa Silencio 'Alarma temporal' Ecualizador Espectrograma Ayuda Opciones Salir 'Calidad de emisión')
 declare -A PREF_KEYS=()
 for pref_action in "${PREF_ACTIONS[@]}"; do PREF_KEYS[$pref_action]=$pref_action; done
 unset pref_action
@@ -20,7 +20,7 @@ preferences_defaults() {
 }
 
 preferences_load() {
-    local key value action
+    local key value action quality_present=0 occupied
     preferences_defaults
     [[ -f "$KEILA_CONFIG_DIR/preferences" ]] || return 0
     while IFS='=' read -r key value || [[ -n "$key" ]]; do
@@ -33,9 +33,21 @@ preferences_load() {
             key_?:?)
                 key=${key#key_}
                 [[ -n "${PREF_KEYS[$key]+yes}" && "$value" =~ ^[bcefghilmnopqrtuvxyz]$ ]] && PREF_KEYS[$key]=$value
+                [[ $key != t ]] || quality_present=1
                 ;;
         esac
     done < "$KEILA_CONFIG_DIR/preferences"
+    # Un mapa antiguo puede usar T para otra acción. Añadir Calidad en la
+    # primera letra libre conserva todas sus reasignaciones, sin reescribirlo.
+    if ((quality_present == 0)); then
+        for value in t e i n y b c f g h l m o p q r u v x z; do
+            occupied=0
+            for action in "${PREF_ACTIONS[@]}"; do
+                [[ $action == t || ${PREF_KEYS[$action]} != "$value" ]] || occupied=1
+            done
+            if ((occupied == 0)); then PREF_KEYS[t]=$value; break; fi
+        done
+    fi
     # Un archivo editado a mano con duplicados recupera el mapa predeterminado.
     local -A seen=()
     for key in "${PREF_ACTIONS[@]}"; do
@@ -112,7 +124,7 @@ preferences_build_rows() {
             description="Atajo de la pantalla principal. Enter permite asignar una letra; si está ocupada, se intercambian ambas acciones. Esc cancela. Las teclas dentro de los menús y editores son locales."
         else
             case "$action" in
-                b) description='Escribe para buscar. Supr limpia. Enter reproduce. P filtra por país; X favorita, C comentario, M silencio, F/R listas. En pantallas pequeñas derecha muestra detalles e izquierda los oculta.' ;;
+                b) description='Escribe para buscar. Supr limpia. Enter reproduce. P filtra por país; X favorita, C comentario, M silencio, T calidad, F/R listas. En pantallas pequeñas derecha muestra detalles e izquierda los oculta.' ;;
                 f|r) description='Flechas arriba/abajo seleccionan; Enter reproduce. 1-9 y 0 reproducen las diez primeras de la sección. Home/End van a los extremos; PgUp/PgDn saltan por la lista.' ;;
                 c) description='Edita el comentario de la emisora seleccionada. Enter guarda; Esc cancela; Ctrl+U o Supr vacían el texto. Los comentarios se conservan aunque se oculten en pantallas pequeñas.' ;;
                 x) description='Añade a favoritas con una pulsación. Quitar requiere confirmar. Desde Opciones se actúa sobre la selección; moverse cancela la confirmación.' ;;
@@ -125,6 +137,7 @@ preferences_build_rows() {
                 h) description='Guía de uso con los atajos vigentes. Flechas seleccionan; Enter o ? abre el detalle. Esc vuelve.' ;;
                 o) description='Centro de control: arriba/abajo seleccionan, Enter ejecuta, derecha abre categorías, izquierda/Esc vuelve. ? explica la opción completa. Recuerda la selección de cada categoría.' ;;
                 q) description='Cierra Keila, finaliza la grabación en curso y libera el reproductor.' ;;
+                t) description='Abre directamente el selector de calidad junto a Ahora suena. Flechas eligen; Enter cambia y guarda, Esc cancela. Muestra formato, bitrate y consumo estimado; conserva volumen, silencio, pausa y favoritas. No se cambia durante grabaciones. En búsqueda se usa T mayúscula; t minúscula sigue siendo texto.' ;;
             esac
         fi
         panel_add_row "${PREF_KEYS[$action]^^}" "${PREF_LABELS[i]}" "$description"
@@ -140,8 +153,9 @@ preferences_build_rows() {
         panel_add_row '' 'Temporizador de parada' 'Opciones > Temporizador > P: 15, 30, 45, 60 o 90 minutos, u otra duración (1–1440). Muestra cuánto queda y permite cancelar. Detiene el audio y cierra grabaciones sin apagar el equipo. Solo esta sesión; conserva alarmas futuras.'
         panel_add_row '' 'Grabación programada' 'Opciones > Temporizador > G > N: favorita, HHMM y duración (1–1440 min). P alterna parar al finalizar (No por defecto); detiene la radio tras cerrar el archivo, sin apagar el equipo ni cerrar Keila. Revisa fecha, emisora, fin y parada antes de confirmar; ? muestra todo el detalle. X cancela o cierra su grabación tras confirmar, sin activar la parada final. Una reserva por sesión; requiere Keila abierto y equipo despierto. M silencia la escucha, no el archivo: se guarda el audio original, también con volumen cero. No uses pausa para dormir grabando. Puede cambiar la radio; no restaura la anterior. Omite inicios más de 60 s tarde y espera hasta 30 s de audio. No interrumpe otra grabación; la parada automática tiene prioridad.'
         panel_add_row '' 'Intercambiar favoritas M3U' 'Opciones > Emisoras > M: exportar o importar un archivo local. Primero elige ruta y revisa la vista previa; G confirma y Esc cancela. Importar solo añade URL nuevas; exportar nunca sobrescribe. No incluye comentarios. Revisa las URL antes de compartir.'
+        panel_add_row '' 'Versiones disponibles' 'El selector directo también está en Opciones > Reproducción > C. Consulta el catálogo y variantes HLS en segundo plano solo al abrirlo. Actual señala lo que suena. Sin alternativas detectadas no demuestra que no existan otras. U vuelve a consultar; ? explica datos y límites. Original retira solo esa preferencia. Sin getent se omite la comprobación HLS, conservando el catálogo. No cambia de calidad automáticamente ni modifica el audio al navegar.'
         panel_add_row '' Reconexión 'Keila reintenta los fallos de emisora de forma limitada. Enter vuelve a intentarlo al agotarse los intentos. No se reconecta automáticamente durante una grabación.'
-        panel_add_row '' 'Logo de la emisora' 'Opciones > Visualización > L activa el logo en escritorio amplio (120 columnas y 24 filas). Descarga solo el actual y lo guarda en caché. Kitty muestra una imagen; terminales TrueColor con Unicode, bloques de color. Sin soporte, imagen o ffmpeg se muestran iniciales. Termux queda sin cambios. Desactivado por defecto; no instala dependencias.'
+        panel_add_row '' 'Logo de la emisora' 'Opciones > Visualización > L activa el logo en escritorio amplio (120 columnas y 24 filas). Muestra la copia guardada primero; tras 24 horas la revisa en segundo plano y conserva la anterior si falla. Hasta 64 emisoras, también recordando intentos sin logo. Kitty/foot (SIXEL) muestran imagen; otras terminales TrueColor con Unicode, bloques. foot guarda la codificación y resize solo usa RGB local. Se conserva al navegar y no parpadea si la actualización es idéntica. ffmpeg es opcional para imágenes nuevas. Sin soporte/imagen, iniciales. Termux no cambia; desactivado por defecto, sin nuevas dependencias.'
     fi
 }
 

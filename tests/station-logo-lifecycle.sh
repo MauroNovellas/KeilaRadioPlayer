@@ -23,15 +23,15 @@ mkdir -p "$cache"
 key=$(printf '%s' "$PLAYER_URL" | sha256sum); key=${key%% *}
 pixels=$(printf '%036864d' 0); pixels=${pixels//0/A}
 printf 'keila-logo-v1\n%s\n%0864d\n' "$pixels" 0 > "$cache/$key.logo"
-logo_poll || fail 'no inicia tarea'
-pid=$LOGO_PID
+logo_poll || fail 'no muestra caché'
+[[ -z $LOGO_PID && $LOGO_READY_URL == "$PLAYER_URL" && ${#LOGO_ROWS[@]} == 6 ]] || fail 'caché fresca espera un worker'
 for ((i=0; i<100; i++)); do LOGO_CHECK_AT=0; logo_poll || true; [[ -n $LOGO_PID ]] || break; sleep .02; done
 [[ -z $LOGO_PID && $LOGO_READY_URL == "$PLAYER_URL" && ${#LOGO_ROWS[@]} == 6 ]] || fail 'no publica caché'
 for ((i=0; i<100; i++)); do logo_poll && fail 'trabajo repetido'; done
-if kill -0 -- "-$pid" 2>/dev/null; then fail 'grupo terminado sigue vivo'; fi
 # Un cambio de emisora cancela inmediatamente el trabajo anterior y sus hijos.
 real_worker=$LOGO_WORKER
 LOGO_WORKER=$ROOT_DIR/tests/fixtures/logo-slow-worker.sh
+printf '[]\n' > "$KEILA_STATIONS_JSON"
 PLAYER_URL=https://lenta.invalid/stream
 logo_poll || fail lento
 slow_pid=$LOGO_PID old_job=$LOGO_JOB
@@ -39,11 +39,11 @@ for ((i=0; i<100; i++)); do [[ ! -f "$old_job/child" ]] || break; sleep .02; don
 [[ -f "$old_job/child" ]] || fail 'trabajo lento no arranca'
 LOGO_WORKER=$real_worker PLAYER_URL=https://radio.invalid/stream
 logo_poll || fail 'cambio de emisora'
-[[ ! -e $old_job && $LOGO_READY_URL == '' ]] || fail 'publica imagen vieja o deja temporal'
+[[ ! -e $old_job && $LOGO_READY_URL == "$PLAYER_URL" && -z $LOGO_PID ]] || fail 'no reutiliza caché o deja temporal'
 if kill -0 -- "-$slow_pid" 2>/dev/null; then fail 'hijos huérfanos al cambiar'; fi
 app_toggle_logo || fail desactivar
 [[ -z $LOGO_PID && $PREF_LOGO == 0 ]] || fail 'desactivar deja tarea'
 preferences_save() { return 1; }
 app_toggle_logo && fail 'guardado fallido'
 ((PREF_LOGO == 0)) || fail 'error cambia preferencia'
-printf 'ok   logos: persistencia, worker real de caché, cambio/cancelación sin huérfanos\n'
+printf 'ok   logos: persistencia, caché inmediata sin worker y cambio/cancelación sin huérfanos\n'

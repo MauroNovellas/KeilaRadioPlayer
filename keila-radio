@@ -37,6 +37,8 @@ source "$BASE_DIR/lib/session-history.sh"
 source "$BASE_DIR/lib/stations.sh"
 # shellcheck source=lib/player.sh
 source "$BASE_DIR/lib/player.sh"
+# shellcheck source=lib/quality.sh
+source "$BASE_DIR/lib/quality.sh"
 # shellcheck source=lib/equalizer.sh
 source "$BASE_DIR/lib/equalizer.sh"
 # shellcheck source=lib/spectrum.sh
@@ -78,6 +80,8 @@ source "$BASE_DIR/lib/backup.sh"
 source "$BASE_DIR/lib/backup-manager.sh"
 
 cleanup() {
+    quality_cleanup 2>/dev/null || true
+    search_async_cleanup 2>/dev/null || true
     logo_cleanup 2>/dev/null || true
     m3u_cleanup >/dev/null 2>&1 || true
     backup_manager_cleanup >/dev/null 2>&1 || true
@@ -117,6 +121,7 @@ app_init_data() {
     data_recover "$KEILA_CONFIG_DIR/labels" labels || return 1
     data_recover "$KEILA_STATE_FILE" state || return 1
     data_recover "$KEILA_CONFIG_DIR/preferences" preferences || return 1
+    data_recover "$KEILA_CONFIG_DIR/qualities" qualities || return 1
     data_recover "$KEILA_STATE_DIR/history" history || return 1
     data_recover "$KEILA_EQUALIZER_FILE" equalizer || return 1
     if ! config_load "$BASE_DIR/grabaciones"; then
@@ -139,6 +144,7 @@ app_init_data() {
     PLAYER_VOLUME="$STATE_VOLUME"
     PLAYER_INFO_INTERVAL="$KEILA_PLAYER_INFO_INTERVAL"
     preferences_load
+    quality_load || return 1
     preferences_apply
 }
 
@@ -595,6 +601,7 @@ app_handle_key() {
         d) app_change_volume "$KEILA_VOLUME_STEP" ;;
         p|P) app_toggle_pause || true ;;
         m|M) app_toggle_mute || true ;;
+        t|T) app_quality_menu || true ;;
         l|L) app_edit_alarm || true ;;
         f|F) ui_select_emisoras || true ;;
         r|R) ui_select_recientes || true ;;

@@ -25,11 +25,14 @@ trap 'rm -rf "$staging_dir"' EXIT
 mkdir -p "$OUTPUT_DIR" "$staging_dir/$package_name"
 cp -- "$ROOT_DIR/keila-radio" "$staging_dir/$package_name/"
 cp -- "$ROOT_DIR/README.md" "$ROOT_DIR/CHANGELOG.md" "$ROOT_DIR/DATA-SAFETY.md" "$ROOT_DIR/TESTING.md" "$ROOT_DIR/LICENSE" "$staging_dir/$package_name/"
+cp -a -- "$ROOT_DIR/docs" "$staging_dir/$package_name/"
 cp -a -- "$ROOT_DIR/defaults" "$ROOT_DIR/lib" "$staging_dir/$package_name/"
 chmod +x "$staging_dir/$package_name/keila-radio"
 
 tar -C "$staging_dir" -czf "$archive" "$package_name"
-sha256sum "$archive" > "${archive}.sha256"
+# La verificación debe funcionar después de descargar o mover ambos archivos;
+# no publicar rutas absolutas del equipo que construyó la release.
+(cd "$OUTPUT_DIR" && sha256sum -- "${package_name}.tar.gz") > "${archive}.sha256"
 
 printf 'Paquete Linux: %s\n' "$archive"
 printf 'SHA-256: %s\n' "${archive}.sha256"

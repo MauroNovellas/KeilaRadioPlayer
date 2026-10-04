@@ -46,7 +46,9 @@ station_picker_rows() {
     local file=$1 query=$2 row value label
     STATION_PICK_VALUES=('')
     PANEL_ROWS=()
-    panel_add_row '' 'Sin este filtro' 'Quita solo este filtro. Cambiar el país también quita la región anterior.'
+    local empty_label='Sin este filtro'
+    [[ ${STATION_PICK_KIND:-} != region ]] || empty_label='Todo el país'
+    panel_add_row '' "$empty_label" 'Quita solo este filtro. Cambiar el país también quita la zona anterior.'
     while IFS= read -r row; do
         IFS=$'\t' read -r value label <<< "$row"
         [[ -n "$value" ]] || continue
@@ -74,8 +76,11 @@ station_picker_prepare() {
 app_station_filter_picker() {
     local kind=$1 title directory query='' selected=0 offset=0 redraw=1 dirty=1 status=1 notice='' previous_job selected_value i
     local PANEL_SELECTED=0 PANEL_SCROLL=0 PANEL_VISIBLE=1
+    local STATION_PICK_KIND=$kind
     local -a PANEL_ROWS=() STATION_PICK_VALUES=()
-    case "$kind" in country) title='ELEGIR PAÍS' ;; region) title='ELEGIR REGIÓN' ;; tag) title='ELEGIR TEMÁTICA' ;; *) return 1 ;; esac
+    case "$kind" in country) title='ELEGIR PAÍS' ;; region) title='ZONA DENTRO DEL PAÍS';
+        ((SEARCH_COUNTRY_FILTER_ENABLED)) || { app_message 'Elige primero un país; la zona es opcional.' 5; return 1; } ;;
+        tag) title='ELEGIR TEMÁTICA' ;; *) return 1 ;; esac
     directory=$(mktemp -d "${TMPDIR:-/tmp}/keila-filters.XXXXXX") || return 1
     station_picker_prepare "$kind" "$directory/choices"
     notice=$STATION_PICK_NOTICE previous_job=${CATALOG_PID:-}

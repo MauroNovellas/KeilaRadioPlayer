@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Solo datos pequeños. No extraer archivos sin validar tipos, rutas y tamaños.
-BACKUP_MEMBERS=(config/config config/favorites config/labels config/preferences config/equalizer state/state state/history)
-BACKUP_KINDS=(config favorites labels preferences equalizer state history)
-BACKUP_LABELS=(Configuración Favoritas Comentarios Preferencias Ecualizador 'Volumen y última emisora' Recientes)
+BACKUP_MEMBERS=(config/config config/favorites config/labels config/preferences config/equalizer state/state state/history config/qualities)
+BACKUP_KINDS=(config favorites labels preferences equalizer state history qualities)
+BACKUP_LABELS=(Configuración Favoritas Comentarios Preferencias Ecualizador 'Volumen y última emisora' Recientes 'Calidades de emisoras')
 BACKUP_MAX_ARCHIVE=8388608
 BACKUP_MAX_MEMBER=4194304
 BACKUP_MAX_TOTAL=16777216
@@ -11,7 +11,7 @@ BACKUP_LOCKED=()
 
 backup_data_paths() {
     BACKUP_PATHS=("$KEILA_CONFIG_FILE" "$KEILA_FAVORITES_FILE" "$KEILA_CONFIG_DIR/labels"
-        "$KEILA_CONFIG_DIR/preferences" "$KEILA_EQUALIZER_FILE" "$KEILA_STATE_FILE" "$KEILA_STATE_DIR/history")
+        "$KEILA_CONFIG_DIR/preferences" "$KEILA_EQUALIZER_FILE" "$KEILA_STATE_FILE" "$KEILA_STATE_DIR/history" "$KEILA_CONFIG_DIR/qualities")
 }
 
 backup_unlock_all() {
@@ -109,7 +109,7 @@ backup_tar_list_safe() {
         seen[$entry]=1
         case "$entry" in
             keila-backup/|keila-backup/config/|keila-backup/state/|keila-backup/manifest) ;;
-            keila-backup/config/config|keila-backup/config/favorites|keila-backup/config/labels|keila-backup/config/preferences|keila-backup/config/equalizer|keila-backup/state/state|keila-backup/state/history) ((count+=1)) ;;
+            keila-backup/config/config|keila-backup/config/favorites|keila-backup/config/labels|keila-backup/config/preferences|keila-backup/config/equalizer|keila-backup/state/state|keila-backup/state/history|keila-backup/config/qualities) ((count+=1)) ;;
             *) return 1 ;;
         esac
     done <<< "$listing"

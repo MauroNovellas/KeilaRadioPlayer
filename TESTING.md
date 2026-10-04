@@ -60,6 +60,21 @@ bash tests/check.sh --list
   parcial de metadatos, reserva de logo y navegación por Visualización. Compara
   escritura y borrado con dibujo completo y con repintado de consulta. No mide
   la descarga del logo, el decodificador de audio ni el pintado del emulador.
+  `search-latency.py` mide tecla → campo dibujado con el bucle de búsqueda real
+  bajo PTY en `132×40` y `40×10`. Simula reproducción/espectro a 20 Hz y un logo
+  SIXEL en desktop, sin red/audio físico/GPU ni medir un móvil real. Compara un
+  filtro deliberadamente lento en primer plano con el worker asíncrono: exige
+  respuesta de Retroceso menor de 250 ms mientras trabaja (retraso controlado
+  de 350 ms), conserva Unicode/ráfagas y verifica cancelación y cierre. Los
+  percentiles normales son informativos; el margen general es 750 ms.
+  La consulta de versiones sobre un JSON de 50.000 emisoras también exige
+  menos de cinco segundos, identificando antes de normalizar las coincidencias;
+  ese trabajo solo se usa en segundo plano al abrir el selector de calidad.
+  `logo-cache-performance.sh` mide mantenimiento y evicción con 64 emisoras:
+  exige cero consultas de fechas sin desbordamiento y una consulta agrupada al
+  superar el límite. Comprueba emisoras con logo/check, protección de la entrante,
+  auxiliares, archivos ajenos y rutas con espacios/saltos de línea. Los tiempos
+  se informan sin umbrales dependientes de la máquina.
 - `packaging`: comprobación optativa del empaquetado Debian existente, fuera
   de `all` y de CI. No implica retomar el desarrollo del paquete.
 - `manual`: inventario de herramientas para sesiones reales. `--list` las
@@ -71,10 +86,25 @@ distintos: repetir aisladamente y revisar el tiempo antes de cambiar el umbral.
 Las pruebas individuales siguen siendo ejecutables con `bash tests/nombre.sh`.
 `tests/run.sh` conserva sus comprobaciones básicas, pero no es la batería completa.
 
+`ui-size-cache.sh` verifica que redibujar reutiliza el tamaño del terminal,
+sin repetir `tput` por pulsación. WINCH invalida aun después de consumir RESIZE;
+entrar/reanudar, cambiar TERM, errores, reloj atrasado y la revisión periódica
+sin señales también conservan un tamaño correcto. `render-cache.sh` compara
+las APIs de texto y de cálculo directo de geometría, volumen y autorepetición
+en siete tamaños, con ayuda y reproducción activadas/desactivadas.
+
 `search-query-redraw.sh` compara el campo parcial con el dibujo completo en ocho
 tamaños, ASCII y Unicode; comprueba borrado, redimensionado y suspensión sin
 consultar `tput` ni recorrer resultados durante la edición. `search-transition.sh`
 verifica el filtro diferido y que Enter/cursores usan la consulta vigente.
+
+`search-async.sh` compara todas las columnas con el filtro síncrono, incluidos
+Unicode, campos vacíos, comentarios y filtros combinados. Rechaza snapshots
+truncados, corruptos o enlazados sin publicar arrays parciales. Comprueba que
+solo se publica la última consulta, que Enter reutiliza un resultado terminado
+y que navegar, Esc, recargar y salir cancelan el grupo privado y sus hijos.
+Un fallo de worker vuelve al filtro síncrono sin relanzarlo en bucle. Los
+metacaracteres del catálogo y de la entrada son datos, nunca código ejecutado.
 
 `input-tty.py` envía teclas a un pseudoterminal real mientras la aplicación
 está procesando, no esperando teclado: reproduce el Retroceso que el modo
@@ -92,6 +122,26 @@ bloquee su creación impedirá esta prueba. No se omite ni se declara aprobada
 por ese motivo; ejecutarla en un entorno que permita ese IPC local.
 
 ## Resultados y fallos
+
+`quality.sh` comprueba validación, privacidad, fusión de otra sesión, recuperación
+de memoria ante fallo de escritura y reversión de una conexión fallida. Protege
+grabación, programación, preview y procesos obsoletos. `quality-metadata.sh`
+verifica agrupación conservadora y listas HLS: CRLF, atributos con comas, codecs,
+vídeo excluido, truncados, límites ambiguos y controles. `quality-menu.sh`
+comprueba aplicación con un Enter, cancelación, conflictos y trece geometrías en
+ASCII/Unicode; quitar país no deja una zona global ni borra temática/consulta.
+`quality-access.sh` comprueba el acceso directo, mapas antiguos/personalizados,
+entrada local T sin perder la consulta, selección actual estable entre resultados
+asíncronos y resize, consumo y marca Actual en móvil. Verifica la ventana compacta
+con un lector independiente de cursores/anchos Unicode y que el fondo no se
+repinta por cada pulsación; Termux conserva el panel común a pantalla completa.
+`quality-files.sh` verifica los resultados en dos fases, fallos de catálogo/red,
+snapshots malformados, bloqueo de red privada, DNS fijado, cancelación del grupo
+y compatibilidad de copias anteriores. No necesita red exterior.
+`quality-audio.sh` usa mpv real con MP3/AAC y un master HLS local de dos bitrates:
+elección/reinicio/original, volumen/silencio/pausa por IPC, protección de grabación,
+formato y audio guardado, sin modificar identidad, favoritas, comentarios ni
+Recientes. Fuente sintética, `--ao=null`, sin altavoces ni radio remota.
 
 `sleep-timer.sh` comprueba plazos, edición cancelable, prioridad sobre alarmas
 vencidas, conservación de alarmas futuras y el orden de cierre de audio/grabación.
@@ -117,12 +167,37 @@ y formularios nuevos en 13 tamaños, con ASCII y Unicode.
 `station-logo-ui.sh` comprueba el espacio fijo del logo, el fallback de
 iniciales, bloques de color, cambio de emisora, redimensionado, pantallas
 pequeñas, Termux y el protocolo Kitty sin consultas interactivas.
-`station-logo-files.sh` valida conversiones PNG/JPEG, el formato RGB interno,
+`station-logo-redraw.sh` verifica que cursores, estado, título y búsqueda no
+borran ni retransmiten una imagen visible. Un intérprete independiente del
+cursor comprueba que el frame salta las seis filas de doce columnas sin
+escribir sobre ellas, en ASCII/Unicode y SIXEL/Kitty. También verifica que
+menús/detalles, suspensión, cambios de imagen/geometría y vistas sin logo
+invalidan la colocación y que esta se recupera al volver al reproductor.
+`station-logo-files.sh` valida PNG/JPEG, WebP, primer cuadro GIF e ICO con
+PNG/BMP, el formato RGB interno,
 la caché privada con límite/caducidad, rechazos de SVG y ficheros grandes, y
 la protección contra DNS/redirecciones hacia redes privadas.
 `station-logo-lifecycle.sh` comprueba el valor por defecto, guardado, lectura
-de caché, cancelación al cambiar de emisora, limpieza del grupo de procesos y
+inmediata de caché sin worker, cancelación al cambiar de emisora, limpieza del
+grupo de procesos y
 rollback si falla el guardado de la preferencia.
+`station-logo-cache.sh` comprueba reinicio/offline, copia antigua visible mientras
+se actualiza, interrupciones, imagen idéntica sin nueva generación, plazos de
+reintento y ausencia de candidatos. Verifica SIXEL persistente ligado exactamente
+al RGB, tamaño distinto sin red/ffmpeg, conservación de la edad, permisos,
+validación, enlaces y evicción conjunta sin tocar otros archivos. Usa tareas y
+descargas simuladas; el lector independiente verifica todos los píxeles SIXEL.
+`station-logo-candidates.sh` verifica alternativas sin duplicados, nombres
+normalizados sin confundir emisoras, ambigüedad de país/web, query intacta y
+enlaces estáticos con rutas relativas y redirecciones.
+`station-logo-sixel.sh` decodifica de forma independiente el SIXEL generado en
+42/60/96 píxeles: comprueba paleta, geometría, todos los píxeles y rechazos de
+payloads corruptos. Reutiliza la caché RGB anterior sin descargar/convertir,
+verifica consulta asíncrona, fallback y borrado limitado al espacio reservado.
+`input-tty.py` comprueba además la elección de Kitty/foot bajo un TTY real y
+que la respuesta de tamaño de celda no consume texto, Retroceso ni cursores.
+La apariencia final de las imágenes requiere una comprobación visual en el
+emulador real; los tests no sustituyen esa revisión.
 
 Cada prueba tiene un límite de 180 segundos. Si falla o excede ese límite, el
 runner informa del error, continúa con las restantes y termina con código no

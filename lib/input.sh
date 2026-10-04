@@ -12,19 +12,24 @@ INPUT_EVENT=""
 INPUT_KEY=""
 INPUT_REPEAT_COUNT=1
 INPUT_RESIZE_PENDING=0
+INPUT_RESIZE_GENERATION=0
 INPUT_PENDING_EVENT=""
 INPUT_PENDING_KEY=""
+INPUT_CELL_WIDTH=0
+INPUT_CELL_HEIGHT=0
 INPUT_POLL_INTERVAL="${KEILA_INPUT_POLL_INTERVAL:-0.02}"
 INPUT_REPEAT_CAP="${KEILA_INPUT_REPEAT_CAP:-3}"
 INPUT_REPEAT_DRAIN_LIMIT="${KEILA_INPUT_REPEAT_DRAIN_LIMIT:-512}"
 INPUT_REPEAT_DRAIN_TIMEOUT="${KEILA_INPUT_REPEAT_DRAIN_TIMEOUT:-0.002}"
 
 input_init() {
+    INPUT_CELL_WIDTH=0 INPUT_CELL_HEIGHT=0
     INPUT_RESIZE_PENDING=0
     INPUT_PENDING_EVENT=""
     INPUT_PENDING_KEY=""
     INPUT_REPEAT_COUNT=1
-    trap 'INPUT_RESIZE_PENDING=1' WINCH
+    INPUT_RESIZE_GENERATION=$((INPUT_RESIZE_GENERATION+1))
+    trap 'INPUT_RESIZE_PENDING=1; INPUT_RESIZE_GENERATION=$((INPUT_RESIZE_GENERATION+1))' WINCH
 }
 
 input_shutdown() {
@@ -47,7 +52,7 @@ input_emit_resize_if_pending() {
 }
 
 input_read_escape_sequence() {
-    local second third fourth
+    local second third fourth report char i height width
 
     INPUT_EVENT="ESC"
     INPUT_KEY=""
@@ -69,14 +74,38 @@ input_read_escape_sequence() {
                 D) INPUT_EVENT="LEFT" ;;
                 H) INPUT_EVENT="HOME" ;;
                 F) INPUT_EVENT="END" ;;
-                1|3|4|5|6)
+                6)
+                    if IFS= read -rsn1 -t 0.03 fourth; then
+                        if [[ $fourth == '~' ]]; then
+                            INPUT_EVENT=PAGE_DOWN
+                        elif [[ $fourth == ';' ]]; then
+                            # Respuesta a CSI 16 t (alto/ancho de celda). Se lee
+                            # como evento, nunca mediante un read ajeno al bucle.
+                            # No convertir sus cifras en texto de búsqueda.
+                            report=''
+                            for ((i=0; i<16; i++)); do
+                                IFS= read -rsn1 -t 0.03 char || break
+                                [[ $char != t ]] || break
+                                [[ $char == [0-9\;] ]] || break
+                                report+=$char
+                            done
+                            INPUT_EVENT=TICK
+                            if [[ ${char:-} == t && $report =~ ^([0-9]{1,3})\;([0-9]{1,3})$ ]]; then
+                                height=$((10#${BASH_REMATCH[1]})) width=$((10#${BASH_REMATCH[2]}))
+                                if ((height > 0 && height <= 256 && width > 0 && width <= 128)); then
+                                    INPUT_CELL_HEIGHT=$height INPUT_CELL_WIDTH=$width
+                                fi
+                            fi
+                        fi
+                    fi
+                    ;;
+                1|3|4|5)
                     if IFS= read -rsn1 -t 0.03 fourth && [[ "$fourth" == '~' ]]; then
                         case "$third" in
                             1) INPUT_EVENT="HOME" ;;
                             3) INPUT_EVENT="DELETE" ;;
                             4) INPUT_EVENT="END" ;;
                             5) INPUT_EVENT="PAGE_UP" ;;
-                            6) INPUT_EVENT="PAGE_DOWN" ;;
                         esac
                     fi
                     ;;
@@ -156,7 +185,7 @@ input_repeat_cap_value() {
     [[ "$cap" =~ ^[0-9]+$ ]] || cap=3
     ((cap < 1)) && cap=1
     ((cap > 8)) && cap=8
-    printf '%s\n' "$cap"
+    if [[ ${1:-} == state ]]; then INPUT_CAP_VALUE=$cap; else printf '%s\n' "$cap"; fi
 }
 
 input_repeat_drain_limit_value() {
@@ -164,7 +193,7 @@ input_repeat_drain_limit_value() {
     [[ "$limit" =~ ^[0-9]+$ ]] || limit=512
     ((limit < 1)) && limit=1
     ((limit > 4096)) && limit=4096
-    printf '%s\n' "$limit"
+    if [[ ${1:-} == state ]]; then INPUT_DRAIN_LIMIT_VALUE=$limit; else printf '%s\n' "$limit"; fi
 }
 
 # Consume las repeticiones idénticas que ya están en cola. INPUT_REPEAT_COUNT
@@ -182,8 +211,9 @@ input_coalesce_repeat_burst() {
 
     local seen=1 drained=0 next_event next_key
     local limit cap
-    limit=$(input_repeat_drain_limit_value)
-    cap=$(input_repeat_cap_value)
+    input_repeat_drain_limit_value state
+    input_repeat_cap_value state
+    limit=$INPUT_DRAIN_LIMIT_VALUE cap=$INPUT_CAP_VALUE
 
     while ((drained < limit)); do
         if ! input_read_buffered_event; then

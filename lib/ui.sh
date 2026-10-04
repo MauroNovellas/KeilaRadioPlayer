@@ -22,6 +22,8 @@ UI_GREEN=''
 UI_RED=''
 UI_YELLOW=''
 UI_CYAN=''
+UI_SIZE_CHECK_AT=0
+UI_SIZE_CACHE_KEY=''
 
 ui_shortcut() {
     local key=$1
@@ -123,18 +125,31 @@ ui_require_dependencies() {
 }
 
 ui_refresh_size() {
+    local now=$EPOCHSECONDS generation=${INPUT_RESIZE_GENERATION:-0} key
+    key="${TERM:-}|$generation|$UI_COLS|$UI_LINES"
+    # WINCH invalida inmediatamente, incluso después de consumir RESIZE.
+    # Revisar como máximo una vez por segundo si el emulador no envía señales;
+    # no ejecutar dos tput por cada cursor/pulsación/redibujado.
+    if [[ $key == "$UI_SIZE_CACHE_KEY" ]] && ((now < UI_SIZE_CHECK_AT && now >= UI_SIZE_CHECK_AT-1)); then
+        return 0
+    fi
     UI_COLS=$(tput cols 2>/dev/null || printf '80')
     UI_LINES=$(tput lines 2>/dev/null || printf '24')
 
     [[ "$UI_COLS" =~ ^[0-9]+$ ]] || UI_COLS=80
     [[ "$UI_LINES" =~ ^[0-9]+$ ]] || UI_LINES=24
+    # Un WINCH entre ambas consultas no debe quedar marcado como ya atendido.
+    UI_SIZE_CACHE_KEY="${TERM:-}|$generation|$UI_COLS|$UI_LINES"
+    UI_SIZE_CHECK_AT=$((now+1))
 }
 
 ui_layout_width() {
     local cols="${1:-$UI_COLS}"
     [[ "$cols" =~ ^[0-9]+$ ]] || cols=80
     ((cols > 92)) && cols=92
-    printf '%s\n' "$cols"
+    UI_LAYOUT_WIDTH=$cols
+    [[ ${2:-} == state ]] || printf '%s\n' "$cols"
+    return 0
 }
 
 ui_volume_bar_width() {
@@ -186,14 +201,17 @@ ui_toggle_help() {
 
 ui_control_line_count() {
     if ((UI_HELP_VISIBLE)); then
-        printf '4\n'
+        UI_CONTROL_LINE_COUNT=4
     else
-        printf '1\n'
+        UI_CONTROL_LINE_COUNT=1
     fi
+    [[ ${1:-} == state ]] || printf '%s\n' "$UI_CONTROL_LINE_COUNT"
+    return 0
 }
 
 ui_enter() {
     ((UI_ACTIVE)) && return 0
+    UI_SIZE_CHECK_AT=0
     ui_configure_theme
     tput smcup 2>/dev/null || true
     tput civis 2>/dev/null || true
@@ -212,6 +230,7 @@ ui_suspend() {
 
 ui_resume() {
     ((UI_ACTIVE)) || return 0
+    UI_SIZE_CHECK_AT=0
     ui_configure_theme
     tput civis 2>/dev/null || true
     tput clear 2>/dev/null || true
@@ -277,8 +296,16 @@ ui_print_styled_padded() {
     text=$UI_TRUNCATED_TEXT
     local padding=$((width - ${#text}))
 
-    ui_style_begin "$style"
-    printf '%s' "$text"
+    if [[ $style == quality && $text == \[?\]* ]]; then
+        ui_style_begin warning
+        printf '%s' "${text:0:3}"
+        ui_style_end
+        ui_style_begin muted
+        printf '%s' "${text:3}"
+    else
+        ui_style_begin "$style"
+        printf '%s' "$text"
+    fi
     ui_style_end
     if ((padding > 0)); then ui_repeat_char ' ' "$padding"; fi
 }
@@ -398,7 +425,8 @@ ui_box_rule() {
         ui_style_end
         local label_max=$((inner - 3))
         ((label_max < 1)) && label_max=1
-        label=$(ui_truncate "$label" "$label_max")
+        ui_truncate "$label" "$label_max" state
+        label=$UI_TRUNCATED_TEXT
         ui_style_begin "$label_style"
         printf '%s' "$label"
         ui_style_end
@@ -437,7 +465,8 @@ ui_box_center_line() {
         if ((${PLAYER_MUTED:-0})); then text+=' · MUTE'; fi
     fi
     local inner=$((width - 4))
-    text=$(ui_truncate "$text" "$inner")
+    ui_truncate "$text" "$inner" state
+    text=$UI_TRUNCATED_TEXT
     local left_pad=$(((inner - ${#text}) / 2))
     local right_pad=$((inner - ${#text} - left_pad))
 
@@ -559,8 +588,12 @@ ui_volume_bar() {
     local width="${1:-20}"
     local filled=$((PLAYER_VOLUME * width / 100))
     local empty=$((width - filled))
-    ui_repeat_char "$UI_BAR_FULL" "$filled"
-    ui_repeat_char "$UI_BAR_EMPTY" "$empty"
+    local full='' rest=''
+    ((filled <= 0)) || printf -v full '%*s' "$filled" ''
+    ((empty <= 0)) || printf -v rest '%*s' "$empty" ''
+    UI_VOLUME_BAR="${full// /$UI_BAR_FULL}${rest// /$UI_BAR_EMPTY}"
+    [[ ${2:-} == state ]] || printf '%s' "$UI_VOLUME_BAR"
+    return 0
 }
 
 ui_equalizer_summary() {
@@ -979,6 +1012,18 @@ ui_audio_info() {
     [[ "${1:-}" == state ]] || printf '%s' "$output"
 }
 
+# Solo texto y variables ya cargadas: no consultar catálogo/red al repintar.
+ui_quality_info() {
+    local key=t
+    if declare -p PREF_KEYS >/dev/null 2>&1; then key=${PREF_KEYS[t]:-t}; fi
+    # Los comandos de búsqueda son locales; las minúsculas siguen siendo texto.
+    ((${SEARCH_ACTIVE:-0} == 0)) || key=t
+    UI_QUALITY_KEY=${key^^}
+    ui_audio_info state
+    UI_QUALITY_INFO="[$UI_QUALITY_KEY] Calidad: ${UI_AUDIO_INFO:-Conectando…}"
+    [[ ${1:-} == state ]] || printf '%s' "$UI_QUALITY_INFO"
+}
+
 ui_has_audio_info() {
     [[ -n "${PLAYER_CODEC:-}" ]] && return 0
     [[ "${PLAYER_BITRATE_KBPS:-}" =~ ^[0-9]+$ ]] && ((PLAYER_BITRATE_KBPS > 0)) && return 0
@@ -992,27 +1037,35 @@ ui_stream_info_line_count() {
     if player_is_running; then
         ((count += 1))
         if ((${UI_LINES:-0} >= 25)) && declare -F track_history_display_limit >/dev/null 2>&1; then
-            track_count=$(track_history_display_limit)
+            track_history_display_limit state
+            track_count=$TRACK_HISTORY_LIMIT
             ((count += 2 + track_count))
         fi
         ui_has_audio_info && ((count += 1))
     fi
-    printf '%s\n' "$count"
+    UI_STREAM_INFO_LINE_COUNT=$count
+    [[ ${1:-} == state ]] || printf '%s\n' "$count"
+    return 0
 }
 
 ui_list_height() {
     local info_lines control_lines
-    info_lines=$(ui_stream_info_line_count)
-    control_lines=$(ui_control_line_count)
+    ui_stream_info_line_count state
+    info_lines=$UI_STREAM_INFO_LINE_COUNT
+    ui_control_line_count state
+    control_lines=$UI_CONTROL_LINE_COUNT
     # Marco + cabecera + estado + volumen + secciones + mensaje + pie ocupan 10 filas.
     local height=$((UI_LINES - 10 - info_lines - control_lines))
     ((height < 3)) && height=3
-    printf '%s\n' "$height"
+    UI_LIST_HEIGHT=$height
+    [[ ${1:-} == state ]] || printf '%s\n' "$height"
+    return 0
 }
 
 ui_sync_selection() {
     ui_navigation_refresh
-    ui_navigation_sync "$(ui_list_height)"
+    ui_list_height state
+    ui_navigation_sync "$UI_LIST_HEIGHT"
 }
 
 ui_select_url() {
@@ -1093,10 +1146,13 @@ ui_draw() {
     tput cup 0 0 2>/dev/null || true
 
     local width
-    width=$(ui_layout_width "$UI_COLS")
+    ui_layout_width "$UI_COLS" state
+    width=$UI_LAYOUT_WIDTH
     local info_lines control_lines min_lines
-    info_lines=$(ui_stream_info_line_count)
-    control_lines=$(ui_control_line_count)
+    ui_stream_info_line_count state
+    info_lines=$UI_STREAM_INFO_LINE_COUNT
+    ui_control_line_count state
+    control_lines=$UI_CONTROL_LINE_COUNT
     min_lines=$((13 + info_lines + control_lines))
 
     local version="${KEILA_VERSION:-dev}"
@@ -1167,20 +1223,22 @@ ui_draw() {
             ui_box_line "$width" "$track_history_info" muted
         fi
         local audio_info
-        ui_audio_info state
-        audio_info=$UI_AUDIO_INFO
-        [[ -n "$audio_info" ]] && ui_box_line "$width" "  $audio_info" muted
+        ui_quality_info state
+        audio_info=$UI_QUALITY_INFO
+        ui_box_line "$width" "$audio_info" quality
     fi
 
     local volume_bar_width volume_left volume_hint
     volume_bar_width=$(ui_volume_bar_width "$width")
-    volume_left="VOL $(printf '%3s' "$PLAYER_VOLUME")%  $(ui_volume_bar "$volume_bar_width")"
+    ui_volume_bar "$volume_bar_width" state
+    printf -v volume_left 'VOL %3s%%  %s' "$PLAYER_VOLUME" "$UI_VOLUME_BAR"
     volume_hint='A/D  ←/→'
     ui_box_split_line "$width" "$volume_left" "$volume_hint" 0 accent muted
     ui_box_rule "$width" "$UI_ML" "$UI_MR" "EMISORAS FAVORITAS (${#FAVORITE_NAMES[@]})" accent
 
     local height
-    height=$(ui_list_height)
+    ui_list_height state
+    height=$UI_LIST_HEIGHT
     if ((${#FAVORITE_NAMES[@]} == 0)); then
         ui_box_line "$width" '  (sin favoritos; pulsa B para buscar)' muted
         local blank

@@ -139,7 +139,8 @@ ui_search_desktop() {
     local width="$1"
     local title="KEILA RADIO PLAYER  ${KEILA_VERSION:-dev}"
     local body_height
-    body_height=$(ui_desktop_body_height)
+    ui_desktop_body_height state
+    body_height=$UI_DESKTOP_BODY_HEIGHT
 
     ui_desktop_pane_widths "$width"
     search_sync_scroll "$body_height"
@@ -339,12 +340,14 @@ ui_draw_search() {
     UI_SEARCH_QUERY_FRAME_KEY=''
 
     ui_refresh_size
-    UI_LAYOUT_MODE=$(ui_layout_mode "$UI_COLS" "$UI_LINES")
+    ui_layout_mode "$UI_COLS" "$UI_LINES" state
+    UI_LAYOUT_MODE=$UI_LAYOUT_MODE_VALUE
     tput cup 0 0 2>/dev/null || true
 
     if [[ "$UI_LAYOUT_MODE" == 'tiny' ]]; then
         local tiny_width
-        tiny_width=$(ui_layout_width "$UI_COLS")
+        ui_layout_width "$UI_COLS" state
+        tiny_width=$UI_LAYOUT_WIDTH
         ((tiny_width > 60)) && tiny_width=60
         local tiny_body_height=$((UI_LINES - 7))
         ((tiny_body_height < 1)) && tiny_body_height=1
@@ -407,7 +410,8 @@ ui_draw_search() {
     fi
 
     local width
-    width=$(ui_layout_width "$UI_COLS")
+    ui_layout_width "$UI_COLS" state
+    width=$UI_LAYOUT_WIDTH
 
     if ui_desktop_enabled "$UI_COLS" "$UI_LINES" "$UI_LAYOUT_MODE"; then
         ui_search_desktop "$width"

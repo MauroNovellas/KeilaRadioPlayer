@@ -1,14 +1,29 @@
 #!/usr/bin/env bash
 # Formatos conocidos; nunca ejecutar contenido de archivos personales.
+data_quality_url_valid() {
+    local url=$1 authority
+    [[ $url =~ ^https?://[^/?#]+ && $url != *[[:space:][:cntrl:]\|\\]* && ${#url} -le 2048 ]] || return 1
+    authority=${url#*://}; authority=${authority%%[/?#]*}
+    [[ $authority =~ ^([a-zA-Z0-9][a-zA-Z0-9._-]*|\[[0-9a-fA-F:]+\])(:[0-9]{1,5})?$ ]]
+}
+
 data_validate() {
     local file=$1 kind=$2 line key value nul count=0
-    case "$kind" in favorites|labels|history|equalizer|config|state|preferences) ;; *) return 1 ;; esac
+    case "$kind" in favorites|labels|history|equalizer|config|state|preferences|qualities) ;; *) return 1 ;; esac
     [[ -f "$file" && -r "$file" && ! -L "$file" ]] || return 1
     # Bash descarta NUL al leer líneas: detectarlo antes de validar el formato.
     if IFS= read -r -d '' nul < "$file"; then return 1; fi
     local -A seen=()
     while IFS= read -r line || [[ -n "$line" ]]; do
         case "$kind" in
+            qualities)
+                local target rate extra
+                IFS='|' read -r key target rate extra <<< "$line"
+                [[ -n $key && -z $extra && $line == "$key|$target|$rate" && -z ${seen[$key]:-} ]] || return 1
+                data_quality_url_valid "$key" && data_quality_url_valid "$target" || return 1
+                [[ $rate =~ ^(0|[1-9][0-9]{0,6})$ ]] && ((rate == 0 || (rate >= 8000 && rate <= 2000000))) || return 1
+                ((count < 2000)) || return 1
+                seen[$key]=1 ;;
             favorites|labels|history)
                 [[ -z "$line" ]] && continue
                 [[ "$line" == *'|'* && "$line" != *[[:cntrl:]]* ]] || return 1
@@ -51,7 +66,7 @@ data_validate() {
                 [[ -n "$key" && -z "${seen[$key]:-}" ]] || return 1
                 case "$key" in
                     autoplay|color|unicode|spectrum|logo) [[ "$value" == [01] ]] || return 1 ;;
-                    key_[bfrcxgpmlzvhoq]) [[ "$value" == [bcefghilmnopqrtuvxyz] ]] || return 1 ;;
+                    key_[bfrcxgpmlzvhoqt]) [[ "$value" == [bcefghilmnopqrtuvxyz] ]] || return 1 ;;
                     *) return 1 ;;
                 esac
                 seen[$key]=1

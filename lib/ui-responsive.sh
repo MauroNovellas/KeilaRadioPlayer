@@ -20,16 +20,18 @@ ui_layout_mode() {
     [[ "$lines" =~ ^[0-9]+$ ]] || lines=24
 
     if ((cols >= 80 && lines >= 20)); then
-        printf 'wide\n'
+        UI_LAYOUT_MODE_VALUE=wide
     elif ((cols >= 62 && lines >= 16)); then
-        printf 'standard\n'
+        UI_LAYOUT_MODE_VALUE=standard
     elif ((cols >= 50 && lines >= 13)); then
-        printf 'compact\n'
+        UI_LAYOUT_MODE_VALUE=compact
     elif ((cols >= 42 && lines >= 11)); then
-        printf 'minimal\n'
+        UI_LAYOUT_MODE_VALUE=minimal
     else
-        printf 'tiny\n'
+        UI_LAYOUT_MODE_VALUE=tiny
     fi
+    [[ ${3:-} == state ]] || printf '%s\n' "$UI_LAYOUT_MODE_VALUE"
+    return 0
 }
 
 ui_layout_width() {
@@ -44,45 +46,55 @@ ui_layout_width() {
             ((cols > 78)) && cols=78
             ;;
     esac
-    printf '%s\n' "$cols"
+    UI_LAYOUT_WIDTH=$cols
+    [[ ${2:-} == state ]] || printf '%s\n' "$cols"
+    return 0
 }
 
 ui_control_line_count() {
+    UI_CONTROL_LINE_COUNT=0
     if ((UI_HELP_VISIBLE)); then
         case "${UI_LAYOUT_MODE:-standard}" in
-            wide|standard) printf '4\n' ;;
-            compact) printf '2\n' ;;
-            minimal|tiny) printf '1\n' ;;
+            wide|standard) UI_CONTROL_LINE_COUNT=4 ;;
+            compact) UI_CONTROL_LINE_COUNT=2 ;;
+            minimal|tiny) UI_CONTROL_LINE_COUNT=1 ;;
         esac
     else
-        printf '1\n'
+        UI_CONTROL_LINE_COUNT=1
     fi
+    [[ ${1:-} == state ]] || printf '%s\n' "$UI_CONTROL_LINE_COUNT"
+    return 0
 }
 
 ui_stream_info_line_count() {
-    player_is_running || { printf '0\n'; return 0; }
-
     local count=0 track_count=0
-    case "${UI_LAYOUT_MODE:-standard}" in
+    if player_is_running; then
+        case "${UI_LAYOUT_MODE:-standard}" in
         wide|standard)
             ((count += 1))
             if ((${UI_LINES:-0} >= 25)) && declare -F track_history_display_limit >/dev/null 2>&1; then
-                track_count=$(track_history_display_limit)
+                track_history_display_limit state
+                track_count=$TRACK_HISTORY_LIMIT
                 ((count += 2 + track_count))
             fi
-            ui_has_audio_info && ((count += 1))
+            ((count += 1))
             ;;
         compact)
             [[ -n "${PLAYER_STREAM_TITLE:-}" ]] && ((count += 1))
             ;;
-    esac
-    printf '%s\n' "$count"
+        esac
+    fi
+    UI_STREAM_INFO_LINE_COUNT=$count
+    [[ ${1:-} == state ]] || printf '%s\n' "$count"
+    return 0
 }
 
 ui_list_height() {
     local info_lines control_lines height minimum
-    info_lines=$(ui_stream_info_line_count)
-    control_lines=$(ui_control_line_count)
+    ui_stream_info_line_count state
+    info_lines=$UI_STREAM_INFO_LINE_COUNT
+    ui_control_line_count state
+    control_lines=$UI_CONTROL_LINE_COUNT
 
     # Nueve filas fijas: marco superior, título, sección de reproducción,
     # emisora, volumen, sección de favoritos, separador inferior, mensaje y pie.
@@ -94,7 +106,9 @@ ui_list_height() {
         *) minimum=1 ;;
     esac
     ((height < minimum)) && height=$minimum
-    printf '%s\n' "$height"
+    UI_LIST_HEIGHT=$height
+    [[ ${1:-} == state ]] || printf '%s\n' "$height"
+    return 0
 }
 
 ui_responsive_title() {
@@ -108,6 +122,11 @@ ui_responsive_title() {
 
 ui_responsive_section_title() {
     local section="$1"
+    if [[ $section == now ]] && ui_small_screen && player_is_running; then
+        ui_quality_info state
+        printf '[%s] Calidad' "$UI_QUALITY_KEY"
+        return 0
+    fi
     case "$UI_LAYOUT_MODE:$section" in
         compact:now) printf 'RADIO' ;;
         minimal:now) printf '' ;;
@@ -172,7 +191,8 @@ ui_responsive_volume_line() {
             ;;
     esac
 
-    UI_RESP_VOLUME_LEFT="VOL $(printf '%3s' "$PLAYER_VOLUME")%  $(ui_volume_bar "$bar_width")"
+    ui_volume_bar "$bar_width" state
+    printf -v UI_RESP_VOLUME_LEFT 'VOL %3s%%  %s' "$PLAYER_VOLUME" "$UI_VOLUME_BAR"
     UI_RESP_VOLUME_HINT="$hint"
 }
 
@@ -219,7 +239,8 @@ ui_draw() {
     ((UI_SUSPENDED)) && return 0
 
     ui_refresh_size
-    UI_LAYOUT_MODE=$(ui_layout_mode "$UI_COLS" "$UI_LINES")
+    ui_layout_mode "$UI_COLS" "$UI_LINES" state
+    UI_LAYOUT_MODE=$UI_LAYOUT_MODE_VALUE
     ui_sync_selection
     tput cup 0 0 2>/dev/null || true
 
@@ -228,7 +249,8 @@ ui_draw() {
         # reserva la última celda física. Mantener el cálculo aquí evita que
         # la pantalla de emergencia sea la única que active autowrap.
         local tiny_width
-        tiny_width=$(ui_layout_width "$UI_COLS")
+        ui_layout_width "$UI_COLS" state
+        tiny_width=$UI_LAYOUT_WIDTH
         ((tiny_width > 60)) && tiny_width=60
         ui_print_padded "$tiny_width" "Keila Radio Player ${KEILA_VERSION:-dev}"
         printf '\n\n'
@@ -236,14 +258,16 @@ ui_draw() {
         printf '\n'
         ui_print_padded "$tiny_width" 'Mínimo útil: 42 columnas y 11 filas.'
         printf '\n\n'
-        ui_print_padded "$tiny_width" 'Q = salir'
+        ui_quality_info state
+        ui_print_padded "$tiny_width" "[$UI_QUALITY_KEY] Calidad · Q salir"
         printf '\n'
         tput ed 2>/dev/null || true
         return 0
     fi
 
     local width title now_label favorites_label
-    width=$(ui_layout_width "$UI_COLS")
+    ui_layout_width "$UI_COLS" state
+    width=$UI_LAYOUT_WIDTH
     title=$(ui_responsive_title)
     now_label=$(ui_responsive_section_title now)
     favorites_label=$(ui_responsive_section_title favorites)
@@ -298,7 +322,8 @@ ui_draw() {
                 fi
                 local track_history_count=0 track_history_index track_history_info=''
                 if ((${UI_LINES:-0} >= 25)) && declare -F track_history_display_limit >/dev/null 2>&1; then
-                    track_history_count=$(track_history_display_limit)
+                    track_history_display_limit state
+                    track_history_count=$TRACK_HISTORY_LIMIT
                 fi
                 if ((track_history_count > 0)); then
                     ui_box_line "$width" '  Canciones anteriores' accent
@@ -312,8 +337,9 @@ ui_draw() {
                     ui_box_line "$width" "$track_history_info" muted
                 fi
                 local audio_info
-                audio_info=$(ui_audio_info)
-                [[ -n "$audio_info" ]] && ui_box_line "$width" "  $audio_info" muted
+                ui_quality_info state
+                audio_info=$UI_QUALITY_INFO
+                ui_box_line "$width" "$audio_info" quality
                 ;;
             compact)
                 [[ -n "${PLAYER_STREAM_TITLE:-}" ]] && ui_box_line "$width" "$UI_NOTE $PLAYER_STREAM_TITLE" accent
@@ -329,7 +355,8 @@ ui_draw() {
     ui_box_rule "$width" "$UI_ML" "$UI_MR" "$favorites_label" accent
 
     local height
-    height=$(ui_list_height)
+    ui_list_height state
+    height=$UI_LIST_HEIGHT
     ui_navigation_refresh
     if ((height >= 3)); then
         local comments_header=''

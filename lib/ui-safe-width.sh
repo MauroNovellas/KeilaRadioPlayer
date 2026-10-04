@@ -32,7 +32,9 @@ ui_layout_width() {
             ;;
     esac
 
-    printf '%s\n' "$width"
+    UI_LAYOUT_WIDTH=$width
+    [[ ${2:-} == state ]] || printf '%s\n' "$width"
+    return 0
 }
 
 # En el layout ancho hacemos crecer también la barra de volumen para que el
@@ -76,7 +78,8 @@ ui_box_rule() {
         ui_style_end
         local label_max=$((inner - 3))
         ((label_max < 1)) && label_max=1
-        label=$(ui_truncate "$label" "$label_max")
+        ui_truncate "$label" "$label_max" state
+        label=$UI_TRUNCATED_TEXT
         ui_style_begin "$label_style"
         printf '%s' "$label"
         ui_style_end

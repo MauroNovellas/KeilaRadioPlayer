@@ -19,20 +19,20 @@ UI_PLAYER_HISTORY_LOG_CURSOR=''
 # Metadatos, bitrate e historial breve ocupan filas fijas del panel.
 # No afectan a favoritos, búsqueda, volumen ni al rectángulo del espectro.
 ui_desktop_track_history_slots() {
-    local body_height="${1:-$(ui_desktop_body_height)}" limit
-
-    player_is_running || { printf '0\n'; return 0; }
-    declare -F track_history_display_limit >/dev/null 2>&1 || { printf '0\n'; return 0; }
-    limit=$(track_history_display_limit)
+    local body_height=${1:-} limit
+    if [[ -z $body_height ]]; then ui_desktop_body_height state; body_height=$UI_DESKTOP_BODY_HEIGHT; fi
+    UI_DESKTOP_TRACK_HISTORY_SLOTS=0
 
     # Con 8 canciones: título, cabecera, 8 filas, ruta TXT, audio y volumen
     # ocupan hasta la fila 13 del cuerpo; por debajo ocultamos el bloque para
     # no pisar el borde ni provocar scroll en escritorios mínimos.
-    if ((body_height >= limit + 6)); then
-        printf '%s\n' "$limit"
-    else
-        printf '0\n'
+    if player_is_running && declare -F track_history_display_limit >/dev/null 2>&1; then
+        track_history_display_limit state
+        limit=$TRACK_HISTORY_LIMIT
+        ((body_height < limit + 6)) || UI_DESKTOP_TRACK_HISTORY_SLOTS=$limit
     fi
+    [[ ${2:-} == state ]] || printf '%s\n' "$UI_DESKTOP_TRACK_HISTORY_SLOTS"
+    return 0
 }
 
 ui_draw_player_info_only() {
@@ -40,8 +40,10 @@ ui_draw_player_info_only() {
     ((UI_ACTIVE && !UI_SUSPENDED && !${INPUT_RESIZE_PENDING:-0})) || return 1
     ui_desktop_enabled "$UI_COLS" "$UI_LINES" "$UI_LAYOUT_MODE" || return 1
     local history_count=0 body_height i line
-    body_height=$(ui_desktop_body_height)
-    history_count=$(ui_desktop_track_history_slots "$body_height")
+    ui_desktop_body_height state
+    body_height=$UI_DESKTOP_BODY_HEIGHT
+    ui_desktop_track_history_slots "$body_height" state
+    history_count=$UI_DESKTOP_TRACK_HISTORY_SLOTS
     local logo_key=''
     ((${UI_LOGO_LAYOUT:-0} == 0)) || logo_key='|logo'
     [[ "$UI_PLAYER_INFO_CURSOR_KEY" == "${TERM:-}|$UI_COLS|$UI_LINES|$UI_DESKTOP_LEFT_WIDTH|$history_count$logo_key" ]] || return 1
@@ -56,8 +58,8 @@ ui_draw_player_info_only() {
         title="$UI_NOTE $PLAYER_STREAM_TITLE"
         style=accent
     fi
-    ui_audio_info state
-    audio=$UI_AUDIO_INFO
+    ui_quality_info state
+    audio=$UI_QUALITY_INFO
     printf '%s' "$UI_PLAYER_TITLE_CURSOR"
     logo_line_width 1
     ui_print_styled_padded "$UI_PLAYER_LINE_WIDTH" "$title" "$style"
@@ -80,7 +82,7 @@ ui_draw_player_info_only() {
     fi
     printf '%s' "$UI_PLAYER_AUDIO_CURSOR"
     if ((history_count)); then logo_line_width "$((history_count+4))"; else logo_line_width 2; fi
-    ui_print_styled_padded "$UI_PLAYER_LINE_WIDTH" "$audio" muted
+    ui_print_styled_padded "$UI_PLAYER_LINE_WIDTH" "$audio" quality
     return 0
 }
 
@@ -202,13 +204,16 @@ ui_draw_desktop() {
     local width="$1"
     local title="KEILA RADIO PLAYER  ${KEILA_VERSION:-dev}"
     local body_height
-    body_height=$(ui_desktop_body_height)
+    ui_desktop_body_height state
+    body_height=$UI_DESKTOP_BODY_HEIGHT
 
     ui_desktop_pane_widths "$width"
     logo_prepare_layout
+    logo_prepare_frame
     ui_desktop_sync_selection "$body_height"
     local track_history_count=0 history_header_row=2 history_first_row=3 history_log_row=3 audio_row=2 volume_row=3 equalizer_start_row=5
-    track_history_count=$(ui_desktop_track_history_slots "$body_height")
+    ui_desktop_track_history_slots "$body_height" state
+    track_history_count=$UI_DESKTOP_TRACK_HISTORY_SLOTS
     if ((track_history_count > 0)); then
         history_log_row=$((history_first_row + track_history_count))
         audio_row=$((history_log_row + 1))
@@ -287,13 +292,14 @@ ui_draw_desktop() {
     fi
 
     local audio_info='' history_text=''
-    player_is_running && audio_info=$(ui_audio_info)
+    if player_is_running; then ui_quality_info state; audio_info=$UI_QUALITY_INFO; fi
 
     local volume_bar_width volume_left volume_hint
     volume_bar_width=$((UI_DESKTOP_LEFT_WIDTH - 22))
     ((volume_bar_width < 16)) && volume_bar_width=16
     ((volume_bar_width > 56)) && volume_bar_width=56
-    volume_left="VOL $(printf '%3s' "$PLAYER_VOLUME")%  $(ui_volume_bar "$volume_bar_width")"
+    ui_volume_bar "$volume_bar_width" state
+    printf -v volume_left 'VOL %3s%%  %s' "$PLAYER_VOLUME" "$UI_VOLUME_BAR"
     volume_hint='A/D  ←/→'
 
     local row index fav_marker preset_label fav_badge fav_style fav_badge_style selected
@@ -343,7 +349,7 @@ ui_draw_desktop() {
         elif ((row == audio_row)); then
             if [[ -n "$audio_info" ]]; then
                 main_text="$audio_info"
-                main_style='muted'
+                main_style='quality'
             fi
         elif ((row == volume_row)); then
             main_text="$volume_left"

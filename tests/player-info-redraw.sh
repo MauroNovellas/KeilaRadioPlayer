@@ -34,9 +34,9 @@ for dimensions in '132 40' '112 20'; do
             expected+="<$((6 + history_index)),2>$(ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$(track_history_line "$history_index" "$UI_DESKTOP_LEFT_WIDTH")" muted)"
         done
         expected+="<$((6 + history_count)),2>$(ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$(track_history_session_line "$UI_DESKTOP_LEFT_WIDTH")" muted)"
-        expected+="<$((7 + history_count)),2>$(PLAYER_BITRATE_KBPS=192; ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$(ui_audio_info)" muted)"
+        expected+="<$((7 + history_count)),2>$(PLAYER_BITRATE_KBPS=192; ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$(ui_quality_info)" quality)"
     else
-        expected+="<5,2>$(PLAYER_BITRATE_KBPS=192; ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$(ui_audio_info)" muted)"
+        expected+="<5,2>$(PLAYER_BITRATE_KBPS=192; ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$(ui_quality_info)" quality)"
     fi
     actual=$(app_poll_player); status=$?
     [[ "$status" == 1 && "$actual" == "$expected" ]] || fail 'metadatos no limitados a sus filas parciales'
@@ -60,4 +60,15 @@ ui_draw >/dev/null
 player_refresh_info() { PLAYER_BUFFERING=1; return 0; }
 actual=$(app_poll_player); status=$?
 [[ "$status" == 0 && -z "$actual" ]] || fail 'buffering no solicita dibujo completo'
+
+# Los metadatos dejan intacto el espacio SIXEL y no retransmiten la imagen.
+PREF_LOGO=1 PLAYER_PID=123 PLAYER_URL=https://radio.invalid/stream
+PLAYER_STREAM_TITLE='Tema con logo' LOGO_READY_URL=$PLAYER_URL LOGO_BACKEND=sixel
+LOGO_SIXEL_BODY='"1;1;96;96#0;2;0;0;0#0!96~-'
+ui_draw >/dev/null
+logo_line_width 1
+expected="<4,2>$(ui_print_styled_padded "$UI_PLAYER_LINE_WIDTH" "$UI_NOTE $PLAYER_STREAM_TITLE" accent)<5,2>"
+actual=$(ui_draw_player_info_only) || fail 'no permite metadatos con logo'
+[[ $actual == "$expected"* && $actual != *$'\033P'* && $actual != *$'\033[16t'* ]] || fail 'metadatos invaden o retransmiten el logo'
+LOGO_DRAWN=0
 printf 'ok   metadatos parciales, borrado y fallback de estado/tamaño\n'

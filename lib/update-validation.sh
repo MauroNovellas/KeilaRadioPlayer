@@ -33,6 +33,8 @@ update_validate_tree() {
         lib/favorites.sh
         lib/stations.sh
         lib/search.sh
+        lib/search-async.sh
+        lib/search-worker.sh
         lib/search-filters.sh
         lib/station-options.sh
         lib/m3u.sh
@@ -42,6 +44,14 @@ update_validate_tree() {
         lib/record-schedule-menu.sh
         lib/station-logo.sh
         lib/station-logo-worker.sh
+        lib/station-logo-cache.sh
+        lib/station-logo-links.awk
+        lib/station-logo-sixel.awk
+        lib/quality.sh
+        lib/quality-menu.sh
+        lib/quality-worker.sh
+        lib/quality-candidates.jq
+        lib/quality-hls.awk
         lib/player.sh
         lib/player-failure.sh
         lib/player-events.sh

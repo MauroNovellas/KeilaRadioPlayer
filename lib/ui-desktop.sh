@@ -79,7 +79,8 @@ ui_desktop_rule_segment() {
     local prefix="$UI_H " suffix=' '
     local label_max=$((span - ${#prefix} - ${#suffix}))
     ((label_max < 1)) && label_max=1
-    label=$(ui_truncate "$label" "$label_max")
+    ui_truncate "$label" "$label_max" state
+    label=$UI_TRUNCATED_TEXT
 
     printf '%s' "$prefix"
     ui_style_end
@@ -103,7 +104,7 @@ ui_desktop_header_rule() {
     ui_style_begin muted
     printf '%s' "$UI_ML"
     ui_desktop_rule_segment "$left_span" "$left_label" accent
-    printf '%s' "$(ui_desktop_glyph top)"
+    ui_desktop_glyph top
     ui_desktop_rule_segment "$right_span" "$right_label" accent
     printf '%s' "$UI_MR"
     ui_style_end
@@ -121,7 +122,7 @@ ui_desktop_join_rule() {
     ui_style_begin muted
     printf '%s' "$UI_ML"
     ui_repeat_char "$UI_H" "$left_span"
-    printf '%s' "$(ui_desktop_glyph bottom)"
+    ui_desktop_glyph bottom
     ui_repeat_char "$UI_H" "$right_span"
     printf '%s' "$UI_MR"
     ui_style_end
@@ -164,13 +165,14 @@ ui_desktop_row() {
 }
 
 ui_desktop_body_height() {
-    local control_lines
-    control_lines=$(ui_control_line_count)
+    ui_control_line_count state
 
     # Superior + título + cabecera paneles + unión + mensaje + borde = 6.
-    local height=$((UI_LINES - 6 - control_lines))
+    local height=$((UI_LINES - 6 - UI_CONTROL_LINE_COUNT))
     ((height < 8)) && height=8
-    printf '%s\n' "$height"
+    UI_DESKTOP_BODY_HEIGHT=$height
+    [[ ${1:-} == state ]] || printf '%s\n' "$height"
+    return 0
 }
 
 ui_desktop_sync_selection() {
@@ -212,7 +214,8 @@ ui_draw_desktop() {
     local width="$1"
     local title="KEILA RADIO PLAYER  ${KEILA_VERSION:-dev}"
     local body_height
-    body_height=$(ui_desktop_body_height)
+    ui_desktop_body_height state
+    body_height=$UI_DESKTOP_BODY_HEIGHT
 
     ui_desktop_pane_widths "$width"
     ui_desktop_sync_selection "$body_height"
@@ -276,7 +279,8 @@ ui_draw_desktop() {
     volume_bar_width=$((UI_DESKTOP_RIGHT_WIDTH - 17))
     ((volume_bar_width < 16)) && volume_bar_width=16
     ((volume_bar_width > 52)) && volume_bar_width=52
-    volume_left="VOL $(printf '%3s' "$PLAYER_VOLUME")%  $(ui_volume_bar "$volume_bar_width")"
+    ui_volume_bar "$volume_bar_width" state
+    printf -v volume_left 'VOL %3s%%  %s' "$PLAYER_VOLUME" "$UI_VOLUME_BAR"
     volume_hint='A/D  ←/→'
 
     local row index left_marker left_badge left_style left_badge_style selected
@@ -376,20 +380,22 @@ ui_draw() {
     ((UI_ACTIVE)) || return 0
     ((UI_SUSPENDED)) && return 0
     UI_SEARCH_QUERY_FRAME_KEY=''
-    logo_hide
     UI_LOGO_LAYOUT=0
 
     ui_refresh_size
-    UI_LAYOUT_MODE=$(ui_layout_mode "$UI_COLS" "$UI_LINES")
+    ui_layout_mode "$UI_COLS" "$UI_LINES" state
+    UI_LAYOUT_MODE=$UI_LAYOUT_MODE_VALUE
 
     if ui_desktop_enabled "$UI_COLS" "$UI_LINES" "$UI_LAYOUT_MODE"; then
         tput cup 0 0 2>/dev/null || true
         local width
-        width=$(ui_layout_width "$UI_COLS")
+        ui_layout_width "$UI_COLS" state
+        width=$UI_LAYOUT_WIDTH
         ui_draw_desktop "$width"
         logo_draw
         return 0
     fi
 
+    logo_hide
     ui_draw_single_column
 }

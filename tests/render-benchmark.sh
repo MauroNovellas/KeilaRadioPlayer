@@ -80,6 +80,18 @@ done
 finish=${EPOCHREALTIME//[.,]/}
 printf 'Navegación Visualización: %d us/dibujo\n' "$(((finish-start)/20))"
 
+# La ventana ya abierta no redibuja el fondo ni consulta las fuentes de audio.
+previous_preferences=0 QUALITY_OVERLAY_GEOMETRY='132/40'
+QUALITY_ROWS=('https://radio.invalid/original|0|MP3|128000|original'
+    'https://radio.invalid/low|0|AAC|64000|catalog' 'https://radio.invalid/high|0|AAC|192000|catalog')
+quality_menu_rows https://radio.invalid/original https://radio.invalid/original 0
+start=${EPOCHREALTIME//[.,]/}
+for ((frame=0; frame<40; frame++)); do
+    quality_draw "$((frame%3))" 0 'Bitrate declarado; consumo aproximado' 'Radio de prueba' >/dev/null
+done
+finish=${EPOCHREALTIME//[.,]/}
+printf 'Selector compacto de calidad: %d us/dibujo\n' "$(((finish-start)/40))"
+
 # Comparar una pulsación + repintado con el antiguo recorrido de frame completo.
 # Los resultados ya están cargados; no se mide la pausa deliberada del filtro.
 ui_refresh_size() { :; }

@@ -17,6 +17,28 @@ logo_forget() { :; }
 source "$ROOT_DIR/lib/input.sh"
 source "$ROOT_DIR/lib/app-search.sh"
 source "$ROOT_DIR/lib/ui-terminal-guard.sh"
+source "$ROOT_DIR/lib/station-logo.sh"
+
+# Selección real bajo PTY: foot no depende de Unicode y Kitty sigue separado.
+unset TERMUX_VERSION KITTY_WINDOW_ID TMUX STY VTE_VERSION
+PREFIX='' UI_COLOR=1 UI_UNICODE=0 TERM=foot COLORTERM=truecolor
+logo_choose_backend
+[[ $LOGO_BACKEND == sixel ]] || exit 1
+TERM=foot-direct
+logo_choose_backend
+[[ $LOGO_BACKEND == sixel ]] || exit 1
+TERM=xterm-kitty KITTY_WINDOW_ID=1
+logo_choose_backend
+[[ $LOGO_BACKEND == kitty ]] || exit 1
+TERM=foot TMUX=test UI_UNICODE=1
+logo_choose_backend
+[[ $LOGO_BACKEND == blocks ]] || exit 1
+unset TMUX
+TERMUX_VERSION=test
+logo_choose_backend
+[[ $LOGO_BACKEND == initials ]] || exit 1
+unset TERMUX_VERSION
+TERM=xterm-256color
 
 wait_gate() {
     # Esperar en un pipe, no en el TTY: reproduce el intervalo entre lecturas
@@ -63,6 +85,11 @@ printf 'QUERY:%s\n' "$SEARCH_QUERY"
 wait_gate delete && next_event && [[ $INPUT_EVENT == DELETE ]] && search_clear || exit 1
 printf 'QUERY:%s\n' "$SEARCH_QUERY"
 wait_gate cursor && next_event && [[ $INPUT_EVENT == DOWN ]] || exit 1
+wait_gate geometry && edit_event || exit 1
+[[ $INPUT_CELL_HEIGHT == 16 && $INPUT_CELL_WIDTH == 8 ]] || exit 1
+printf 'QUERY:%s\n' "$SEARCH_QUERY"
+wait_gate geometry-erase && edit_event || exit 1
+printf 'QUERY:%s\n' "$SEARCH_QUERY"
 
 ui_suspend || exit 1
 [[ $(stty -g) == "$before" ]] || exit 1

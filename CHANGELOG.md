@@ -2,8 +2,95 @@
 
 Todos los cambios relevantes de Keila Radio Player se documentarán en este archivo.
 
-## [Sin publicar] - próxima release
+## [2.2.0] - 2026-10-04
 
+Versión estable que consolida las mejoras de reproducción, búsqueda, opciones,
+grabaciones, protección de datos y rendimiento desarrolladas desde 2.1.1.
+Resumen de uso y actualización en [notas de la versión](docs/releases/2.2.0.md).
+
+- Publicación de runtime Linux limpio con SHA-256 verificable desde cualquier
+  carpeta: la suma usa el nombre del archivo, no la ruta del equipo de desarrollo.
+  Regresión de descarga trasladada a otra carpeta y extracción del launcher.
+
+- Menos procesos durante el dibujo y la navegación: geometría, altura del
+  historial, recortes, barra de volumen y autorepetición se calculan directamente
+  en Bash, conservando la API anterior y el diseño. Tamaño de terminal reutilizado
+  durante un segundo, con invalidación inmediata por WINCH, cambio de terminal
+  o reanudación y revisión periódica para emuladores sin señales.
+- Mantenimiento de logos sin consultar fechas cuando caben las 64 emisoras;
+  si hay desbordamiento, una sola llamada stat recoge todas las fechas en lugar
+  de lanzar un proceso por archivo. Mantiene bloqueo, publicación atómica,
+  protección de la emisora entrante, auxiliares y archivos ajenos. Regresiones de
+  geometría equivalente, resize consumido, reloj, rutas con saltos de línea y
+  número de consultas externas; benchmark local de caché añadido a la batería.
+- Logos persistentes: mostrar primero la copia local, sin esperar a un worker
+  ni consultar catálogo/red en un hit fresco. Revisión diaria en segundo plano
+  cuando se vuelve a necesitar; conserva el logo anterior si falla o se interrumpe.
+  Imagen idéntica no cambia generación ni provoca parpadeo. foot guarda también
+  SIXEL ligado al RGB exacto y tamaño; resize solo recodifica datos locales, sin
+  ffmpeg/red. Publicación atómica y privada, plazos de reintento (una hora para
+  fallos, un día sin candidatos) y límite conjunto de 64 emisoras/auxiliares.
+  Renovar una entrada no expulsa otra. Compatibilidad con la caché anterior;
+  pruebas de reinicio, offline, cancelación, corrupción, fingerprint y evicción.
+- Calidad accesible directamente con T, visible en la fila de audio existente
+  o en la cabecera pequeña, sin nuevas filas permanentes. Selector contextual
+  compacto en escritorio y a pantalla completa en Termux: Actual, consumo,
+  flechas sin cambiar audio, un Enter para aplicar, Esc para cancelar y U para
+  reintentar. Mantiene la ruta de Opciones; atajo principal personalizable con
+  migración que conserva los mapas antiguos. T local en búsqueda conserva consulta
+  y selección; t sigue siendo texto. Fondo estable entre pulsaciones, sin
+  consultar catálogo/red al repintar los metadatos.
+- Opciones → Reproducción → Calidad / versiones: consulta asíncrona del catálogo
+  local y de variantes HLS explícitas de audio; codec, bitrate declarado y consumo
+  orientativo, selección y aplicación explícita. Agrupación conservadora por URL ancla,
+  nombre/país/zona/web; no confunde homónimos ni inventa calidades. Trabajo limitado
+  y cancelable, sin descargar segmentos ni añadir dependencias obligatorias.
+  Red pública con DNS fijado, límites y redirecciones verificadas; sin getent se
+  conserva el catálogo. Identifica antes de normalizar campos; regresión de
+  50.000 emisoras. No hay consultas de calidad al buscar o arrancar.
+- Elección de calidad persistente por emisora, privada, bloqueada y atómica con
+  copia .bak, recuperación y copias exportables compatibles con versiones antiguas.
+  Separa identidad de la URL de audio: conserva favoritas, comentarios, Recientes,
+  volumen, silencio y pausa; reconexiones, alarmas y reservas aplican la elección.
+  Bloquea cambios durante grabación/cierre/escucha de archivo; no baja calidad por
+  su cuenta. Fallo de IPC intenta restaurar preferencia y emisión anterior.
+  Grabaciones usan el formato de la entrada real. Regresiones de persistencia,
+  catálogo/HLS/red, cancelación, 13 geometrías y audio sintético con mpv real.
+- Filtros simplificados: país primero, zona opcional solo dentro de ese país y
+  nombres declarados por el catálogo, sin jerarquía administrativa mundial.
+  Cambiar o desactivar país elimina la zona, también desde P en búsqueda;
+  conserva consulta y temática. Sin nuevas filas en la pantalla principal.
+- Búsqueda: el filtrado tras editar se ejecuta en un único trabajo local y
+  acotado en segundo plano. Publica las nueve columnas completas, sin ejecutar
+  datos del catálogo, y descarta consultas obsoletas. Esc, recarga y salida
+  cancelan su grupo; no queda un proceso de búsqueda cuando está inactiva.
+  Mantiene filtros/comentarios y sincroniza antes de seleccionar/reproducir,
+  reutilizando resultados terminados. Fallo del trabajo conserva el filtro
+  síncrono como respaldo de sesión, sin bucles de reintentos.
+- El teclado elimina dos subprocesos por lectura agrupable; texto y Retroceso
+  repetidos se aplican en una sola edición Unicode, sin perder caracteres.
+  Regresiones con 50.000 emisoras bajo PTY en desktop/tiny, entrada durante
+  filtrado lento, cancelación repetida y restauración de terminal. El perfilador
+  incluye edición, filtro, publicación y dibujo parcial de búsqueda.
+- Corregido el parpadeo de logos al navegar o actualizar estados: el redibujado
+  conserva las colocaciones SIXEL/Kitty y salta sus doce columnas sin escribir
+  espacios encima. Solo recoloca al cambiar imagen/geometría o volver de una
+  pantalla que la ocultó. No retransmite píxeles ni borra la imagen por pulsación.
+  Regresión independiente de escrituras/cursor en ASCII y Unicode, con menús,
+  detalles, suspensión, resize, otra emisora, pantallas pequeñas y Termux.
+- Logos: foot utiliza imágenes SIXEL en lugar de bloques de 12×12 píxeles,
+  ajustadas a las celdas físicas y al espacio reservado, hasta 96×96. La consulta
+  de tamaño es asíncrona y no roba teclas; la codificación ocurre una vez por
+  imagen/geometría en segundo plano. Kitty conserva su protocolo y Termux su
+  diseño. Sin Chafa ni nuevas dependencias obligatorias.
+- Mayor cobertura de logos: PNG/JPEG, ICO (PNG/BMP), WebP y primer cuadro GIF;
+  candidatos alternativos y enlaces estáticos de la web cuando el favicon falla.
+  Coincidencias conservadoras de nombres para favoritos con URL antigua, sin
+  confundir emisoras ni quitar parámetros del stream. SVG remoto sigue bloqueado;
+  se mantienen los límites de recursos, caché y protección de red privada.
+- Regresiones de formatos, candidatos, enlaces relativos/redirecciones y SIXEL
+  con decodificación independiente de todos los píxeles; terminal real comprueba
+  la selección de backend y la entrada intercalada con respuestas de geometría.
 - Corregido Retroceso perdido entre lecturas del teclado: la TUI mantiene
   desactivados el eco y el modo canónico mientras está activa, sin alterar
   Ctrl-C. Restaura el estado exacto al suspender/salir. Regresión con un TTY

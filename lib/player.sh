@@ -7,6 +7,7 @@ PLAYER_PID=""
 PLAYER_PGID=""
 PLAYER_NAME=""
 PLAYER_URL=""
+PLAYER_INPUT_URL='' PLAYER_HLS_RATE=0
 PLAYER_VOLUME="${KEILA_VOLUME:-50}"
 PLAYER_PAUSED=0
 PLAYER_LAST_EXIT_STATUS=""
@@ -98,8 +99,9 @@ player_title_probe_extract() {
 }
 
 player_title_probe_should_run() {
-    [[ "${PLAYER_URL:-}" == http://* || "${PLAYER_URL:-}" == https://* ]] || return 1
-    [[ "${PLAYER_URL,,}" == *.m3u8* ]] || return 1
+    local source_url=${PLAYER_INPUT_URL:-${PLAYER_URL:-}}
+    [[ "$source_url" == http://* || "$source_url" == https://* ]] || return 1
+    [[ "${source_url,,}" == *.m3u8* ]] || return 1
     command -v ffprobe >/dev/null 2>&1 || return 1
     command -v timeout >/dev/null 2>&1 || return 1
     command -v jq >/dev/null 2>&1 || return 1
@@ -143,7 +145,7 @@ player_title_probe_start() {
     fi
 
     dir=$(mktemp -d "${TMPDIR:-/tmp}/keila-title-probe.XXXXXX") || return 1
-    url="$PLAYER_URL"
+    url="${PLAYER_INPUT_URL:-$PLAYER_URL}"
     PLAYER_STREAM_TITLE_PROBE_DIR="$dir"
     PLAYER_STREAM_TITLE_PROBE_LAST_AT=$now
 
@@ -514,9 +516,15 @@ player_start() {
 
     PLAYER_NAME="$name"
     PLAYER_URL="$url"
+    PLAYER_INPUT_URL=$url PLAYER_HLS_RATE=0
+    if declare -F quality_resolve_playback >/dev/null 2>&1; then
+        quality_resolve_playback "$url"
+        PLAYER_INPUT_URL=$QUALITY_PLAY_URL PLAYER_HLS_RATE=$QUALITY_PLAY_RATE
+    fi
     # Reconexión/programación conservan silencio; una selección manual lo quita.
     if ((!${APP_RECONNECT_AUTOMATIC_START:-0})) && [[ ${PLAYER_PRESERVE_MUTE:-0} != 1 ]]; then PLAYER_MUTED=0; fi
     PLAYER_PAUSED=0
+    [[ ${PLAYER_START_PAUSED:-0} != 1 ]] || PLAYER_PAUSED=1
     PLAYER_LAST_EXIT_STATUS=""
     player_reset_info
 
@@ -532,7 +540,9 @@ player_start() {
     )
     if ((${PLAYER_MUTED:-0})); then player_args+=(--mute=yes); else player_args+=(--mute=no); fi
     [[ -n "$equalizer_filter" ]] && player_args+=("--af=$equalizer_filter")
-    player_args+=("$PLAYER_URL")
+    ((PLAYER_PAUSED == 0)) || player_args+=(--pause=yes)
+    ((PLAYER_HLS_RATE == 0)) || player_args+=("--hls-bitrate=$PLAYER_HLS_RATE")
+    player_args+=("$PLAYER_INPUT_URL")
     if declare -F mpv >/dev/null 2>&1; then
         mpv "${player_args[@]}" >/dev/null 2>&1 &
     else
