@@ -22,6 +22,7 @@ mpv() {
             https://radio.invalid/original) args+=("$task_tmp/source.mp3") ;;
             https://radio.invalid/alternate.aac) args+=("$task_tmp/source.aac") ;;
             https://radio.invalid/master.m3u8) args+=("$task_tmp/master.m3u8") ;;
+            https://radio.invalid/sin-audio) args+=(--idle=yes) ;;
             *) args+=("$arg") ;;
         esac
     done
@@ -32,7 +33,12 @@ ui_draw_player_info_only() { return 0; }
 spectrum_tick() { return 1; }
 player_title_probe_should_run() { return 1; }
 wait_audio() {
-    for ((i=0; i<120; i++)); do player_refresh_info || true; ((PLAYER_STREAM_READY)) && return 0; sleep .03; done
+    for ((i=0; i<160; i++)); do
+        player_refresh_info || true
+        if ((QUALITY_CHECK_ACTIVE)); then quality_check_tick || true; fi
+        ((PLAYER_STREAM_READY && !QUALITY_CHECK_ACTIVE)) && return 0
+        sleep .03
+    done
     return 1
 }
 property() {
@@ -62,10 +68,16 @@ quality_apply_choice https://radio.invalid/original "$old_pid" https://radio.inv
 [[ $PLAYER_PID != "$old_pid" && $PLAYER_URL == https://radio.invalid/original && $PLAYER_INPUT_URL == https://radio.invalid/alternate.aac ]] || fail 'identidad o entrada'
 actual_volume=$(property volume) actual_mute=$(property mute) actual_pause=$(property pause)
 [[ $actual_volume == 37 && $actual_mute == true && $actual_pause == true ]] || fail "estado de audio: volumen=$actual_volume mute=$actual_mute pausa=$actual_pause (Keila=$PLAYER_VOLUME/$PLAYER_MUTED/$PLAYER_PAUSED)"
+[[ $QUALITY_CHECK_ACTIVE == 1 && -z ${QUALITY_TARGETS[https://radio.invalid/original]:-} ]] || fail 'confirma AAC antes de reanudar'
 if kill -0 -- "-$old_pid" 2>/dev/null; then fail 'mpv sustituido huérfano'; fi
 player_toggle_pause
+# El plazo de comprobación no debe depender del intervalo general de títulos.
+PLAYER_INFO_INTERVAL=60
 wait_audio || fail 'audio AAC'
+[[ $PLAYER_INFO_INTERVAL == 60 ]] || fail 'cambia intervalo personal de metadata'
+PLAYER_INFO_INTERVAL=1
 [[ ${PLAYER_CODEC,,} == *aac* ]] || fail codec
+[[ $QUALITY_CHECK_ACTIVE == 0 && ${QUALITY_TARGETS[https://radio.invalid/original]} == https://radio.invalid/alternate.aac ]] || fail 'no confirma AAC con audio real'
 recording_start Radio || fail grabar
 [[ $RECORDING_FILE == *.aac ]] || fail 'extensión de stream original'
 pid=$PLAYER_PID
@@ -93,4 +105,33 @@ wait_audio || fail 'audio tras carga'
 quality_apply_choice https://radio.invalid/original "$PLAYER_PID" https://radio.invalid/original 0 || fail original
 wait_audio || fail 'audio original'
 [[ $PLAYER_INPUT_URL == "$PLAYER_URL" && $(property options/hls-bitrate) == max && -z ${QUALITY_TARGETS[https://radio.invalid/original]:-} ]] || fail 'original no restaura mpv'
-printf 'ok   mpv real: alternativas AAC/HLS, bitrate, volumen/silencio/pausa, grabación y reinicio\n'
+# El reinicio manual de arriba quita mute por diseño; silenciar para verificar
+# ahora la recuperación automática, que sí debe conservarlo desde el arranque.
+((PLAYER_MUTED)) || app_toggle_mute
+before_quality=$(cksum "$KEILA_CONFIG_DIR/qualities")
+old_pid=$PLAYER_PID
+quality_apply_choice https://radio.invalid/original "$old_pid" https://radio.invalid/sin-audio 0 || fail 'iniciar prueba sin audio'
+trial_pid=$PLAYER_PID
+[[ -S $PLAYER_SOCKET && $QUALITY_CHECK_ACTIVE == 1 && $(cksum "$KEILA_CONFIG_DIR/qualities") == "$before_quality" ]] || fail 'IPC inactivo ya confirma'
+PLAYER_INFO_LAST_REFRESH=0; player_refresh_info || true
+[[ $PLAYER_STREAM_READY == 0 ]] || fail 'mpv idle simula audio'
+# Adelantar solo el reloj de la comprobación, sin esperar 12 s ni alterar mpv.
+quality_check_now() { QUALITY_CHECK_NOW_VALUE=$((EPOCHSECONDS+12)); }
+app_reconnect_tick || true
+[[ $QUALITY_CHECK_ACTIVE == 0 && $PLAYER_PID != "$trial_pid" && $PLAYER_INPUT_URL == https://radio.invalid/original ]] || fail 'no recupera tras timeout sin audio'
+[[ $(cksum "$KEILA_CONFIG_DIR/qualities") == "$before_quality" && $PLAYER_VOLUME == 37 && $PLAYER_MUTED == 1 ]] || fail "timeout modifica preferencia/audio (vol=$PLAYER_VOLUME mute=$PLAYER_MUTED; anterior=$before_quality; actual=$(cksum "$KEILA_CONFIG_DIR/qualities"))"
+if kill -0 -- "-$trial_pid" 2>/dev/null; then fail 'candidata sin audio huérfana'; fi
+quality_check_now() { QUALITY_CHECK_NOW_VALUE=$EPOCHSECONDS; }
+wait_audio || fail 'audio original después del timeout'
+
+player_toggle_pause
+quality_apply_choice https://radio.invalid/original "$PLAYER_PID" https://radio.invalid/sin-audio 0 || fail 'iniciar candidata pausada'
+trial_pid=$PLAYER_PID
+kill -TERM -- "-$trial_pid" || fail 'terminar nuestro mpv candidato'
+for ((i=0; i<100; i++)); do player_is_running || break; sleep .02; done
+app_poll_player || true
+app_reconnect_tick || true
+[[ $QUALITY_CHECK_ACTIVE == 0 && $PLAYER_INPUT_URL == https://radio.invalid/original && $(property pause) == true && $(property mute) == true && $(property volume) == 37 ]] || fail 'caída de candidata pausada no recupera estado'
+[[ $(cksum "$KEILA_CONFIG_DIR/qualities") == "$before_quality" ]] || fail 'caída escribe preferencia'
+player_toggle_pause; wait_audio || fail 'audio original tras caída'
+printf 'ok   mpv real: comprobación AAC/HLS, bitrate, pausa, grabación, reinicio, IPC sin audio y caída con recuperación\n'

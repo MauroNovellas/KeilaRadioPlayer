@@ -116,7 +116,7 @@ preferences_build_rows() {
         panel_add_row '' 'Símbolos Unicode' 'Desactivado usa símbolos ASCII. Los textos conservan sus acentos.' "${states[PREF_UNICODE]}"
         panel_add_row '' Espectrograma 'Muestra el análisis de audio cuando hay captura disponible y espacio en la pantalla.' "${states[PREF_SPECTRUM]}"
     else
-        panel_add_row '' 'Primeros pasos' "Busca una emisora con ${PREF_KEYS[b]^^}, escribe y pulsa Enter. Ajusta volumen con izquierda/derecha. ${PREF_KEYS[o]^^} abre Opciones; ${PREF_KEYS[q]^^} sale. Los detalles de cada fila se leen con Enter o ?."
+        panel_add_row '' 'Primeros pasos' "Busca una emisora con ${PREF_KEYS[b]^^}, escribe y pulsa Enter. Ajusta volumen con izquierda/derecha. ${PREF_KEYS[o]^^} abre Opciones; ${PREF_KEYS[q]^^} pide confirmar la salida. Los detalles de cada fila se leen con Enter o ?."
     fi
     for i in "${!PREF_ACTIONS[@]}"; do
         action=${PREF_ACTIONS[i]}
@@ -136,7 +136,7 @@ preferences_build_rows() {
                 v) description='Muestra u oculta el espectrograma. Requiere captura de audio disponible. Su preferencia se conserva al iniciar.' ;;
                 h) description='Guía de uso con los atajos vigentes. Flechas seleccionan; Enter o ? abre el detalle. Esc vuelve.' ;;
                 o) description='Centro de control: arriba/abajo seleccionan, Enter ejecuta, derecha abre categorías, izquierda/Esc vuelve. ? explica la opción completa. Recuerda la selección de cada categoría.' ;;
-                q) description='Cierra Keila, finaliza la grabación en curso y libera el reproductor.' ;;
+                q) description='Pide confirmar la salida, también con Ctrl+C dentro de la TUI. La opción inicial sigue escuchando; S sale y N/Esc cancela. Al confirmar, finaliza la grabación, libera el reproductor y deja la terminal limpia.' ;;
                 t) description='Abre directamente el selector de calidad junto a Ahora suena. Flechas eligen; Enter cambia y guarda, Esc cancela. Muestra formato, bitrate y consumo estimado; conserva volumen, silencio, pausa y favoritas. No se cambia durante grabaciones. En búsqueda se usa T mayúscula; t minúscula sigue siendo texto.' ;;
             esac
         fi

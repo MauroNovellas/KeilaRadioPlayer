@@ -78,8 +78,11 @@ source "$BASE_DIR/lib/status-screen.sh"
 source "$BASE_DIR/lib/backup.sh"
 # shellcheck source=lib/backup-manager.sh
 source "$BASE_DIR/lib/backup-manager.sh"
+# shellcheck source=lib/app-exit.sh
+source "$BASE_DIR/lib/app-exit.sh"
 
 cleanup() {
+    APP_EXIT_CLEANING=1
     quality_cleanup 2>/dev/null || true
     search_async_cleanup 2>/dev/null || true
     logo_cleanup 2>/dev/null || true
@@ -92,11 +95,13 @@ cleanup() {
     recording_stop >/dev/null 2>&1 || true
     input_shutdown >/dev/null 2>&1 || true
     player_stop >/dev/null 2>&1 || true
-    ui_leave >/dev/null 2>&1 || true
+    # Los escapes de limpieza deben llegar al terminal, no a /dev/null.
+    ui_leave 2>/dev/null || true
 }
 trap cleanup EXIT
-trap 'exit 130' INT
+trap app_interrupt_exit INT
 trap 'exit 143' TERM
+trap 'exit 129' HUP
 
 die() { printf 'Error: %s\n' "$*" >&2; exit 1; }
 app_message() { ui_set_message "$1" "${2:-5}"; }
@@ -336,6 +341,10 @@ app_toggle_recording() {
         fi
         return 1
     fi
+    if ((${QUALITY_CHECK_ACTIVE:-0})); then
+        app_message 'Espera a comprobar la calidad antes de grabar; reanuda si está en pausa.' 7
+        return 1
+    fi
     if ! player_is_running; then app_message "No hay ninguna emisora en reproducción para grabar." 6; return 1; fi
     if recording_start "$PLAYER_NAME"; then app_message "Preparando grabación: $(recording_filename)" 8; return 0; fi
     app_message "No se pudo iniciar la grabación." 7
@@ -512,7 +521,9 @@ app_poll_player() {
     record_plan_tick && return 0
     alarm_tick && return 0
     if [[ -n "${PLAYER_PID:-}" ]] && ! player_is_running; then
+        spectrum_stop
         local was_recording=$RECORDING_ACTIVE was_paused=${PLAYER_PAUSED:-0} exit_status='?'
+        if ((${QUALITY_CHECK_ACTIVE:-0})); then QUALITY_CHECK_PAUSED=$was_paused; fi
         if player_collect_exit_status; then exit_status="${PLAYER_LAST_EXIT_STATUS:-?}"; fi
         if ((was_recording)); then
             local saved_file
@@ -526,14 +537,17 @@ app_poll_player() {
             # Si la emisora ya reprodujo audio, la capa de reconexión mostrará
             # el motivo y el intento en este mismo ciclo. Evitamos enseñar
             # antes un error genérico que parpadea y sobrescribe ese estado.
-            if ! (( ${APP_RECONNECT_ELIGIBLE:-0} && was_paused == 0 )); then
+            if ! (( ${QUALITY_CHECK_ACTIVE:-0} || (${APP_RECONNECT_ELIGIBLE:-0} && was_paused == 0) )); then
                 app_message "La reproducción se detuvo inesperadamente (mpv: código $exit_status)." 9
             fi
         fi
         return 0
     fi
 
-    player_is_running || return "$logo_changed"
+    if ! player_is_running; then
+        if [[ -n ${SPECTRUM_PID:-} ]]; then spectrum_stop; return 0; fi
+        return "$logo_changed"
+    fi
     local changed=1 was_ready=$PLAYER_INFO_READY was_buffering=$PLAYER_BUFFERING
     if player_refresh_info; then
         changed=0
@@ -619,7 +633,7 @@ app_handle_key() {
             app_options_menu || status=$?
             ((status == 2)) && return 2
             ;;
-        q|Q) app_message "Hasta luego." 0; return 2 ;;
+        q|Q) return 2 ;;
         *) return 1 ;;
     esac
     return 0
@@ -628,6 +642,7 @@ app_handle_key() {
 app_loop() {
     input_init
     ui_enter
+    ui_startup_splash
     catalog_start || true
     pending_scan_start || true
     ui_draw
@@ -660,7 +675,10 @@ app_loop() {
             KEY)
                 app_handle_key "$INPUT_KEY"
                 local key_status=$?
-                if ((key_status == 2)); then ui_draw; return 0; elif ((key_status == 0)); then redraw=1; fi
+                if ((key_status == 2)); then
+                    app_confirm_exit && return 0
+                    redraw=1
+                elif ((key_status == 0)); then redraw=1; fi
                 ;;
         esac
         ((redraw)) && ui_draw

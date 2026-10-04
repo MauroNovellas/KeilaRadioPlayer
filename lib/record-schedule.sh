@@ -166,7 +166,7 @@ record_plan_tick() {
             fi
             RECORD_PLAN_STATE=connecting RECORD_PLAN_CONNECT_UNTIL=$((now+30))
             RECORD_PLAN_NOTE='Conectando; todavía no se está grabando.'
-            if [[ "$PLAYER_URL" != "$RECORD_PLAN_URL" ]] || ! player_is_running || ((PLAYER_PAUSED)); then
+            if [[ "$PLAYER_URL" != "$RECORD_PLAN_URL" ]] || ! player_is_running || ((PLAYER_PAUSED || ${QUALITY_CHECK_ACTIVE:-0})); then
                 if ! record_plan_launch; then
                     app_reconnect_reset
                     record_plan_finish failed 'No se pudo conectar con la emisora. No se inició la grabación.'; return 0

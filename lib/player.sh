@@ -55,7 +55,9 @@ PLAYER_INSTANCE_ID="${KEILA_INSTANCE_ID:-${UID:-$(id -u)}-$$}"
 PLAYER_SOCKET="$PLAYER_RUNTIME_DIR/mpv-${PLAYER_INSTANCE_ID}.sock"
 
 player_now() {
-    printf '%s\n' "${KEILA_PLAYER_NOW:-${EPOCHSECONDS:-$(date +%s)}}"
+    PLAYER_NOW_VALUE=${KEILA_PLAYER_NOW:-${EPOCHSECONDS:-$(date +%s)}}
+    [[ ${1:-} == state ]] || printf '%s\n' "$PLAYER_NOW_VALUE"
+    return 0
 }
 
 player_title_probe_cleanup() {
@@ -342,11 +344,16 @@ player_refresh_info() {
     player_is_running || return 1
 
     local now
-    now=$(player_now)
+    player_now state
+    now=$PLAYER_NOW_VALUE
     [[ "$PLAYER_INFO_INTERVAL" =~ ^[0-9]+$ ]] || PLAYER_INFO_INTERVAL=1
     ((PLAYER_INFO_INTERVAL < 1)) && PLAYER_INFO_INTERVAL=1
 
-    if ((PLAYER_INFO_LAST_REFRESH > 0 && now - PLAYER_INFO_LAST_REFRESH < PLAYER_INFO_INTERVAL)); then
+    local info_interval=$PLAYER_INFO_INTERVAL
+    # Solo durante una elección provisional: comprobar el reloj una vez por
+    # segundo incluso con metadata_interval=60, sin alterar esa preferencia.
+    ((${QUALITY_CHECK_ACTIVE:-0} == 0)) || info_interval=1
+    if ((PLAYER_INFO_LAST_REFRESH > 0 && now - PLAYER_INFO_LAST_REFRESH < info_interval)); then
         return 1
     fi
     PLAYER_INFO_LAST_REFRESH=$now
@@ -609,6 +616,7 @@ player_change_volume() {
 }
 
 player_stop() {
+    if declare -F quality_check_cancel >/dev/null 2>&1; then quality_check_cancel; fi
     if [[ -n "$PLAYER_PID" ]]; then
         local pid="$PLAYER_PID"
         local pgid="${PLAYER_PGID:-}"

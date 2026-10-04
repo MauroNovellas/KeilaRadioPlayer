@@ -112,6 +112,7 @@ make_release() {
         ui-search.sh
         app-search.sh
         app-reconnect.sh
+        app-exit.sh
         app-reconnect-failure.sh
         ui-desktop-search-pane.sh
         ui-terminal-guard.sh
@@ -161,6 +162,13 @@ safety_tree="$tmp/data-safety-release/KeilaRadioPlayer-2.0.1"
 rm -- "$safety_tree/lib/data-safety.sh"
 if update_validate_tree "$safety_tree" '2.0.1' >/dev/null 2>&1; then
     fail 'acepta actualización sin protección de datos'
+fi
+
+make_release "$tmp/exit-release" '2.0.1' '2.0.1'
+exit_tree="$tmp/exit-release/KeilaRadioPlayer-2.0.1"
+rm -- "$exit_tree/lib/app-exit.sh"
+if update_validate_tree "$exit_tree" '2.0.1' >/dev/null 2>&1; then
+    fail 'acepta actualización sin confirmación de salida'
 fi
 
 # Paquete incompleto: debe rechazarse durante la validación, antes de mover

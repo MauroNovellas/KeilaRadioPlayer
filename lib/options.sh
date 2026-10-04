@@ -127,11 +127,14 @@ options_action_reason() {
     case "$1" in
         quality)
             if ((OPTIONS_RUNNING == 0)); then OPTIONS_REASON='Primero reproduce una emisora.'
+            elif ((${QUALITY_CHECK_ACTIVE:-0})); then OPTIONS_REASON='Espera a comprobar la calidad; reanuda si está en pausa.'
             elif ((RECORDING_ACTIVE)) || record_plan_busy; then OPTIONS_REASON='Espera al cierre de la grabación o programación en curso.'
             elif [[ -n ${PENDING_PREVIEW_PID:-} ]]; then OPTIONS_REASON='Termina la escucha de la grabación.'; fi ;;
         filter_region) ((SEARCH_COUNTRY_FILTER_ENABLED)) || OPTIONS_REASON='Elige primero un país; la zona es opcional.' ;;
         pause|mute) ((OPTIONS_RUNNING)) || OPTIONS_REASON='Primero reproduce una emisora.' ;;
-        record_toggle) ((OPTIONS_RUNNING || RECORDING_ACTIVE)) || OPTIONS_REASON='Primero reproduce una emisora.' ;;
+        record_toggle)
+            if ((!RECORDING_ACTIVE && ${QUALITY_CHECK_ACTIVE:-0})); then OPTIONS_REASON='Espera a comprobar la calidad; reanuda si está en pausa.'
+            else ((OPTIONS_RUNNING || RECORDING_ACTIVE)) || OPTIONS_REASON='Primero reproduce una emisora.'; fi ;;
         play_selected|favorite_toggle|comment) [[ -n "$OPTIONS_STATION_URL" ]] || OPTIONS_REASON='Selecciona una emisora en Favoritas o Recientes.' ;;
         select_favorites) ((${#FAVORITE_NAMES[@]})) || OPTIONS_REASON='Todavía no tienes favoritas. Entra en Buscar emisoras.' ;;
         select_recents) ((${#RECENT_NAMES[@]})) || OPTIONS_REASON='Todavía no has escuchado ninguna emisora.' ;;
@@ -200,7 +203,7 @@ options_build_rows() {
             options_add_row + 'Subir volumen' "Aumenta el volumen en $KEILA_VOLUME_STEP puntos. El nivel se guarda para el próximo inicio." volume_up "$PLAYER_VOLUME%"
             options_add_row - 'Bajar volumen' "Reduce el volumen en $KEILA_VOLUME_STEP puntos. El nivel se guarda para el próximo inicio." volume_down "$PLAYER_VOLUME%"
             options_add_row G "$OPTIONS_RECORD_LABEL" 'Graba el stream actual. Al detenerlo se espera al cierre del archivo antes de validarlo.' record_toggle "$OPTIONS_RECORDING"
-            options_add_row C 'Calidad / versiones' "También disponible directamente con ${PREF_KEYS[t]^^} junto a lo que suena. Consulta emisiones alternativas y variantes HLS en segundo plano. Muestra formato, bitrate declarado y consumo aproximado. Flechas seleccionan; Enter aplica y Esc cancela. Guarda la elección por emisora; conserva volumen, silencio, pausa, favoritas y comentarios. Puede haber un corte breve. No cambia mientras se graba." quality
+            options_add_row C 'Calidad / versiones' "También disponible directamente con ${PREF_KEYS[t]^^} junto a lo que suena. Consulta emisiones alternativas y variantes HLS en segundo plano. Muestra formato, bitrate declarado y consumo aproximado. Flechas seleccionan; Enter comprueba el audio y Esc cancela el selector. Solo guarda tras confirmar progreso; si falla recupera la versión anterior. En pausa espera a que reanudes. Conserva volumen, silencio, pausa, favoritas y comentarios. Puede haber un corte breve. No cambia mientras se graba." quality
             ;;
         stations)
             OPTIONS_TITLE='EMISORAS'

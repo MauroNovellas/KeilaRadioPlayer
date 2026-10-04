@@ -101,6 +101,26 @@ sin señales también conservan un tamaño correcto. `render-cache.sh` compara
 las APIs de texto y de cálculo directo de geometría, volumen y autorepetición
 en siete tamaños, con ayuda y reproducción activadas/desactivadas.
 
+`runtime-idle.sh` comprueba el reposo de 200 ms, ticks rápidos cuando hacen falta,
+intervalos personalizados, teclado que interrumpe la espera, resize inmediato,
+relojes en el proceso principal y suspensión/reanudación de captura oculta.
+`player-events.sh` exige un solo parser por ráfaga válida, limita mensajes por
+tick, conserva ACKs/fragmentos y no pierde eventos junto a JSON malformado.
+
+`runtime-performance.py` mide CPU acumulada de Keila y sus auxiliares, RSS
+muestreada y ticks/s con mantenimiento real. Audio/metadata y terminal son
+dobles; no conecta radios, abre altavoces ni usa datos personales. Incluido en
+`performance`, con tres segundos por escenario y sin umbrales de CPU/RAM
+dependientes de la máquina. Para una comparación más larga:
+
+```bash
+python3 tests/runtime-performance.py --duration 10 --output /tmp/keila-runtime.json
+```
+
+No equivale a medir mpv, FFT, emulador, servidor de audio ni batería de Android.
+La RSS sumada puede duplicar páginas compartidas y omitir picos entre muestras.
+Véase el [análisis y límites de la medición](docs/performance-2026-10.md).
+
 `search-query-redraw.sh` compara el campo parcial con el dibujo completo en ocho
 tamaños, ASCII y Unicode; comprueba borrado, redimensionado y suspensión sin
 consultar `tput` ni recorrer resultados durante la edición. `search-transition.sh`
@@ -121,6 +141,14 @@ ráfagas, Enter, Supr y cursores, con drenajes de 2/512 y ambas configuraciones
 de VERASE. Verifica que no se desactivan las señales, que suspender/salir
 restauran el estado exacto y que reanudar reactiva la entrada de la TUI.
 Las pruebas por tuberías no cubren este comportamiento de la terminal.
+
+`app-exit.sh` comprueba que Enter inicial, Esc, N y Q repetida no cierran;
+S o seleccionar Salir y Enter sí confirman. Cubre foco del padre, atajo
+personalizado, solicitudes de submenús, ticks y avisos de grabación/reserva.
+`app-exit-tty.py` verifica el perro con KEILA durante tres segundos, teclas en
+cola, una pantalla de 8×4, resize, Ctrl+C en un editor sin perder texto,
+TERM/HUP sin bloqueo, retirada de la TUI, pantalla final vacía y restauración
+exacta de termios. Usa un PTY y rutas XDG privadas, sin audio, red ni datos reales.
 
 La escucha de grabaciones se verifica también con mpv real: genera un WAV
 sintético, lo reproduce mediante `--ao=null` y comprueba pausa, saltos, posición,
@@ -143,6 +171,11 @@ entrada local T sin perder la consulta, selección actual estable entre resultad
 asíncronos y resize, consumo y marca Actual en móvil. Verifica la ventana compacta
 con un lector independiente de cursores/anchos Unicode y que el fondo no se
 repinta por cada pulsación; Termux conserva el panel común a pantalla completa.
+`quality-check.sh` exige dos muestras crecientes de audio antes de guardar:
+IPC/códec/reloj congelado no bastan. Comprueba recuperación única por caída,
+timeout o disco; pausa, suspensión y buffering; cambios de volumen/silencio;
+cancelación por otra emisora/parada/restauración; bloqueo de grabación provisional
+y prioridad de reservas. La recuperación no sobrescribe elecciones concurrentes.
 `quality-files.sh` verifica los resultados en dos fases, fallos de catálogo/red,
 snapshots malformados, bloqueo de red privada, DNS fijado, cancelación del grupo
 y compatibilidad de copias anteriores. No necesita red exterior.
@@ -150,6 +183,9 @@ y compatibilidad de copias anteriores. No necesita red exterior.
 elección/reinicio/original, volumen/silencio/pausa por IPC, protección de grabación,
 formato y audio guardado, sin modificar identidad, favoritas, comentarios ni
 Recientes. Fuente sintética, `--ao=null`, sin altavoces ni radio remota.
+También comprueba confirmación diferida al reanudar, metadata_interval=60 sin
+alterar la preferencia, IPC abierto sin audio y caída de una candidata pausada:
+recuperación real conservando audio/preferencia y sin grupo mpv abandonado.
 
 `sleep-timer.sh` comprueba plazos, edición cancelable, prioridad sobre alarmas
 vencidas, conservación de alarmas futuras y el orden de cierre de audio/grabación.

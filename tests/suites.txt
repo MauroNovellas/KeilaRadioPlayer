@@ -11,16 +11,19 @@ fast|station-logo-ui.sh|
 fast|station-logo-redraw.sh|
 fast|station-logo-candidates.sh|
 fast|quality.sh|
+fast|quality-check.sh|
 fast|quality-metadata.sh|
 fast|quality-menu.sh|
 fast|quality-access.sh|
 fast|app-poll-reconnect.sh|
+fast|app-exit.sh|
 fast|catalog-status.sh|
 fast|diagnostics.sh|
 fast|equalizer.sh|
 fast|favorite-confirm.sh|
 fast|favorite-presets.sh|
 fast|input-repeat.sh|
+fast|runtime-idle.sh|
 fast|options-menu.sh|
 fast|options-layout.sh|
 fast|options-safety.sh|
@@ -93,11 +96,13 @@ integration|m3u-menu.sh|
 integration|recording-preview-audio.sh|
 integration|spectrum.sh|
 integration|input-tty.py|
+integration|app-exit-tty.py|
 integration|ui-terminal-guard.sh|
 integration|profile-live.sh|--self-test
 performance|search-performance.sh|
 performance|search-latency.py|
 performance|render-benchmark.sh|
+performance|runtime-performance.py|
 performance|logo-cache-performance.sh|
 # Fuera de la batería habitual: el empaquetado Debian sigue aplazado.
 packaging|package-debian.sh|

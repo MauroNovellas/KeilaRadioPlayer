@@ -18,6 +18,7 @@ INPUT_PENDING_KEY=""
 INPUT_CELL_WIDTH=0
 INPUT_CELL_HEIGHT=0
 INPUT_POLL_INTERVAL="${KEILA_INPUT_POLL_INTERVAL:-0.02}"
+INPUT_READ_TIMEOUT=$INPUT_POLL_INTERVAL
 INPUT_REPEAT_CAP="${KEILA_INPUT_REPEAT_CAP:-3}"
 INPUT_REPEAT_DRAIN_LIMIT="${KEILA_INPUT_REPEAT_DRAIN_LIMIT:-512}"
 INPUT_REPEAT_DRAIN_TIMEOUT="${KEILA_INPUT_REPEAT_DRAIN_TIMEOUT:-0.002}"
@@ -256,9 +257,33 @@ input_pop_pending_event() {
     return 0
 }
 
+# read despierta inmediatamente cuando llega una tecla, aunque su timeout sea
+# largo. Solo necesitamos ticks rápidos para animación visible o trabajo de
+# búsqueda pendiente; el mantenimiento sin animación se atiende a 5 Hz.
+input_poll_timeout() {
+    INPUT_READ_TIMEOUT=$INPUT_POLL_INTERVAL
+    # Conservar tanto la variable de entorno como un intervalo ajustado en vivo.
+    [[ -z ${KEILA_INPUT_POLL_INTERVAL:-} && $INPUT_POLL_INTERVAL == 0.02 ]] || return 0
+    if ((${SEARCH_ACTIVE:-0})) && { ((${SEARCH_FILTER_DIRTY:-0})) || [[ -n ${SEARCH_WORK_PID:-} ]]; }; then
+        return 0
+    fi
+    [[ -z ${QUALITY_JOB_PID:-}${LOGO_PID:-} ]] || return 0
+    if ((${SPECTRUM_ENABLED:-0} && !${PLAYER_PAUSED:-0} &&
+          !${PREFERENCES_ACTIVE:-0} && !${UI_SUSPENDED:-0} &&
+          (${PLAYER_STREAM_READY:-0} || ${PLAYER_INFO_READY:-0}))) &&
+       [[ -n ${PLAYER_PID:-} && ${SPECTRUM_AVAILABLE:-unknown} != no ]]; then
+        return 0
+    fi
+    INPUT_READ_TIMEOUT=0.2
+}
+
 input_read() {
     local key status
 
+    if ((${APP_EXIT_INTERRUPT_PENDING:-0})); then
+        app_process_interrupt_exit
+        return 0
+    fi
     INPUT_EVENT=""
     INPUT_KEY=""
     INPUT_REPEAT_COUNT=1
@@ -272,9 +297,14 @@ input_read() {
         return 0
     fi
 
-    IFS= read -rsn1 -t "$INPUT_POLL_INTERVAL" key
+    input_poll_timeout
+    IFS= read -rsn1 -t "$INPUT_READ_TIMEOUT" key
     status=$?
 
+    if ((${APP_EXIT_INTERRUPT_PENDING:-0})); then
+        app_process_interrupt_exit
+        return 0
+    fi
     if ((status != 0)); then
         if input_emit_resize_if_pending; then
             return 0

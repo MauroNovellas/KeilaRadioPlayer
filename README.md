@@ -18,7 +18,9 @@ cd KeilaRadioPlayer
 
 Si ya tienes el proyecto, basta con ejecutar `./keila-radio` desde su carpeta.
 
-**Primer uso:** pulsa `B`, escribe una búsqueda y elige una emisora con `↑`/`↓` y `Enter`. Ajusta el volumen con `←`/`→`. `O` abre Opciones; `Q` sale.
+**Primer uso:** pulsa `B`, escribe una búsqueda y elige una emisora con `↑`/`↓` y `Enter`. Ajusta el volumen con `←`/`→`. `O` abre Opciones; `Q` pide confirmar la salida.
+
+Al iniciar aparece un perro ASCII con `KEILA` debajo durante tres segundos. Al salir con `Q` o `Ctrl+C` dentro de la TUI, la opción inicial es seguir escuchando: `S` confirma; `N` o `Esc` cancela. El cierre deja la pantalla de la terminal limpia.
 
 > Al arrancar, Keila puede instalar dependencias automáticamente, sin una confirmación propia; puede solicitar permisos de administrador. En Termux también puede reparar y actualizar paquetes. Para prepararlo tú mismo, consulta el bloque siguiente.
 
@@ -100,7 +102,7 @@ Son los valores predeterminados de la **pantalla principal**. Puedes personaliza
 | `G` · `;` | Iniciar/detener grabación · biblioteca de grabaciones |
 | `Z` · `V` · `L` | Ecualizador · espectrograma · alarma |
 | `O` · `,` · `H` o `?` · `D` | Opciones · configuración · ayuda · diagnóstico |
-| `Q` | Salir y cerrar la sesión |
+| `Q` | Pedir confirmación para salir y cerrar la sesión |
 
 **Ojo con el contexto:** `d` sube volumen, pero `D` mayúscula abre Diagnóstico. En la búsqueda, las minúsculas y los números son texto. `X` actúa sobre la entrada seleccionada en Recientes o en la búsqueda; desde Favoritas, sobre la emisora que está sonando. En Opciones siempre actúa sobre la selección.
 
@@ -175,7 +177,8 @@ El atajo principal es personalizable; si un mapa antiguo ya utilizaba T para otr
 - En HLS guarda la lista principal y el bitrate, nunca una URL hija temporal. Solo ofrece variantes de audio explícitas y distinguibles; una sola variante no se presenta como varias calidades. La comprobación de red requiere `getent`; si falta, siguen disponibles las alternativas del catálogo.
 - El bitrate y el consumo son orientativos; más kb/s no garantizan mejor sonido entre codecs distintos. El consumo no incluye cabeceras ni reintentos. Datos ausentes se indican sin inventarlos.
 - Recuerda la elección por emisora al arrancar, reconectar, activar la alarma o grabar una programación. Conserva identidad, favorita, comentarios y Recientes. «Original» elimina solo esa elección; no modifica las URL de favoritas ni las exportaciones M3U.
-- No permite cambios durante una grabación, cierre o escucha de archivo. No cambia de calidad automáticamente si falla la conexión. Si mpv no consigue abrir su IPC al cambiar, intenta recuperar la elección anterior; una conexión iniciada aún puede fallar al recibir audio.
+- Al elegir muestra **Comprobando calidad…** y solo guarda cuando el audio empieza y su reloj avanza. Si falla el arranque, mpv se detiene o no llega audio con progreso dentro del plazo de arranque (12 s por defecto), intenta recuperar la versión anterior sin cambiar la preferencia guardada. En pausa espera a que reanudes; no activa el sonido por su cuenta.
+- Cambiar de emisora, parar o salir cancela la comprobación. No permite cambios durante una grabación, cierre o escucha de archivo, ni iniciar una grabación manual sobre una calidad pendiente. Una grabación programada que vence tiene prioridad y usa la calidad guardada. Fuera de esta prueba explícita no cambia de calidad automáticamente si falla la conexión; tras confirmarla se aplica la reconexión normal.
 
 **Sin alternativas detectadas** significa que esta consulta no encontró más versiones, no que no existan: puedes reintentar con `U`. Las elecciones viven en `~/.config/keila-radio/qualities`, con permisos privados, `.bak` y recuperación al arrancar; se incluyen en Copias de seguridad.
 
@@ -317,7 +320,7 @@ Para importar de otro dispositivo, coloca el `.tar.gz` en `~/.local/state/keila-
 
 Crear y verificar copias no interrumpe la radio. Restaurar exige detener grabaciones y escuchas de la biblioteca, valida el archivo y crea un respaldo previo; si falla, no comienza. Una vez publicando, `Esc` espera a que termine. Un cierre forzado puede dejar una restauración parcial, con el respaldo previo completo conservado.
 
-La restauración desde la TUI recarga favoritas, comentarios, recientes, preferencias, calidades y ecualizador, **sin cambiar emisora actual, volumen, silencio ni alarma**. La calidad restaurada se usa al abrir de nuevo una emisora; una copia antigua sin ese dato conserva las elecciones actuales. El volumen/última emisora guardados y la carpeta importada de grabaciones se usan al reiniciar.
+La restauración desde la TUI recarga favoritas, comentarios, recientes, preferencias, calidades y ecualizador, **sin cambiar emisora actual, volumen, silencio ni alarma**. Cancela cualquier comprobación de calidad pendiente para no sobrescribir después los datos restaurados. La calidad restaurada se usa al abrir de nuevo una emisora; una copia antigua sin ese dato conserva las elecciones actuales. El volumen/última emisora guardados y la carpeta importada de grabaciones se usan al reiniciar.
 
 También existe la vía de terminal:
 
@@ -406,7 +409,7 @@ Comprobaciones sin abrir la TUI:
 
 `--check` no instala paquetes ni abre una emisora: puede inicializar rutas/datos y prueba un mpv local en modo inactivo. La falta del analizador es un aviso, no impide escuchar radio.
 
-Cada reproducción usa una sesión y grupo de procesos propios. Al salir o cambiar de emisora, Keila solicita cierre limpio y aplica un plazo antes de terminar su grupo; no actúa sobre otros mpv. Al salir también finaliza grabación, cancela tareas, cierra el registro y restaura eco, cursor y pantalla.
+Cada reproducción usa una sesión y grupo de procesos propios. Al salir o cambiar de emisora, Keila solicita cierre limpio y aplica un plazo antes de terminar su grupo; no actúa sobre otros mpv. Tras confirmar la salida también finaliza grabación, cancela tareas, cierra el registro, restaura eco/cursor y limpia la pantalla visible sin borrar el scrollback durante el cierre. `SIGTERM`, `SIGHUP` y el fin de la entrada cierran sin preguntar, para no bloquear la terminación externa.
 
 **Límites:** `SIGKILL` impide ejecutar la limpieza de Bash y puede dejar audio reproduciéndose; no se promete recuperación automática de grupos abandonados. Las pruebas simuladas no sustituyen cortes de red, suspensión/reanudación de Android ni grabaciones reales en cada dispositivo. La alarma requiere Keila abierto y el equipo despierto.
 
@@ -457,6 +460,8 @@ python3 tests/resource-profile.py --self-test
 Son ejecuciones separadas. Con `profile-live.sh` escucha y prueba escribir/borrar en `B`; sal con `Q`: informa captura, IPC, teclado, búsqueda y dibujo, sin contenido de emisoras. La instrumentación añade trabajo y no se deben sumar etapas anidadas.
 
 Para comparar recursos, usa la misma emisora y tamaño durante al menos un minuto por sesión; sal con `Q`. No cambies emisora, grabes ni pulses `V`, y no combines ambos perfiladores. `off` desactiva la captura solo en esa sesión. Python 3 solo es necesario para este medidor, no para escuchar radio.
+
+Comparación offline del mantenimiento: `python3 tests/runtime-performance.py --duration 10`. [Resultados y límites](docs/performance-2026-10.md), sin atribuir estas medidas a la batería del teléfono.
 
 El informe incluye CPU acumulada/media (100 % = un núcleo), memoria residente y procesos, con desglose por Keila, mpv, FFmpeg, captura y auxiliares. No duplica CPU de hijos, pero procesos breves pueden quedar sin atribuir. Muestrea memoria cada 250 ms: puede contar páginas compartidas varias veces y omitir picos. Incluye arranque/cierre, no emulador de terminal ni servidor de audio compartido. Guarda `summary.json` temporal sin URLs, títulos ni configuración; `--self-test` no usa radio ni red.
 

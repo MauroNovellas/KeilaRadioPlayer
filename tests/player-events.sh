@@ -21,7 +21,7 @@ assert_eq() {
 PLAYER_EVENTS_DIRTY=0
 PLAYER_EVENTS_PROPERTY_CHANGES=0
 PLAYER_EVENTS_LAST_AT=0
-player_events_now() { printf '1234\n'; }
+player_events_now() { PLAYER_EVENTS_NOW_VALUE=1234; [[ ${1:-} == state ]] || printf '1234\n'; return 0; }
 
 player_events_handle_line '{"event":"property-change","id":201,"name":"paused-for-cache","data":true}' || \
     fail 'property-change conocido no fue aceptado'
@@ -78,6 +78,41 @@ PLAYER_EVENTS_DRAIN_LIMIT=64
     player_events_drain && fail 'descriptor vacío repite evento'
     exec {fragment_fd}>&-
 ) || fail 'lectura fragmentada de eventos'
+
+# Una ráfaga válida usa un solo jq, también si solo contiene ACKs. Mantener el
+# límite por tick y no perder eventos válidos junto a una línea malformada.
+(
+    batch_dir=$(mktemp -d)
+    trap 'rm -rf -- "$batch_dir"' EXIT
+    mkfifo "$batch_dir/events"
+    exec {batch_fd}<>"$batch_dir/events"
+    PLAYER_EVENTS_READ_FD=$batch_fd PLAYER_EVENTS_PID=$$ PLAYER_EVENTS_ACTIVE=1
+    PLAYER_EVENTS_PARTIAL='' PLAYER_EVENTS_PROPERTY_CHANGES=0 PLAYER_EVENTS_DIRTY=0
+    PLAYER_EVENTS_DRAIN_LIMIT=8
+    jq() { printf 'call\n' >> "$batch_dir/parsers"; command jq "$@"; }
+    for ((i=0; i<10; i++)); do
+        printf '%s\n' '{"event":"property-change","name":"metadata","data":{}}' >&"$batch_fd"
+    done
+    player_events_drain || fail 'ráfaga no procesada'
+    assert_eq 8 "$PLAYER_EVENTS_PROPERTY_CHANGES" 'límite del primer tick'
+    mapfile -t parser_calls < "$batch_dir/parsers"
+    assert_eq 1 "${#parser_calls[@]}" 'un parser para ocho eventos'
+    player_events_drain || fail 'cola restante no procesada'
+    assert_eq 10 "$PLAYER_EVENTS_PROPERTY_CHANGES" 'siguiente tick conserva la cola'
+    mapfile -t parser_calls < "$batch_dir/parsers"
+    assert_eq 2 "${#parser_calls[@]}" 'un parser para la cola'
+    printf '%s\n' '{"error":"success","request_id":77}' '{"event":"idle"}' >&"$batch_fd"
+    PLAYER_EVENTS_DIRTY=0
+    player_events_drain && fail 'ACKs marcan cambios'
+    mapfile -t parser_calls < "$batch_dir/parsers"
+    assert_eq 3 "${#parser_calls[@]}" 'ACKs no provocan fallback por línea'
+    assert_eq 0 "$PLAYER_EVENTS_DIRTY" 'ACKs no invalidan snapshot'
+    printf '%s\n' '{"event":"property-change","name":"core-idle"}' 'no-json' \
+        '{"event":"property-change","name":"media-title"}' >&"$batch_fd"
+    player_events_drain || fail 'JSON roto descartó eventos válidos'
+    assert_eq 12 "$PLAYER_EVENTS_PROPERTY_CHANGES" 'eventos válidos junto a JSON roto'
+    exec {batch_fd}>&-
+) || fail 'regresión de eventos agrupados'
 
 # Un evento invalida el throttle antes de delegar al snapshot existente.
 TEST_REFRESH_LAST=''

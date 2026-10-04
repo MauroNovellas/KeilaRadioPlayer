@@ -74,7 +74,7 @@ quality_menu_rows() {
             ((UI_COLS >= 48)) || title="Actual · $title"
         fi
         [[ -z $QUALITY_RESULT_NOTICE ]] || detail+=" $QUALITY_RESULT_NOTICE"
-        panel_add_row '' "$title" "$detail Enter aplica la elección. Puede haber un breve corte; se conservan volumen, silencio y pausa." "$badge"
+        panel_add_row '' "$title" "$detail Enter comprueba el audio antes de guardar; si falla recupera la versión anterior. En pausa espera a que reanudes. Puede haber un breve corte; se conservan volumen, silencio y pausa." "$badge"
     done
 }
 
@@ -141,6 +141,7 @@ app_quality_menu() {
     local PANEL_SELECTED=0 PANEL_SCROLL=0 PANEL_VISIBLE=1
     local -a PANEL_ROWS=() QUALITY_MENU_CHOICES=()
     if ! player_is_running || ! data_quality_url_valid "$origin"; then app_message 'Primero reproduce una emisora HTTP/HTTPS.' 5; return 1; fi
+    if ((QUALITY_CHECK_ACTIVE)); then app_message 'Ya hay una calidad pendiente de comprobar; reanuda si está en pausa.' 7; return 1; fi
     if ((RECORDING_ACTIVE)) || record_plan_busy || [[ -n ${PENDING_PREVIEW_PID:-} ]]; then app_message 'No se cambia calidad durante una grabación o escucha de archivo.' 6; return 1; fi
     quality_load || { app_message 'No se pudieron leer las preferencias de calidad.' 6; return 1; }
     ui_refresh_size

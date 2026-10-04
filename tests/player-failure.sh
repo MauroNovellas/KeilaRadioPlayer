@@ -128,7 +128,7 @@ TEST_PLAYER_RUNNING=1
 TEST_MESSAGE_EXHAUSTED=0
 TEST_TICK_MODE='none'
 
-app_reconnect_now() { printf '100\n'; }
+app_reconnect_now() { APP_RECONNECT_NOW_VALUE=100; [[ ${1:-} == state ]] || printf '100\n'; return 0; }
 app_message() { return 0; }
 player_is_running() { ((TEST_PLAYER_RUNNING)); }
 

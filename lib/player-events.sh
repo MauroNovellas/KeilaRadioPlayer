@@ -18,7 +18,9 @@ PLAYER_EVENTS_DRAIN_LIMIT="${KEILA_PLAYER_EVENT_DRAIN_LIMIT:-64}"
 PLAYER_EVENTS_PARTIAL=''
 
 player_events_now() {
-    printf '%s\n' "${EPOCHSECONDS:-$(date +%s)}"
+    PLAYER_EVENTS_NOW_VALUE=${EPOCHSECONDS:-$(date +%s)}
+    [[ ${1:-} == state ]] || printf '%s\n' "$PLAYER_EVENTS_NOW_VALUE"
+    return 0
 }
 
 player_events_configure() {
@@ -125,28 +127,28 @@ player_events_start() {
 }
 
 player_events_handle_line() {
-    local line="$1"
-    local event_name event name
+    player_events_handle_batch "$1"
+}
 
-    [[ -n "$line" ]] || return 1
-
-    # event y name salen del mismo documento; evitar dos procesos jq por cada
-    # notificación reduce el trabajo cuando mpv cambia varios metadatos seguidos.
-    event_name=$(jq -r 'if type == "object" then [(.event // ""),(.name // "")] | @tsv else empty end' <<< "$line" 2>/dev/null) || return 1
-    [[ -n "$event_name" ]] || return 1
-    IFS=$'\t' read -r event name <<< "$event_name"
-    [[ "$event" == 'property-change' ]] || return 1
-
-    case "$name" in
-        paused-for-cache|core-idle|metadata|media-title|current-tracks/audio/codec|audio-bitrate|audio-params)
-            PLAYER_EVENTS_DIRTY=1
-            PLAYER_EVENTS_PROPERTY_CHANGES=$((PLAYER_EVENTS_PROPERTY_CHANGES + 1))
-            PLAYER_EVENTS_LAST_AT=$(player_events_now)
-            return 0
-            ;;
-    esac
-
-    return 1
+# Un solo parser por ráfaga (incluye ACKs y eventos que no nos interesan), no
+# un proceso jq por cada propiedad. No evaluar textos del stream como código.
+player_events_handle_batch() {
+    local batch=$1 changes
+    [[ -n $batch ]] || return 1
+    changes=$(jq -sr '
+        [.[] | select(type == "object")
+         | select(.event? == "property-change") | .name?
+         | select(. == "paused-for-cache" or . == "core-idle" or
+                  . == "metadata" or . == "media-title" or
+                  . == "current-tracks/audio/codec" or . == "audio-bitrate" or
+                  . == "audio-params")] | length
+    ' <<< "$batch" 2>/dev/null) || return 2
+    [[ $changes =~ ^[0-9]+$ ]] && ((changes > 0)) || return 1
+    PLAYER_EVENTS_DIRTY=1
+    PLAYER_EVENTS_PROPERTY_CHANGES=$((PLAYER_EVENTS_PROPERTY_CHANGES + changes))
+    player_events_now state
+    PLAYER_EVENTS_LAST_AT=$PLAYER_EVENTS_NOW_VALUE
+    return 0
 }
 
 # Vacía solo lo que ya está disponible, con un límite por tick. Un cliente de
@@ -154,7 +156,7 @@ player_events_handle_line() {
 player_events_drain() {
     local fd="${PLAYER_EVENTS_READ_FD:-}"
     local pid="${PLAYER_EVENTS_PID:-}"
-    local line ready='' count=0 changed=1
+    local line ready='' count=0 changed=1 batch='' parse_status=0
 
     ((PLAYER_EVENTS_ACTIVE)) || return 1
     [[ "$fd" =~ ^[0-9]+$ && "$pid" =~ ^[0-9]+$ ]] || return 1
@@ -179,11 +181,20 @@ player_events_drain() {
         line="$PLAYER_EVENTS_PARTIAL$line"
         PLAYER_EVENTS_PARTIAL=''
         count=$((count + 1))
-        if player_events_handle_line "$line"; then
-            changed=0
-        fi
+        batch+="$line"$'\n'
     done
-
+    if [[ -n $batch ]]; then
+        player_events_handle_batch "$batch" || parse_status=$?
+        if ((parse_status == 0)); then
+            changed=0
+        elif ((parse_status == 2)); then
+            # Un JSON roto no debe descartar las líneas válidas de la ráfaga.
+            # Solo este caso excepcional recurre al parser individual.
+            while IFS= read -r line; do
+                if player_events_handle_line "$line"; then changed=0; fi
+            done <<< "$batch"
+        fi
+    fi
     return "$changed"
 }
 

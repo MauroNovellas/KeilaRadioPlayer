@@ -2,6 +2,50 @@
 
 Todos los cambios relevantes de Keila Radio Player se documentarán en este archivo.
 
+## [Sin publicar]
+
+- Perro ASCII de bienvenida con KEILA debajo durante tres segundos, solo al
+  iniciar la TUI, adaptado al espacio disponible y sin consumir teclas en cola.
+- Confirmación central de salida para Q/atajo personalizado, pantallas hijas
+  y Ctrl+C dentro de la TUI. Seguir escuchando es la opción inicial; S confirma,
+  N/Esc cancela y repetir Ctrl+C cancela. Audio, grabación y temporizadores
+  siguen atendidos mientras se decide; aviso de grabación/reserva/alarma.
+- Corregida la limpieza de salida enviada a /dev/null: se retira la TUI,
+  restaura el estado exacto del teclado/cursor y limpia la pantalla visible.
+  El cierre no borra el scrollback; TERM/HUP/EOF no esperan confirmación.
+- Regresiones de confirmación, foco, ticks y atajos; PTY real comprueba la
+  bienvenida, teclas en cola, Ctrl+C en editor, resize y cierre limpio.
+- Cambio de calidad provisional: solo se guarda al confirmar audio con reloj
+  creciente, no al abrir IPC ni al leer el códec. Recuperación única de la versión
+  anterior ante arranque fallido, caída o timeout sin progreso; no escribe la
+  preferencia provisional ni sobrescribe cambios de otras sesiones al recuperar.
+  Conserva volumen, silencio y pausa, incluidos ajustes durante la comprobación.
+- La pausa espera a la reanudación manual; pausa y suspensión conceden un plazo
+  nuevo con muestras nuevas. Se comprueba a 1 Hz solo durante la prueba, sin
+  modificar metadata_interval. El teclado y los menús siguen usando sus ticks.
+  Cambiar de emisora, parar, salir o restaurar datos cancela la prueba. Bloqueo de
+  grabación manual pendiente; una reserva vencida usa la elección guardada.
+- Regresiones de reloj congelado, buffering, pausa/suspensión, disco, operaciones
+  de datos y cancelación; mpv real con IPC vivo sin audio y caída pausada comprueba
+  recuperación, silencio, volumen, persistencia y cierre del grupo sustituido.
+- Mantenimiento adaptativo a 5 Hz cuando no hay animación visible; conserva
+  ticks de 20 ms para espectrograma y trabajos de búsqueda, calidad o logo.
+  `read` responde a las teclas sin esperar al timeout. Se respetan los intervalos
+  personalizados, alarmas, reservas y reconexiones.
+- Relojes del player/reconexión/eventos consultados directamente en Bash,
+  sin un subproceso por tick. Eventos de mpv agrupados: un parser por ráfaga,
+  con límite, preservación de fragmentos y recuperación ante JSON malformado.
+- Captura del espectrograma detenida mientras Opciones/pantallas hijas lo tapan
+  o la TUI está suspendida; vuelve automáticamente sin cambiar la preferencia.
+  Limpieza también cuando ya no hay mpv. Hilos de FFmpeg acotados a uno para
+  la pequeña salida mono, manteniendo bandas, frecuencia y compatibilidad.
+- Regresiones de reposo, teclado, resize, relojes, captura oculta, eventos
+  agrupados y audio continuo; benchmark de CPU/RSS sin radio ni altavoces.
+  Método, resultados locales y límites en [análisis de recursos](docs/performance-2026-10.md).
+- El medidor de escucha real aplica `--spectrum on/off` después de cargar
+  preferencias, sin guardarlo: la configuración persistente ya no anula el
+  modo solicitado. Regresión de ambos modos y de errores de inicialización.
+
 ## [2.2.0] - 2026-10-04
 
 Versión estable que consolida las mejoras de reproducción, búsqueda, opciones,

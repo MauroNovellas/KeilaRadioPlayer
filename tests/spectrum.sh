@@ -46,6 +46,13 @@ if command -v ffmpeg >/dev/null 2>&1; then
     (
         trap 'spectrum_stop' EXIT
         SPECTRUM_SOURCE='test'
+        ffmpeg() {
+            if [[ " $* " != *' -h '* ]]; then
+                [[ " $* " == *' -filter_threads 1 '* && " $* " == *' -filter_complex_threads 1 '* &&
+                   " $* " == *' -threads 1 '* ]] || fail 'analizador sin límite de hilos'
+            fi
+            command ffmpeg "$@"
+        }
         # shellcheck disable=SC2317
         parec() {
             [[ " $* " == *' --latency-msec=40 '* && " $* " == *' --process-time-msec=20 '* ]] || fail 'captura sin límite de latencia'

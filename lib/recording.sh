@@ -380,6 +380,10 @@ recording_start() {
 
     player_is_running || return 1
     ((RECORDING_ACTIVE)) && return 0
+    if ((${QUALITY_CHECK_ACTIVE:-0})); then
+        RECORDING_LAST_ERROR='Espera a comprobar la calidad antes de grabar.'
+        return 1
+    fi
 
     local stream_format extension file payload
     stream_format=$(recording_stream_format 2>/dev/null || true)

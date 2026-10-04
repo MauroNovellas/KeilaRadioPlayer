@@ -139,7 +139,13 @@ def launcher_command(launcher, spectrum):
     return [
         'bash', '-c',
         'launcher=$1; spectrum=$2; set -- --version; '
-        'source "$launcher" >/dev/null; SPECTRUM_ENABLED=$spectrum; main',
+        'source "$launcher" >/dev/null; SPECTRUM_ENABLED=$spectrum; '
+        'if declare -F app_init_data >/dev/null; then '
+        'definition=$(declare -f app_init_data); '
+        'definition=${definition/"app_init_data ()"/"resource_profile_init_data ()"}; '
+        'eval "$definition"; '
+        'app_init_data() { resource_profile_init_data "$@" || return $?; '
+        'SPECTRUM_ENABLED=$spectrum; }; fi; main',
         'keila-resource-profile', str(launcher), '1' if spectrum == 'on' else '0',
     ]
 
@@ -186,6 +192,28 @@ def self_test():
         for mode, expected in [('on', '1'), ('off', '0')]:
             output = subprocess.check_output(launcher_command(launcher, mode), text=True)
             assert output == expected + '\ncleanup\n', output
+        # La configuración persistente se carga DESPUÉS del source. No debe
+        # anular --spectrum off/on ni modificar la preferencia guardada.
+        for preference in (0, 1):
+            launcher.write_text(
+                'set -u\n'
+                'trap \'printf "cleanup\\n"\' EXIT\n'
+                f'PREF_SPECTRUM={preference}\n'
+                'app_init_data() { SPECTRUM_ENABLED=$PREF_SPECTRUM; return 0; }\n'
+                'main() { [[ "${1:-}" != --version ]] || return 0; '
+                'app_init_data || return $?; '
+                'printf "%s/%s\\n" "$SPECTRUM_ENABLED" "$PREF_SPECTRUM"; }\n'
+                'main "$@"\n'
+            )
+            for mode, expected in [('on', '1'), ('off', '0')]:
+                output = subprocess.check_output(launcher_command(launcher, mode), text=True)
+                assert output == f'{expected}/{preference}\ncleanup\n', output
+        launcher.write_text(
+            'app_init_data() { return 7; }\n'
+            'main() { [[ "${1:-}" != --version ]] || return 0; app_init_data; }\n'
+            'main "$@"\n'
+        )
+        assert subprocess.run(launcher_command(launcher, 'off'), check=False).returncode == 7
     print('ok   recursos: CPU descendiente, desglose sin duplicados, memoria, modos y cierre')
 
 

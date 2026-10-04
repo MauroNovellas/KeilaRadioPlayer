@@ -237,14 +237,34 @@ ui_resume() {
     UI_SUSPENDED=0
 }
 
+ui_startup_splash() {
+    ((UI_ACTIVE)) && [[ -t 0 && -t 1 ]] || return 0
+    ui_refresh_size
+    local -a dog=('^..^      /' '/_/\_____/' "   /\\   /\\" "  /  \\ /  \\")
+    local width=11 height=${#dog[@]} title='KEILA' title_width=5 row col index available=$((UI_COLS-1))
+    ((available > 0 && UI_LINES > 0)) || return 0
+    ((width <= available)) || width=$available
+    # Reserva una fila para el nombre, incluso en terminales muy pequeñas.
+    ((height < UI_LINES)) || height=$((UI_LINES-1))
+    row=$(((UI_LINES-height-1)/2+1)) col=$(((UI_COLS-width)/2+1))
+    for ((index=0; index<height; index++)); do
+        printf '\033[%s;%sH%s' "$((row+index))" "$col" "${dog[index]:0:width}"
+    done
+    ((title_width <= available)) || title_width=$available
+    col=$(((UI_COLS-title_width)/2+1))
+    printf '\033[%s;%sH%s' "$((row+height))" "$col" "${title:0:title_width}"
+    # Solo el arranque interactivo espera. No lee ni pierde teclas en cola.
+    sleep 3
+}
+
 ui_leave() {
     ((UI_ACTIVE)) || return 0
     tput cnorm 2>/dev/null || true
     tput sgr0 2>/dev/null || true
-    tput clear 2>/dev/null || true
+    # Borra la pantalla visible, no el historial de scrollback (CSI 3 J).
+    printf '\033[0m\033[2J\033[H'
     tput rmcup 2>/dev/null || true
-    tput clear 2>/dev/null || true
-    tput cup 0 0 2>/dev/null || true
+    printf '\033[0m\033[2J\033[H'
     UI_ACTIVE=0
     UI_SUSPENDED=0
 }
@@ -1021,6 +1041,10 @@ ui_quality_info() {
     UI_QUALITY_KEY=${key^^}
     ui_audio_info state
     UI_QUALITY_INFO="[$UI_QUALITY_KEY] Calidad: ${UI_AUDIO_INFO:-Conectando…}"
+    if ((${QUALITY_CHECK_ACTIVE:-0})); then
+        if ((${PLAYER_PAUSED:-0})); then UI_QUALITY_INFO="[$UI_QUALITY_KEY] Calidad: pendiente · reanuda para comprobar"
+        else UI_QUALITY_INFO="[$UI_QUALITY_KEY] Calidad: comprobando audio…"; fi
+    fi
     [[ ${1:-} == state ]] || printf '%s' "$UI_QUALITY_INFO"
 }
 

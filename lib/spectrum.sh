@@ -119,19 +119,23 @@ spectrum_start() {
         local -a SPECTRUM_SYNC_ARGS=()
         local SPECTRUM_FILTER=''
         spectrum_configure_sync
+        # Mono y 17×16 píxeles no justifican pools de hilos automáticos. Acotar
+        # filtros, decoder y encoder sin cambiar FFT, bandas ni frecuencia.
         if command -v parec >/dev/null 2>&1; then
             # Pedir entregas pequeñas: el buffer predeterminado puede acumular
             # centenares de ms y entregar muchos cuadros en una sola ráfaga.
             parec --device="$SPECTRUM_SOURCE" --format=s16le --rate=44100 --channels=1 \
                 --latency-msec=40 --process-time-msec=20 2>/dev/null |
-                ffmpeg -hide_banner -loglevel error -fflags nobuffer -flags low_delay -avioflags direct -probesize 32 -analyzeduration 0 -f s16le -ar 44100 -ac 1 -i - \
+                ffmpeg -hide_banner -loglevel error -threads 1 -filter_threads 1 -filter_complex_threads 1 \
+                    -fflags nobuffer -flags low_delay -avioflags direct -probesize 32 -analyzeduration 0 -f s16le -ar 44100 -ac 1 -i - \
                     -lavfi "$SPECTRUM_FILTER" \
-                    "${SPECTRUM_SYNC_ARGS[@]}" -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
+                    "${SPECTRUM_SYNC_ARGS[@]}" -f rawvideo -pix_fmt gray -threads 1 -flush_packets 1 - 2>/dev/null
         else
-            ffmpeg -hide_banner -loglevel error -fflags nobuffer -flags low_delay -avioflags direct \
+            ffmpeg -hide_banner -loglevel error -threads 1 -filter_threads 1 -filter_complex_threads 1 \
+                -fflags nobuffer -flags low_delay -avioflags direct \
                 -f pulse -sample_rate 44100 -channels 1 -fragment_size 1764 -i "$SPECTRUM_SOURCE" \
                 -lavfi "$SPECTRUM_FILTER" \
-                    "${SPECTRUM_SYNC_ARGS[@]}" -f rawvideo -pix_fmt gray -flush_packets 1 - 2>/dev/null
+                    "${SPECTRUM_SYNC_ARGS[@]}" -f rawvideo -pix_fmt gray -threads 1 -flush_packets 1 - 2>/dev/null
         fi |
             stdbuf -oL od -An -tu1 -w17 -v |
             spectrum_publish_frames
@@ -199,8 +203,16 @@ spectrum_stop() {
     SPECTRUM_PEAK_AGES=(0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0)
 }
 
+spectrum_capture_wanted() {
+    ((SPECTRUM_ENABLED && !PLAYER_PAUSED && PLAYER_STREAM_READY &&
+      !${PREFERENCES_ACTIVE:-0} && !${UI_SUSPENDED:-0})) || return 1
+    player_is_running
+}
+
 spectrum_tick() {
-    if ((!SPECTRUM_ENABLED)) || ! player_is_running || ((PLAYER_PAUSED || !PLAYER_STREAM_READY)); then
+    # No capturar/FFT mientras un menú tapa el analizador; conservar la
+    # preferencia y reanudar automáticamente al volver al reproductor.
+    if ! spectrum_capture_wanted; then
         [[ -z "$SPECTRUM_PID" ]] || { spectrum_stop; return 0; }
         return 1
     fi
@@ -296,7 +308,7 @@ spectrum_toggle() {
     SPECTRUM_SOURCE=''
     SPECTRUM_ERROR=''
     SPECTRUM_NOTICE_PENDING=0
-    if player_is_running && ((PLAYER_STREAM_READY && !PLAYER_PAUSED)); then
+    if spectrum_capture_wanted; then
         spectrum_start || return 2
     fi
     return 0

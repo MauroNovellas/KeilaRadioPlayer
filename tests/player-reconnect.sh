@@ -78,7 +78,7 @@ app_message() {
 # shellcheck source=lib/app-reconnect.sh
 source "$ROOT_DIR/lib/app-reconnect.sh"
 
-app_reconnect_now() { printf '%s\n' "$TEST_NOW"; }
+app_reconnect_now() { APP_RECONNECT_NOW_VALUE=$TEST_NOW; [[ ${1:-} == state ]] || printf '%s\n' "$TEST_NOW"; return 0; }
 APP_RECONNECT_STALL_TIMEOUT=5
 APP_RECONNECT_START_TIMEOUT=5
 APP_RECONNECT_MAX_ATTEMPTS=3

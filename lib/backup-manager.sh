@@ -54,6 +54,9 @@ backup_job_start() {
 }
 
 backup_reload_runtime() {
+    # Una restauración explícita tiene prioridad sobre una elección provisional:
+    # no sobrescribir después sus calidades, ni interrumpir la radio que suena.
+    if ((${QUALITY_CHECK_ACTIVE:-0})); then quality_check_cancel; fi
     local selected_url='' index=$UI_SELECTED_INDEX status=0
     if ((index < ${#FAVORITE_URLS[@]})); then selected_url=${FAVORITE_URLS[index]:-}
     else selected_url=${RECENT_URLS[index-${#FAVORITE_URLS[@]}]:-}; fi

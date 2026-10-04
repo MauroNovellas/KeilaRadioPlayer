@@ -26,7 +26,9 @@ APP_RECONNECT_LAST_TICK_AT=0
 APP_RECONNECT_INITIAL_START=0
 
 app_reconnect_now() {
-    printf '%s\n' "${EPOCHSECONDS:-$(date +%s)}"
+    APP_RECONNECT_NOW_VALUE=${EPOCHSECONDS:-$(date +%s)}
+    [[ ${1:-} == state ]] || printf '%s\n' "$APP_RECONNECT_NOW_VALUE"
+    return 0
 }
 
 app_reconnect_configure() {
@@ -176,8 +178,12 @@ app_reconnect_start_attempt() {
 # readiness/progreso o el launcher ya ha recogido una caída del proceso.
 # Devuelve 0 solo cuando cambia algo visible y conviene redibujar.
 app_reconnect_tick() {
+    # La elección provisional tiene su propio plazo y una sola recuperación a
+    # la versión anterior. No reintentar ni guardar la candidata antes del audio.
+    if ((${QUALITY_CHECK_ACTIVE:-0})); then quality_check_tick; return $?; fi
     local now name attempt delay resumed=0
-    now=$(app_reconnect_now)
+    app_reconnect_now state
+    now=$APP_RECONNECT_NOW_VALUE
 
     # Termux puede suspender la app sin entregar una señal de reanudación.
     # Un hueco grande entre ticks es una señal conservadora: validamos IPC,
