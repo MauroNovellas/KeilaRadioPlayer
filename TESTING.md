@@ -29,6 +29,9 @@ Las pruebas de grabación programada y calidad con mpv real usan un nombre de
 socket corto dentro de su temporal privado. La ruta XDG habitual, al anidarla
 en el TMPDIR del runner, superaba el límite del socket Unix en CI; no se evita
 el IPC ni se omiten esas comprobaciones.
+La verificación de volumen/silencio reúne todos los mensajes y exige una
+respuesta correcta para cada request_id. Así no depende de que un evento o
+una segunda respuesta disparen el [fallo de select/-e en jq 1.6](https://github.com/jqlang/jq/pull/1697).
 
 La batería cierra la entrada estándar de cada prueba: ninguna debe leer el
 teclado de la terminal principal. `timeout` usa un grupo de procesos separado;

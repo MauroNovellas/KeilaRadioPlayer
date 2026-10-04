@@ -15,9 +15,25 @@ PLAYER_SOCKET="$task_tmp/mpv.sock"
 trap 'player_stop; rm -rf -- "$task_tmp"' EXIT
 fail() {
     printf 'FAIL %s: estado=%s fase=%s aviso=%s\n' "$*" "$RECORD_PLAN_STATE" "$RECORDING_PHASE" "$RECORD_PLAN_NOTE" >&2
+    [[ -z ${response:-} ]] || printf 'Respuesta IPC: %s\n' "$response" >&2
     [[ ! -f "$task_tmp/mpv.log" ]] || cat "$task_tmp/mpv.log" >&2
     exit 1
 }
+# jq 1.6 puede devolver 4 con select/-e si el último mensaje no coincide,
+# aunque haya emitido la respuesta correcta. Slurp + any produce un booleano
+# único; sigue exigiendo request_id, éxito y el valor real recibido de mpv.
+ipc_property_matches() {
+    jq -se --argjson request_id "$1" --argjson expected "$2" '
+        any(.[]; .request_id? == $request_id and .error? == "success" and .data? == $expected)
+    ' <<< "$3" >/dev/null
+}
+ipc_fixture='{"request_id":77,"error":"success","data":true}
+{"request_id":78,"error":"success","data":37}
+{"event":"idle"}'
+ipc_property_matches 77 true "$ipc_fixture" || fail 'matcher pierde respuesta anterior a evento'
+ipc_property_matches 78 37 "$ipc_fixture" || fail 'matcher pierde volumen anterior a evento'
+ipc_property_matches 77 false "$ipc_fixture" && fail 'matcher acepta valor incorrecto'
+ipc_property_matches 79 true "$ipc_fixture" && fail 'matcher acepta respuesta ausente'
 real_mpv=$(command -v mpv) || fail 'falta mpv'
 mpv() {
     # Mantener nombre/URL en Keila, pero sustituir únicamente la fuente en mpv.
@@ -66,8 +82,8 @@ for stop_after in 0 1; do
     [[ -f "$file.pending" ]] || fail 'falta marcador activo'
     [[ "$PLAYER_VOLUME" == "$volume" && "$PLAYER_MUTED" == 1 ]] || fail 'cambia volumen/silencio'
     response=$(printf '%s\n' '{"command":["get_property","mute"],"request_id":77}' '{"command":["get_property","volume"],"request_id":78}' | socat -t 1 - UNIX-CONNECT:"$PLAYER_SOCKET") || fail IPC
-    jq -e 'select(.request_id == 77 and .error == "success" and .data == true)' <<< "$response" >/dev/null || fail 'mpv no conserva silencio'
-    jq -e --argjson volume "$volume" 'select(.request_id == 78 and .error == "success" and .data == $volume)' <<< "$response" >/dev/null || fail 'mpv no conserva volumen'
+    ipc_property_matches 77 true "$response" || fail 'mpv no conserva silencio'
+    ipc_property_matches 78 "$volume" "$response" || fail 'mpv no conserva volumen'
     printf 'fase: adelantar solo el fin previsto y verificar el cierre real\n'
     # El reloj del motor se prueba exhaustivamente aparte; acelerar esta prueba.
     RECORD_PLAN_END=$EPOCHSECONDS

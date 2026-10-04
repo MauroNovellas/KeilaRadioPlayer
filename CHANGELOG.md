@@ -14,6 +14,9 @@ Resumen de uso y actualización en [notas de la versión](docs/releases/2.2.0.md
 - Pruebas de audio real con socket corto dentro del temporal privado: evita
   superar el límite de ruta IPC al anidar TMPDIR en GitHub Actions, sin omitir
   grabación programada ni selección de calidad.
+- Validación de respuestas IPC del test de grabación compatible con jq 1.6:
+  comprueba el conjunto de mensajes y sus request_id, sin falsos fallos de
+  silencio/volumen por eventos o respuestas posteriores no coincidentes.
 
 - Menos procesos durante el dibujo y la navegación: geometría, altura del
   historial, recortes, barra de volumen y autorepetición se calculan directamente
