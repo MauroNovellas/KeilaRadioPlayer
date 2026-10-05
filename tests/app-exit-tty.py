@@ -95,7 +95,7 @@ def check_session(mode, columns=80, lines=24):
             expect(b"KEILA")
             expect(b"READY:1")
             elapsed = time.monotonic() - splash_at
-            if not 2.75 <= elapsed <= 5:
+            if not 1.75 <= elapsed <= 4:
                 raise AssertionError(f"duración del perro inesperada: {elapsed:.2f} s")
             if mode == "keys":
                 expect(b"PROMPT:0")
@@ -163,7 +163,7 @@ def main():
     check_session("small", columns=8, lines=4)
     check_session("terminate")
     check_session("hangup")
-    print("ok   TTY: perro y KEILA 3 s, teclas en cola, confirmación/Ctrl-C, resize y limpieza exacta")
+    print("ok   TTY: perro y KEILA 2 s, teclas en cola, confirmación/Ctrl-C, resize y limpieza exacta")
 
 
 if __name__ == "__main__":

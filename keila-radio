@@ -83,6 +83,7 @@ source "$BASE_DIR/lib/app-exit.sh"
 
 cleanup() {
     APP_EXIT_CLEANING=1
+    now_playing_cleanup 2>/dev/null || true
     quality_cleanup 2>/dev/null || true
     search_async_cleanup 2>/dev/null || true
     logo_cleanup 2>/dev/null || true

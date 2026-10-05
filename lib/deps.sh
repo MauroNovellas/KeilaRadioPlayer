@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 
 # Dependencias de ejecución de Keila Radio Player v2.
 # Formato: comando|debian|termux|arch|fedora
@@ -49,11 +50,118 @@ deps_run_root() {
     if ((EUID == 0)); then
         "$@"
     elif command -v sudo >/dev/null 2>&1; then
-        sudo "$@"
+        sudo -n "$@"
     else
         printf 'Keila necesita privilegios de administrador para instalar dependencias.\n' >&2
         return 1
     fi
+}
+
+deps_describe_command() {
+    case "$1" in
+        mpv) printf 'Reproduce el audio de las emisoras y grabaciones.' ;;
+        socat) printf 'Comunica Keila con el reproductor para controlar el audio.' ;;
+        curl) printf 'Descarga el catálogo, metadatos y logos de las emisoras.' ;;
+        jq) printf 'Lee los datos JSON del catálogo y del reproductor.' ;;
+        fzf) printf 'Permite usar el selector externo de búsqueda de emisoras.' ;;
+        tput) printf 'Controla colores, cursor y tamaño de la terminal.' ;;
+        *) printf 'Herramienta necesaria para ejecutar Keila.' ;;
+    esac
+}
+
+deps_show_manual_command() {
+    local manager=$1
+    ((${#KEILA_MISSING_PACKAGES[@]})) || return 0
+    printf 'Puedes instalarlas por tu cuenta con: ' >&2
+    case "$manager" in
+        pkg) printf 'pkg install' >&2 ;;
+        apt) printf 'sudo apt-get install' >&2 ;;
+        pacman) printf 'sudo pacman -S --needed' >&2 ;;
+        dnf) printf 'sudo dnf install' >&2 ;;
+        *) return 1 ;;
+    esac
+    printf ' %q' "${KEILA_MISSING_PACKAGES[@]}" >&2
+    printf '\n' >&2
+}
+
+deps_confirm_changes() {
+    local manager=$1 repair=$2 command_name spec package answer suffix=''
+    printf '\nKeila necesita preparar estas dependencias:\n' >&2
+    for command_name in "${KEILA_MISSING_COMMANDS[@]}"; do
+        package=$command_name
+        for spec in "${KEILA_DEPENDENCIES[@]}"; do
+            [[ $spec == "$command_name|"* ]] || continue
+            package=$(deps_package_for_manager "$spec" "$manager") || package=$command_name
+            break
+        done
+        printf '  %s: %s\n' "$package" "$(deps_describe_command "$command_name")" >&2
+    done
+    ((repair == 0)) || printf '  Reparación: Termux tiene paquetes a medio configurar o bibliotecas dañadas.\n' >&2
+    printf 'El gestor instalará también las bibliotecas necesarias para esos paquetes.\n' >&2
+    if [[ $manager == pkg ]]; then
+        printf 'En Termux, una reparación puede actualizar el entorno completo y configurar paquetes pendientes.\n' >&2
+        suffix=' y la posible reparación de Termux'
+    else
+        printf 'La instalación puede solicitar tu contraseña de administrador.\n' >&2
+    fi
+    # Una tubería (incluso yes) nunca equivale al consentimiento de una persona.
+    if [[ ! -t 0 ]]; then
+        printf 'Sin terminal interactiva: no se instalará ni reparará ningún paquete.\n' >&2
+        return 1
+    fi
+    printf '¿Quieres continuar con la instalación%s? [s/N] ' "$suffix" >&2
+    if ! IFS= read -r answer; then
+        printf '\nInstalación cancelada. No se han modificado paquetes.\n' >&2
+        return 1
+    fi
+    answer=${answer,,}
+    case "$answer" in
+        s|si|sí|y|yes) return 0 ;;
+        *) printf 'Instalación cancelada. No se han modificado paquetes.\n' >&2; return 1 ;;
+    esac
+}
+
+deps_authorize_root() {
+    [[ $1 == pkg ]] && return 0
+    ((EUID == 0)) && return 0
+    if ! command -v sudo >/dev/null 2>&1; then
+        printf 'Keila necesita privilegios de administrador para instalar dependencias.\n' >&2
+        return 1
+    fi
+    # La autenticación debe verse; no enviarla al registro silencioso.
+    sudo -v
+}
+
+deps_apply_changes() {
+    local manager=$1 repair=$2 log status=0
+    deps_authorize_root "$manager" || return 1
+    log=$(umask 077; mktemp "${TMPDIR:-/tmp}/keila-deps.XXXXXX") || {
+        printf 'No se pudo crear el registro de instalación. No se han modificado paquetes.\n' >&2
+        return 1
+    }
+    printf 'Preparando dependencias… Esto puede tardar unos minutos.\n' >&2
+    # Guardar la salida completa, pero mantener visible cualquier fallo y su
+    # registro privado. No inicia la TUI hasta terminar esta preparación.
+    {
+        if ((repair)) && ! deps_termux_repair; then status=1; fi
+        if ((status == 0)); then
+            deps_install_packages "$manager" "${KEILA_MISSING_PACKAGES[@]}" || status=1
+        fi
+        if ((status == 0)); then deps_verify || status=1; fi
+    } > "$log" 2>&1 </dev/null
+    if ((status)); then
+        printf 'No se pudieron preparar las dependencias. Últimos mensajes:\n' >&2
+        # El log de un gestor también es entrada externa: no emitir controles
+        # de terminal ni secuencias de escape sobre la pantalla.
+        tail -n 12 -- "$log" | LC_ALL=C tr -cd '\11\12\40-\176' >&2
+        printf '\nRegistro completo: %s\n' "$log" >&2
+        if [[ $manager == pkg ]]; then
+            printf 'Si falla el repositorio, prueba termux-change-repo y cambia el mirror principal.\n' >&2
+        fi
+        return 1
+    fi
+    rm -f -- "$log"
+    printf 'Dependencias listas.\n' >&2
 }
 
 deps_collect_missing() {
@@ -115,7 +223,7 @@ deps_termux_needs_repair() {
 # configuración local y aceptan automáticamente la opción por defecto.
 deps_termux_apt_get() {
     DEBIAN_FRONTEND=noninteractive apt-get \
-        -y \
+        -y -q -o Dpkg::Use-Pty=0 \
         -o Dpkg::Options::="--force-confdef" \
         -o Dpkg::Options::="--force-confold" \
         "$@" </dev/null
@@ -134,7 +242,7 @@ deps_termux_repair() {
     # Termux recomienda mantener todos los paquetes actualizados conjuntamente:
     # paquetes multimedia como ffmpeg/mpv pueden fallar si quedan mezcladas
     # versiones nuevas y antiguas de sus librerías.
-    if ! DEBIAN_FRONTEND=noninteractive apt-get update </dev/null; then
+    if ! deps_termux_apt_get update; then
         printf 'No se pudieron actualizar los índices de Termux.\n' >&2
         return 1
     fi
@@ -177,8 +285,9 @@ deps_install_packages() {
 
     case "$manager" in
         pkg)
-            deps_termux_repair || return 1
-
+            # Actualizar solo índices antes de instalar; un índice antiguo no
+            # debe provocar por sí solo una actualización de todo Termux.
+            deps_termux_apt_get update || return 1
             if ! deps_termux_apt_get install "${packages[@]}"; then
                 printf 'La instalación falló; reparando Termux y reintentando una vez...\n' >&2
                 deps_termux_repair || return 1
@@ -186,19 +295,17 @@ deps_install_packages() {
             fi
             ;;
         apt)
-            if ((EUID == 0)); then
-                apt-get update &&
-                    DEBIAN_FRONTEND=noninteractive apt-get install -y "${packages[@]}"
-            else
-                deps_run_root apt-get update &&
-                    deps_run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y "${packages[@]}"
-            fi
+            deps_run_root apt-get -q update &&
+                deps_run_root env DEBIAN_FRONTEND=noninteractive APT_LISTCHANGES_FRONTEND=none \
+                    apt-get -q -y -o Dpkg::Use-Pty=0 \
+                    -o Dpkg::Options::="--force-confdef" \
+                    -o Dpkg::Options::="--force-confold" install "${packages[@]}"
             ;;
         pacman)
-            deps_run_root pacman -S --needed --noconfirm "${packages[@]}"
+            deps_run_root pacman -S --needed --noconfirm --noprogressbar "${packages[@]}"
             ;;
         dnf)
-            deps_run_root dnf install -y "${packages[@]}"
+            deps_run_root dnf -q install -y "${packages[@]}"
             ;;
         *)
             return 1
@@ -226,49 +333,38 @@ deps_verify() {
 }
 
 deps_ensure() {
-    local manager
+    local manager repair=0
     manager=$(deps_detect_manager)
 
     # Reparamos también instalaciones parciales en las que el ejecutable de mpv
     # ya existe pero ffmpeg/dpkg siguen sin estar configurados correctamente.
     if [[ "$manager" == "pkg" ]] && deps_termux_needs_repair; then
-        printf 'Keila ha detectado una instalación de Termux a medio configurar.\n'
-        if ! deps_termux_repair; then
-            printf 'No se pudo reparar automáticamente Termux.\n' >&2
-            printf 'Prueba termux-change-repo, cambia el mirror principal y vuelve a ejecutar Keila.\n' >&2
-            return 1
-        fi
+        repair=1
     fi
 
     deps_collect_missing "$manager"
-    if ((${#KEILA_MISSING_COMMANDS[@]} == 0)); then
+    if ((${#KEILA_MISSING_COMMANDS[@]} == 0 && repair == 0)); then
         deps_verify
         return $?
     fi
 
-    printf 'Keila necesita instalar: %s\n' "${KEILA_MISSING_COMMANDS[*]}"
-
     if [[ -z "$manager" ]]; then
+        printf 'Faltan dependencias: %s\n' "${KEILA_MISSING_COMMANDS[*]}" >&2
         printf 'No encuentro un gestor de paquetes compatible para instalarlas automáticamente.\n' >&2
         return 1
     fi
 
-    if ((${#KEILA_MISSING_PACKAGES[@]} == 0)); then
+    if ((${#KEILA_MISSING_COMMANDS[@]} > 0 && ${#KEILA_MISSING_PACKAGES[@]} == 0)); then
         printf 'No conozco los paquetes necesarios para este sistema.\n' >&2
         return 1
     fi
 
-    printf 'Instalando automáticamente con %s: %s\n' "$manager" "${KEILA_MISSING_PACKAGES[*]}"
-
-    if ! deps_install_packages "$manager" "${KEILA_MISSING_PACKAGES[@]}"; then
-        printf 'No se pudieron instalar todas las dependencias de Keila.\n' >&2
-        if [[ "$manager" == "pkg" ]]; then
-            printf 'Si Termux sigue fallando, ejecuta termux-change-repo y cambia el mirror principal; después vuelve a abrir Keila.\n' >&2
-        fi
+    if ! deps_confirm_changes "$manager" "$repair"; then
+        deps_show_manual_command "$manager"
+        if ((repair)); then printf 'Para reparar Termux manualmente: pkg update && pkg upgrade\n' >&2; fi
         return 1
     fi
-
-    deps_verify
+    deps_apply_changes "$manager" "$repair"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then

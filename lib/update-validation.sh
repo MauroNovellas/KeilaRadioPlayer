@@ -53,6 +53,10 @@ update_validate_tree() {
         lib/quality-candidates.jq
         lib/quality-hls.awk
         lib/player.sh
+        lib/now-playing.sh
+        lib/now-playing-worker.sh
+        lib/now-playing-metadata.jq
+        lib/now-playing-response.jq
         lib/player-failure.sh
         lib/player-events.sh
         lib/recording.sh
@@ -73,6 +77,7 @@ update_validate_tree() {
         lib/backup-worker.sh
         lib/input.sh
         lib/ui.sh
+        lib/ui-text.sh
         lib/ui-responsive.sh
         lib/ui-safe-width.sh
         lib/ui-desktop.sh

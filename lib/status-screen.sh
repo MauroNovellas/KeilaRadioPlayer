@@ -68,7 +68,17 @@ status_build_rows() {
     STATUS_ROWS+=("Emisora|${PLAYER_NAME:-ninguna}")
     STATUS_ROWS+=("Título|$title_state")
     STATUS_ROWS+=("Título edad|$title_age")
-    STATUS_ROWS+=("Canciones previas|$(declare -F track_history_visible_count >/dev/null 2>&1 && track_history_visible_count || printf '0')")
+    local content_source='metadatos del audio · sin confirmación pública' confirmed_age
+    if [[ ${NP_ENABLED:-1} != 1 ]]; then
+        content_source='metadatos del audio · consultas públicas desactivadas'
+    elif ((NP_DISPLAY_CONFIRMED_AT > 0)) && [[ -n ${PLAYER_STREAM_TITLE:-} ]]; then
+        confirmed_age=$((${EPOCHSECONDS:-$(date +%s)} - NP_DISPLAY_CONFIRMED_AT))
+        ((confirmed_age >= 0)) || confirmed_age=0
+        content_source="${NP_KIND:-JSON público} · confirmado hace ${confirmed_age}s"
+    fi
+    STATUS_ROWS+=("En antena fuente|$content_source")
+    if ((${PLAYER_INFO_PARSE_ERROR:-0})); then STATUS_ROWS+=("Metadatos|Respuesta no válida; se conserva la última información válida"); fi
+    STATUS_ROWS+=("Emisiones previas|$(declare -F track_history_visible_count >/dev/null 2>&1 && track_history_visible_count || printf '0')")
     STATUS_ROWS+=("Volumen|${PLAYER_VOLUME:-?}%")
     STATUS_ROWS+=("Catálogo|$(status_catalog_state)")
     STATUS_ROWS+=("Emisoras indexadas|$catalog_count")

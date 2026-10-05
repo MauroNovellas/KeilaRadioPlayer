@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# shellcheck source=lib/ui-text.sh
+source "$(dirname "${BASH_SOURCE[0]}")/ui-text.sh"
+
 # Interfaz de terminal de Keila Radio Player.
 # Este módulo solo dibuja y gestiona estado visual; la lógica de reproducción,
 # entrada y persistencia vive en sus módulos correspondientes.
@@ -254,7 +257,7 @@ ui_startup_splash() {
     col=$(((UI_COLS-title_width)/2+1))
     printf '\033[%s;%sH%s' "$((row+height))" "$col" "${title:0:title_width}"
     # Solo el arranque interactivo espera. No lee ni pierde teclas en cola.
-    sleep 3
+    sleep 2
 }
 
 ui_leave() {
@@ -272,14 +275,16 @@ ui_leave() {
 ui_truncate() {
     local text="$1"
     local max="$2"
-    if ((max <= 0)); then
-        UI_TRUNCATED_TEXT=''
-    elif ((${#text} <= max)); then
-        UI_TRUNCATED_TEXT=$text
-    elif ((max <= 3)); then
-        UI_TRUNCATED_TEXT=${text:0:max}
+    # Mantener el camino anterior, sin recorrer caracteres ni llamar al fitter,
+    # para latín/bordes/barras. Solo los anchos/combinantes necesitan su caché.
+    if ((max <= 0)); then UI_TRUNCATED_TEXT='' UI_TRUNCATED_WIDTH=0
+    elif [[ $text != *[!${UI_TEXT_NARROW}]* ]]; then
+        if ((${#text} > max && max > 3)); then UI_TRUNCATED_TEXT="${text:0:max-3}..."
+        else UI_TRUNCATED_TEXT=${text:0:max}; fi
+        UI_TRUNCATED_WIDTH=${#UI_TRUNCATED_TEXT}
     else
-        UI_TRUNCATED_TEXT="${text:0:max-3}..."
+        ui_fit_text "$text" "$max"
+        UI_TRUNCATED_TEXT=$UI_TEXT_FITTED UI_TRUNCATED_WIDTH=$UI_TEXT_WIDTH
     fi
     # Los helpers de dibujo reutilizan el resultado sin crear un subshell
     # por cada celda. El modo predeterminado conserva la salida pública.
@@ -302,7 +307,7 @@ ui_print_padded() {
     local text="${2:-}"
     ui_truncate "$text" "$width" state
     text=$UI_TRUNCATED_TEXT
-    local padding=$((width - ${#text}))
+    local padding=$((width - UI_TRUNCATED_WIDTH))
     printf '%s' "$text"
     if ((padding > 0)); then ui_repeat_char ' ' "$padding"; fi
     return 0
@@ -314,7 +319,7 @@ ui_print_styled_padded() {
     local style="${3:-}"
     ui_truncate "$text" "$width" state
     text=$UI_TRUNCATED_TEXT
-    local padding=$((width - ${#text}))
+    local padding=$((width - UI_TRUNCATED_WIDTH))
 
     if [[ $style == quality && $text == \[?\]* ]]; then
         ui_style_begin warning
@@ -343,6 +348,10 @@ ui_print_split_styled() {
     fi
 
     local right_len=${#right}
+    if [[ $right == *[!${UI_TEXT_NARROW}]* ]]; then
+        ui_fit_text "$right" "$((2*${#right}+1))" 0
+        right=$UI_TEXT_FITTED right_len=$UI_TEXT_WIDTH
+    fi
     if ((right_len >= width)); then
         ui_print_styled_padded "$width" "$right" "$right_style"
         return 0
@@ -351,7 +360,7 @@ ui_print_split_styled() {
     local left_max=$((width - right_len - 1))
     ui_truncate "$left" "$left_max" state
     left=$UI_TRUNCATED_TEXT
-    local gap=$((width - ${#left} - right_len))
+    local gap=$((width - UI_TRUNCATED_WIDTH - right_len))
     ((gap < 1)) && gap=1
 
     ui_style_begin "$left_style"
@@ -452,7 +461,7 @@ ui_box_rule() {
         ui_style_end
         ui_style_begin muted
         printf ' '
-        ui_repeat_char "$UI_H" "$((inner - ${#label} - 3))"
+        ui_repeat_char "$UI_H" "$((inner - UI_TRUNCATED_WIDTH - 3))"
     fi
     printf '%s' "$right"
     ui_style_end
@@ -487,8 +496,8 @@ ui_box_center_line() {
     local inner=$((width - 4))
     ui_truncate "$text" "$inner" state
     text=$UI_TRUNCATED_TEXT
-    local left_pad=$(((inner - ${#text}) / 2))
-    local right_pad=$((inner - ${#text} - left_pad))
+    local left_pad=$(((inner - UI_TRUNCATED_WIDTH) / 2))
+    local right_pad=$((inner - UI_TRUNCATED_WIDTH - left_pad))
 
     ui_style_begin muted
     printf '%s' "$UI_V"
@@ -552,17 +561,22 @@ ui_print_badged_status() {
     fi
 
     local right_len=${#right}
+    if [[ $right == *[!${UI_TEXT_NARROW}]* ]]; then
+        ui_fit_text "$right" "$((2*${#right}+1))" 0
+        right_len=$UI_TEXT_WIDTH
+    fi
     local left_max=$width
     if ((right_len > 0)); then left_max=$((width - right_len - 1)); fi
     ((left_max < 1)) && left_max=1
-    left=$(ui_truncate "$left" "$left_max")
+    ui_truncate "$left" "$left_max" state
+    left=$UI_TRUNCATED_TEXT
 
     ui_style_begin "$left_style"
     printf '%s' "$left"
     ui_style_end
 
     if ((right_len > 0)); then
-        local gap=$((width - ${#left} - right_len))
+        local gap=$((width - UI_TRUNCATED_WIDTH - right_len))
         ((gap < 1)) && gap=1
         ui_repeat_char ' ' "$gap"
 
@@ -1227,7 +1241,7 @@ ui_draw() {
 
     if player_is_running; then
         if [[ -n "${PLAYER_STREAM_TITLE:-}" ]]; then
-            ui_box_line "$width" "$UI_NOTE $PLAYER_STREAM_TITLE" accent
+            ui_box_line "$width" "En antena: $PLAYER_STREAM_TITLE" accent
         else
             ui_box_line "$width" 'Sin título de emisión disponible' muted
         fi
@@ -1236,7 +1250,7 @@ ui_draw() {
             track_history_count=$(track_history_display_limit)
         fi
         if ((track_history_count > 0)); then
-            ui_box_line "$width" '  Canciones anteriores' accent
+            ui_box_line "$width" '  Emisiones anteriores' accent
             for ((track_history_index = 0; track_history_index < track_history_count; track_history_index++)); do
                 track_history_line "$track_history_index" "$((width - 4))" state || true
                 track_history_info=$TRACK_HISTORY_LINE

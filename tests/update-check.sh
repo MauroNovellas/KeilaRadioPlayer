@@ -83,6 +83,10 @@ make_release() {
         quality-candidates.jq
         quality-hls.awk
         player.sh
+        now-playing.sh
+        now-playing-worker.sh
+        now-playing-metadata.jq
+        now-playing-response.jq
         player-failure.sh
         player-events.sh
         recording.sh
@@ -103,6 +107,7 @@ make_release() {
         backup-worker.sh
         input.sh
         ui.sh
+        ui-text.sh
         ui-responsive.sh
         ui-safe-width.sh
         ui-desktop.sh

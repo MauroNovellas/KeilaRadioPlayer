@@ -4,6 +4,41 @@ Todos los cambios relevantes de Keila Radio Player se documentarán en este arch
 
 ## [Sin publicar]
 
+- Preparación de dependencias con confirmación explícita [s/N], explicación de
+  los paquetes que faltan y bibliotecas asociadas; Enter, rechazo, EOF o entrada
+  no interactiva no instalan nada. Reparación/actualización de Termux también
+  requiere consentimiento y avisa de su alcance. Primero se intenta instalar
+  solo lo que falta, sin actualizar todo el entorno sano de Termux.
+- Instalación silenciosa con autenticación visible, configuraciones locales
+  conservadas y registro privado: se elimina al terminar bien y se muestra su
+  ruta y un breve error al fallar. Bienvenida de KEILA reducida a dos segundos.
+- Corrección de desbordamientos al redibujar: títulos, historial y listas se
+  recortan/rellenan por celdas Unicode, no por cantidad de caracteres. Camino
+  rápido para textos ordinarios y caché acotada para caracteres anchos/combinantes,
+  sin nuevos procesos al dibujar. Frame completo y metadatos parciales conservan
+  la misma geometría; errores de parser no imprimen sobre la TUI ni borran su
+  estado válido anterior, y quedan indicados en Diagnóstico.
+- Regresión de ancho físico/scroll en foot y Kitty, escritorio y pantallas
+  pequeñas, con ayuda, reserva de logo, navegación, títulos internacionales,
+  historial y marcas combinantes; snapshot inválido conserva título sin salida.
+- «En antena» y «Emisiones anteriores» sirven tanto para canciones como para
+  programas, entrevistas o noticias. Metadatos de título/artista y etiquetas
+  explícitas de programa compartidos por mpv y el probe HLS; texto acotado,
+  sin controles de terminal ni descripciones estáticas como contenido actual.
+- Consulta pública asíncrona de Icecast/AzuraCast, solo con coincidencia exacta
+  del stream, sin inferir por nombre ni recorrer el catálogo. AzuraCast usa su
+  endpoint estático cuando se reconoce la ruta y distingue al DJ en directo.
+  Vigencia limitada, final declarado, audio más reciente prioritario y
+  confirmación periódica permiten conservar el nombre de un programa largo.
+- Un worker cancelable, DNS público fijado, sin proxies/credenciales, cuerpos
+  y tiempos acotados; consulta cada 30 s y retroceso hasta 16 minutos al fallar.
+  Caché de hasta 64 endpoints por sesión, sin guardar contenidos entre emisoras.
+  Pausa/buffering, cambios de stream y salida cancelan el grupo. Sin getent se
+  conservan los metadatos del audio; KEILA_NOW_PLAYING=0 desactiva el complemento.
+- Corregido el retorno al título congelado de mpv tras recibir un probe HLS:
+  se conserva el resultado hasta un cambio real, respetando su caducidad.
+  Pruebas offline de parsers, vigencia/carreras, red, reintentos y limpieza;
+  documentación de fuentes, cobertura y límites en docs/now-playing.md.
 - Perro ASCII de bienvenida con KEILA debajo durante tres segundos, solo al
   iniciar la TUI, adaptado al espacio disponible y sin consumir teclas en cola.
 - Confirmación central de salida para Q/atajo personalizado, pantallas hijas

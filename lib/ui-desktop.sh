@@ -90,7 +90,7 @@ ui_desktop_rule_segment() {
     ui_style_begin muted
     printf '%s' "$suffix"
 
-    local used=$((${#prefix} + ${#label} + ${#suffix}))
+    local used=$((${#prefix} + UI_TRUNCATED_WIDTH + ${#suffix}))
     ((used < span)) && ui_repeat_char "$UI_H" "$((span - used))"
 }
 
@@ -325,7 +325,7 @@ ui_draw_desktop() {
                 ;;
             1)
                 if player_is_running && [[ -n "${PLAYER_STREAM_TITLE:-}" ]]; then
-                    right_text="$UI_NOTE $PLAYER_STREAM_TITLE"
+                    right_text="En antena: $PLAYER_STREAM_TITLE"
                     right_style='accent'
                 else
                     right_text='Sin título de emisión disponible'

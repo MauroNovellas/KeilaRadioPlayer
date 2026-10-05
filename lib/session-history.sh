@@ -95,7 +95,7 @@ session_history_build_panel() {
         if ((UI_COLS < 70)); then label="${timestamp##* } $title"; fi
         panel_add_row '' "$label" "Hora: $timestamp. Emisora: $station. Canción / evento: $title. Archivo: ${SESSION_LOG_FILE:-no iniciado}." "$title"
     done
-    ((count > 0)) || panel_add_row '' 'Sin canciones registradas' "El registro se actualiza al recibir títulos de la emisora. Archivo: ${SESSION_LOG_FILE:-todavía no iniciado}."
+    ((count > 0)) || panel_add_row '' 'Sin emisiones registradas' "El registro se actualiza al recibir títulos de la emisora. Archivo: ${SESSION_LOG_FILE:-todavía no iniciado}."
 }
 
 session_history_draw() {

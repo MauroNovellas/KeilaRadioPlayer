@@ -55,7 +55,7 @@ ui_draw_player_info_only() {
     fi
     local title='Sin título de emisión disponible' style=muted audio
     if [[ -n "${PLAYER_STREAM_TITLE:-}" ]]; then
-        title="$UI_NOTE $PLAYER_STREAM_TITLE"
+        title="En antena: $PLAYER_STREAM_TITLE"
         style=accent
     fi
     ui_quality_info state
@@ -66,7 +66,7 @@ ui_draw_player_info_only() {
     if ((history_count > 0)); then
         printf '%s' "$UI_PLAYER_HISTORY_HEADER_CURSOR"
         logo_line_width 2
-        ui_print_styled_padded "$UI_PLAYER_LINE_WIDTH" '  Canciones anteriores' accent
+        ui_print_styled_padded "$UI_PLAYER_LINE_WIDTH" '  Emisiones anteriores' accent
         for ((i = 0; i < history_count; i++)); do
             logo_line_width "$((i+3))"
             track_history_line "$i" "$UI_PLAYER_LINE_WIDTH" state || true
@@ -326,14 +326,14 @@ ui_draw_desktop() {
             main_style_badge="$main_badge_style"
         elif ((row == 1)); then
             if player_is_running && [[ -n "${PLAYER_STREAM_TITLE:-}" ]]; then
-                main_text="$UI_NOTE $PLAYER_STREAM_TITLE"
+                main_text="En antena: $PLAYER_STREAM_TITLE"
                 main_style='accent'
             else
                 main_text='Sin título de emisión disponible'
                 main_style='muted'
             fi
         elif ((track_history_count > 0 && row == history_header_row)); then
-            main_text='  Canciones anteriores'
+            main_text='  Emisiones anteriores'
             main_style='accent'
         elif ((track_history_count > 0 && row >= history_first_row && row < history_first_row + track_history_count)); then
             logo_line_width "$row"

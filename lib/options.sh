@@ -189,7 +189,7 @@ options_build_rows() {
             options_add_row V Visualización 'Espectrograma, ecualizador, colores y símbolos. Las preferencias se guardan al cambiarlas.' menu:visual
             options_add_row T Temporizador 'Alarma y parada automática de la reproducción. Son ajustes de sesión: mantén Keila abierto; no se restauran al iniciar.' menu:timer "$OPTIONS_ALARM"
             options_add_row G Grabaciones 'Graba el audio o revisa los archivos guardados. El gestor permite comprobarlos, escucharlos y eliminarlos con confirmación.' menu:recordings "$OPTIONS_RECORDING"
-            options_add_row S Sesión 'Consulta el registro de canciones de esta ejecución, con su hora y emisora.' menu:session
+            options_add_row S Sesión 'Consulta el contenido recibido en esta ejecución, con su hora y emisora.' menu:session
             options_add_row C Configuración 'Preferencias guardadas y teclas personalizables para la pantalla principal.' menu:config
             options_add_row A 'Datos y almacenamiento' 'Crea copias de tus datos personales y restaura una copia local con confirmación y respaldo previo.' menu:data
             options_add_row D Diagnóstico 'Estado en vivo del reproductor, catálogo, grabaciones y rutas de datos.' status
@@ -285,12 +285,12 @@ options_build_rows() {
             ;;
         session)
             OPTIONS_TITLE='SESIÓN'
-            options_add_row S 'Historial de canciones' "Hora, emisora y título recibidos en esta ejecución. Archivo: ${SESSION_LOG_FILE:-el registro aún no se ha iniciado}." session_history
+            options_add_row S 'Historial de emisiones' "Hora, emisora y contenido recibidos en esta ejecución. Archivo: ${SESSION_LOG_FILE:-el registro aún no se ha iniciado}." session_history
             options_add_row D 'Diagnóstico en vivo' 'Consulta estado del audio, catálogo y rutas de datos sin interrumpir la reproducción.' status
             ;;
         data)
             OPTIONS_TITLE='DATOS Y ALMACENAMIENTO'
-            options_add_row C 'Crear copia de seguridad' "Copia favoritas, comentarios, recientes y ajustes sin interrumpir la radio. Se guarda en $KEILA_STATE_DIR/backups. No incluye grabaciones ni registros de canciones." backup_create
+            options_add_row C 'Crear copia de seguridad' "Copia favoritas, comentarios, recientes y ajustes sin interrumpir la radio. Se guarda en $KEILA_STATE_DIR/backups. No incluye grabaciones ni registros de sesión." backup_create
             options_add_row R 'Copias disponibles y restauración' "Lista copias con nombre, fecha y tamaño. Comprueba la seleccionada antes de pedir confirmación. Para importar, coloca un .tar.gz en $KEILA_STATE_DIR/backups." backups
             options_add_row D 'Ubicación de los datos' 'Consulta las rutas de configuración, estado y grabaciones en Diagnóstico.' status
             ;;

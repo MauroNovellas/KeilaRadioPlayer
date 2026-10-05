@@ -27,9 +27,9 @@ for dimensions in '132 40' '112 20'; do
     read -r UI_COLS UI_LINES <<< "$dimensions"
     ui_draw >/dev/null
     history_count=$(ui_desktop_track_history_slots "$(ui_desktop_body_height)")
-    expected="<4,2>$(ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$UI_NOTE $PLAYER_STREAM_TITLE" accent)"
+    expected="<4,2>$(ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "En antena: $PLAYER_STREAM_TITLE" accent)"
     if ((history_count > 0)); then
-        expected+="<5,2>$(ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" '  Canciones anteriores' accent)"
+        expected+="<5,2>$(ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" '  Emisiones anteriores' accent)"
         for ((history_index = 0; history_index < history_count; history_index++)); do
             expected+="<$((6 + history_index)),2>$(ui_print_styled_padded "$UI_DESKTOP_LEFT_WIDTH" "$(track_history_line "$history_index" "$UI_DESKTOP_LEFT_WIDTH")" muted)"
         done
@@ -67,7 +67,7 @@ PLAYER_STREAM_TITLE='Tema con logo' LOGO_READY_URL=$PLAYER_URL LOGO_BACKEND=sixe
 LOGO_SIXEL_BODY='"1;1;96;96#0;2;0;0;0#0!96~-'
 ui_draw >/dev/null
 logo_line_width 1
-expected="<4,2>$(ui_print_styled_padded "$UI_PLAYER_LINE_WIDTH" "$UI_NOTE $PLAYER_STREAM_TITLE" accent)<5,2>"
+expected="<4,2>$(ui_print_styled_padded "$UI_PLAYER_LINE_WIDTH" "En antena: $PLAYER_STREAM_TITLE" accent)<5,2>"
 actual=$(ui_draw_player_info_only) || fail 'no permite metadatos con logo'
 [[ $actual == "$expected"* && $actual != *$'\033P'* && $actual != *$'\033[16t'* ]] || fail 'metadatos invaden o retransmiten el logo'
 LOGO_DRAWN=0

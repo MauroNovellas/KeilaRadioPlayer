@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Bucle de mantenimiento real; sin red, altavoces, catálogo ni datos personales.
 set -uo pipefail
+export KEILA_NOW_PLAYING=0
 probe_root=$1 probe_mode=$2 probe_seconds=$3 probe_dir=$4
 set -- --version
 source "$probe_root/keila-radio" >/dev/null

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -uo pipefail
+export KEILA_NOW_PLAYING=0
 
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 TEST_TMP=$(mktemp -d)
@@ -52,5 +53,26 @@ player_refresh_info || fail 'probe no provocó cambio'
 
 [[ "$PLAYER_STREAM_TITLE" == 'Artista - Tema Dos' ]] || fail 'no se prefirió título externo'
 [[ "$PLAYER_STREAM_TITLE_LAST_SEEN" == 'Artista - Tema Dos' ]] || fail 'no se actualizó frescura'
+
+KEILA_PLAYER_NOW=1002; PLAYER_INFO_LAST_REFRESH=0
+player_refresh_info || true
+[[ $PLAYER_STREAM_TITLE == 'Artista - Tema Dos' ]] || fail 'el snapshot congelado deshace el probe'
+player_query_snapshot() {
+    printf '%s\n' '{"1":{"TITLE":"Tema Tres","ARTIST":"Artista"},"10":false,"11":3}'
+}
+KEILA_PLAYER_NOW=1003; PLAYER_INFO_LAST_REFRESH=0
+player_refresh_info || fail 'metadatos vivos no sustituyen el probe'
+[[ $PLAYER_STREAM_TITLE == 'Artista - Tema Tres' && -z $PLAYER_STREAM_TITLE_PROBE_VALUE ]] || fail 'probe antiguo reaparece'
+
+KEILA_PLAYER_NOW=1010; PLAYER_INFO_LAST_REFRESH=0
+player_refresh_info || true
+[[ -n $PLAYER_STREAM_TITLE_PROBE_PID ]] || fail 'segunda consulta no arranca'
+wait "$PLAYER_STREAM_TITLE_PROBE_PID" 2>/dev/null || true
+player_query_snapshot() {
+    printf '%s\n' '{"1":{"title":"Tema Cuatro","artist":"Artista"},"10":false,"11":4}'
+}
+KEILA_PLAYER_NOW=1011; PLAYER_INFO_LAST_REFRESH=0
+player_refresh_info || fail 'cambio durante consulta perdido'
+[[ $PLAYER_STREAM_TITLE == 'Artista - Tema Cuatro' && -z $PLAYER_STREAM_TITLE_PROBE_VALUE ]] || fail 'probe tardío sustituye metadatos nuevos'
 
 printf 'ok   títulos: probe HLS externo actualiza canción congelada\n'

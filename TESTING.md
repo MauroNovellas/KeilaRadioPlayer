@@ -106,6 +106,9 @@ intervalos personalizados, teclado que interrumpe la espera, resize inmediato,
 relojes en el proceso principal y suspensión/reanudación de captura oculta.
 `player-events.sh` exige un solo parser por ráfaga válida, limita mensajes por
 tick, conserva ACKs/fragmentos y no pierde eventos junto a JSON malformado.
+El caso de agrupación usa un margen de lectura sobre JSON precargados para no
+confundir desplanificación del runner con un fallo del límite; el caso de
+fragmentos conserva el timeout real de producción.
 
 `runtime-performance.py` mide CPU acumulada de Keila y sus auxiliares, RSS
 muestreada y ticks/s con mantenimiento real. Audio/metadata y terminal son
@@ -142,10 +145,17 @@ de VERASE. Verifica que no se desactivan las señales, que suspender/salir
 restauran el estado exacto y que reanudar reactiva la entrada de la TUI.
 Las pruebas por tuberías no cubren este comportamiento de la terminal.
 
+`dependencies.sh` usa dobles de gestores para comprobar descripciones, paquetes,
+rechazo sin TTY, instalación mínima en Termux, reintentos y registros privados.
+`dependency-prompt.py` prueba la confirmación real en PTY: S, N, Enter, EOF y
+respuesta inválida, incluida reparación de Termux sin dependencias ausentes.
+Nunca usa sudo ni modifica paquetes. La salida normal del gestor se oculta;
+los fallos conservan un registro 600 y un resumen sin controles de terminal.
+
 `app-exit.sh` comprueba que Enter inicial, Esc, N y Q repetida no cierran;
 S o seleccionar Salir y Enter sí confirman. Cubre foco del padre, atajo
 personalizado, solicitudes de submenús, ticks y avisos de grabación/reserva.
-`app-exit-tty.py` verifica el perro con KEILA durante tres segundos, teclas en
+`app-exit-tty.py` verifica el perro con KEILA durante dos segundos, teclas en
 cola, una pantalla de 8×4, resize, Ctrl+C en un editor sin perder texto,
 TERM/HUP sin bloqueo, retirada de la TUI, pantalla final vacía y restauración
 exacta de termios. Usa un PTY y rutas XDG privadas, sin audio, red ni datos reales.
@@ -207,6 +217,27 @@ ida y vuelta, privacidad, fusión bloqueada, escritura fallida y colisiones.
 `m3u-menu.sh` prueba la preparación asíncrona, ticks atendidos, confirmación,
 consulta de detalles y cancelación. Las pruebas de layout incluyen los menús
 y formularios nuevos en 13 tamaños, con ASCII y Unicode.
+
+`now-playing.sh` comprueba metadatos ICY/título/artista/programa, saneado,
+caducidad, confirmación de programas largos, respuestas tardías, retirada de
+contenido, snapshots inválidos, backoff y memoria acotada. `now-playing-files.sh`
+usa JSON y descargas simuladas para verificar Icecast/AzuraCast, coincidencia
+exacta del stream, contenido ambiguo/offline/terminado, endpoint estático, DNS
+fijado, límites de tamaño/tiempo, respuestas cacheadas y redirecciones privadas.
+Un worker con hijo real comprueba la cancelación en pausa, cambio y cierre sin
+grupos huérfanos. `player-title-probe.sh` verifica además que mpv congelado no
+deshace un probe nuevo y que sus metadatos posteriores sí lo sustituyen. La
+batería desactiva el complemento JSON salvo en sus pruebas simuladas: no añade
+tráfico de emisoras a los tests offline. La cobertura real depende de lo que
+publique cada servidor; ver [fuentes y límites](docs/now-playing.md).
+
+`ui-frame-scroll.sh` interpreta movimientos ANSI y anchuras Unicode del frame
+completo y sus actualizaciones parciales. Verifica foot/Kitty en siete tamaños,
+ASCII/Unicode, ayuda y reserva de logo, con navegación y cambios de contenido,
+caracteres de dos celdas e historial internacional. Detecta autowrap y scroll,
+en lugar de limitarse al número de caracteres o saltos de línea. La caché del
+recorte queda acotada; el test de metadatos incluye un parser fallido que no
+imprime errores sobre el frame y conserva el último estado válido.
 
 `station-logo-ui.sh` comprueba el espacio fijo del logo, el fallback de
 iniciales, bloques de color, cambio de emisora, redimensionado, pantallas

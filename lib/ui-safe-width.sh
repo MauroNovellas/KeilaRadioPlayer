@@ -85,7 +85,7 @@ ui_box_rule() {
         ui_style_end
         ui_style_begin muted
         printf ' '
-        ui_repeat_char "$UI_H" "$((inner - ${#label} - 3))"
+        ui_repeat_char "$UI_H" "$((inner - UI_TRUNCATED_WIDTH - 3))"
     fi
     printf '%s' "$right"
     ui_style_end

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 # Bucle real y dibujo real bajo PTY; solo audio/red y ritmo FFT son dobles.
 set -uo pipefail
+export KEILA_NOW_PLAYING=0
 ROOT_DIR=$1 notify_fd=$2 fixture=$3 probe_cols=$4 probe_lines=$5 probe_mode=${6:-async}
 set -- --version
 source "$ROOT_DIR/keila-radio" >/dev/null

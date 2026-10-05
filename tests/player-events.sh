@@ -89,6 +89,20 @@ PLAYER_EVENTS_DRAIN_LIMIT=64
     PLAYER_EVENTS_READ_FD=$batch_fd PLAYER_EVENTS_PID=$$ PLAYER_EVENTS_ACTIVE=1
     PLAYER_EVENTS_PARTIAL='' PLAYER_EVENTS_PROPERTY_CHANGES=0 PLAYER_EVENTS_DIRTY=0
     PLAYER_EVENTS_DRAIN_LIMIT=8
+    # Este caso mide agrupación y límite, no el timeout de fragmentos: todos
+    # los JSON están precargados. El plazo de 1 ms puede expirar si el runner
+    # pierde CPU a mitad de una línea. Dar margen solo a este doble de lectura;
+    # la prueba de fragmentos anterior conserva el read y timeout reales.
+    read() {
+        local -a read_args=("$@")
+        local arg_index
+        for ((arg_index=0; arg_index+1<${#read_args[@]}; arg_index++)); do
+            if [[ ${read_args[arg_index]} == -t && ${read_args[arg_index+1]} == 0.001 ]]; then
+                read_args[arg_index+1]=1
+            fi
+        done
+        builtin read -r "${read_args[@]}"
+    }
     jq() { printf 'call\n' >> "$batch_dir/parsers"; command jq "$@"; }
     for ((i=0; i<10; i++)); do
         printf '%s\n' '{"event":"property-change","name":"metadata","data":{}}' >&"$batch_fd"

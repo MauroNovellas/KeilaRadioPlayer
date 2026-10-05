@@ -316,7 +316,7 @@ ui_draw() {
         case "$UI_LAYOUT_MODE" in
             wide|standard)
                 if [[ -n "${PLAYER_STREAM_TITLE:-}" ]]; then
-                    ui_box_line "$width" "$UI_NOTE $PLAYER_STREAM_TITLE" accent
+                    ui_box_line "$width" "En antena: $PLAYER_STREAM_TITLE" accent
                 else
                     ui_box_line "$width" 'Sin título de emisión disponible' muted
                 fi
@@ -326,7 +326,7 @@ ui_draw() {
                     track_history_count=$TRACK_HISTORY_LIMIT
                 fi
                 if ((track_history_count > 0)); then
-                    ui_box_line "$width" '  Canciones anteriores' accent
+                    ui_box_line "$width" '  Emisiones anteriores' accent
                     for ((track_history_index = 0; track_history_index < track_history_count; track_history_index++)); do
                         track_history_line "$track_history_index" "$((width - 4))" state || true
                         track_history_info=$TRACK_HISTORY_LINE
@@ -342,7 +342,7 @@ ui_draw() {
                 ui_box_line "$width" "$audio_info" quality
                 ;;
             compact)
-                [[ -n "${PLAYER_STREAM_TITLE:-}" ]] && ui_box_line "$width" "$UI_NOTE $PLAYER_STREAM_TITLE" accent
+                [[ -n "${PLAYER_STREAM_TITLE:-}" ]] && ui_box_line "$width" "En antena: $PLAYER_STREAM_TITLE" accent
                 ;;
         esac
     fi

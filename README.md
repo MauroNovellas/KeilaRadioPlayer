@@ -20,9 +20,9 @@ Si ya tienes el proyecto, basta con ejecutar `./keila-radio` desde su carpeta.
 
 **Primer uso:** pulsa `B`, escribe una búsqueda y elige una emisora con `↑`/`↓` y `Enter`. Ajusta el volumen con `←`/`→`. `O` abre Opciones; `Q` pide confirmar la salida.
 
-Al iniciar aparece un perro ASCII con `KEILA` debajo durante tres segundos. Al salir con `Q` o `Ctrl+C` dentro de la TUI, la opción inicial es seguir escuchando: `S` confirma; `N` o `Esc` cancela. El cierre deja la pantalla de la terminal limpia.
+Al iniciar aparece un perro ASCII con `KEILA` debajo durante dos segundos. Al salir con `Q` o `Ctrl+C` dentro de la TUI, la opción inicial es seguir escuchando: `S` confirma; `N` o `Esc` cancela. El cierre deja la pantalla de la terminal limpia.
 
-> Al arrancar, Keila puede instalar dependencias automáticamente, sin una confirmación propia; puede solicitar permisos de administrador. En Termux también puede reparar y actualizar paquetes. Para prepararlo tú mismo, consulta el bloque siguiente.
+> Si faltan dependencias, Keila muestra qué paquetes necesita y para qué sirven, y pregunta antes de instalarlos: `S` acepta; `N`, Enter o una entrada no interactiva cancela sin modificar paquetes. La instalación muestra solo su estado; la petición de contraseña de administrador sigue siendo visible. Si falla, muestra un resumen y la ruta del registro privado. En Termux avisa también de una posible reparación/actualización del entorno completo. Puedes prepararlo tú mismo con el bloque siguiente.
 
 <details>
 <summary>Instalación, dependencias y otras formas de arrancar</summary>
@@ -39,7 +39,7 @@ sudo apt install git bash coreutils util-linux mpv socat curl jq fzf ncurses-bin
 pkg install git bash coreutils util-linux mpv socat curl jq fzf ncurses-utils
 ```
 
-El instalador automático reconoce Debian/Ubuntu (`apt-get`), Termux (`pkg`/`apt-get`), Arch (`pacman`) y Fedora (`dnf`). Si Termux tiene paquetes multimedia inconsistentes, puede ejecutar una reparación y actualización del entorno; si falla el repositorio, el aviso propone `termux-change-repo`.
+El instalador, siempre con confirmación previa, reconoce Debian/Ubuntu (`apt-get`), Termux (`pkg`/`apt-get`), Arch (`pacman`) y Fedora (`dnf`). En Termux intenta instalar solo lo que falta; si detecta paquetes inconsistentes o la instalación falla, la confirmación permite reparar y actualizar el entorno. Si falla el repositorio, el aviso propone `termux-change-repo`.
 
 El espectrograma es opcional: en escritorio utiliza `ffmpeg`, `parec` y `pactl` con un monitor PulseAudio/PipeWire. En Debian/Ubuntu:
 
@@ -78,7 +78,7 @@ Puedes acceder a todo lo habitual desde **`O` Opciones**, sin memorizar atajos.
 | Mostrar opcionalmente el logo de la emisora en Debian | Visualización |
 | Programar una alarma o detener el audio al cabo de un tiempo | Temporizador |
 | Grabar, comprobar, escuchar, renombrar y recuperar audios | Grabaciones |
-| Consultar las canciones anteriores y el TXT de esta sesión | Sesión |
+| Consultar emisiones anteriores y el TXT de esta sesión | Sesión |
 | Guardar preferencias y personalizar teclas | Configuración |
 | Crear copias de seguridad o restaurar datos de otro equipo | Datos y almacenamiento |
 | Revisar el estado, las rutas y los controles disponibles | Diagnóstico / Ayuda |
@@ -198,15 +198,15 @@ La semilla `defaults/favorites` se copia solo cuando aún no existe tu archivo p
 </details>
 
 <details>
-<summary>Títulos de canciones, historial visible y registro de sesión</summary>
+<summary>En antena: canciones, programas e historial de sesión</summary>
 
-«Ahora suena» muestra el título recibido y datos como codec, bitrate, frecuencia de muestreo y canales, si la emisora los proporciona. El bitrate procede de `audio-bitrate` de mpv; los títulos se leen de metadatos vivos, campos ICY y `media-title` mediante [JSON IPC](https://mpv.io/manual/stable/#json-ipc).
+«En antena» muestra el contenido que publica la emisora: canción, programa, entrevista o boletín. Lee ICY, título/artista y etiquetas explícitas de programa desde mpv. Cuando puede identificar exactamente el stream, consulta también JSON público de Icecast o AzuraCast en segundo plano, sin reiniciar ni duplicar el audio. AzuraCast puede añadir el nombre del DJ conectado como «En directo». No se deduce un programa del nombre o género de la radio. Los datos técnicos siguen mostrando codec, bitrate de mpv, frecuencia y canales.
 
-Algunas emisoras HLS dejan fijo el primer título. En ese caso, una consulta auxiliar con `ffprobe` puede abrir otra conexión cada 20 segundos para renovar metadatos sin reiniciar la escucha. Si no aparece un cambio, el título caduca a los cinco minutos: no se presenta indefinidamente como actual. Estos datos dependen de lo que publique la emisora.
+Un programa largo puede mantener el mismo nombre mientras una fuente pública lo confirme. Sin confirmación, un título congelado caduca a los cinco minutos; el JSON deja de usarse como máximo dos minutos después de su última comprobación, o antes si declara un final. HLS conserva su consulta auxiliar con `ffprobe` cada 20 segundos, que sí puede abrir otra conexión de audio. No todas las radios ofrecen estos datos. [Fuentes, límites y privacidad](docs/now-playing.md).
 
-Se reservan **ocho líneas fijas** para canciones anteriores de la misma sintonía, sin repetir la actual; la novena muestra la ruta del TXT de sesión. No desplazan los paneles al llenarse. Se ocultan si falta espacio. `KEILA_TRACK_HISTORY_DISPLAY_LIMIT` admite de 1 a 20 líneas; la ruta queda a continuación.
+«Emisiones anteriores» reserva **ocho líneas fijas** de la misma sintonía, sin repetir la actual; la novena muestra la ruta del TXT de sesión. No desplazan los paneles al llenarse. Se ocultan si falta espacio. `KEILA_TRACK_HISTORY_DISPLAY_LIMIT` admite de 1 a 20 líneas; la ruta queda a continuación.
 
-Cada ejecución interactiva crea un TXT privado con fecha/hora, emisora y canción o evento, separados por tabuladores. `O → S` abre su visor; también `D → S`. Tiene navegación por páginas, detalle completo y actualización en vivo; solo sigue automáticamente las nuevas entradas si estabas al final.
+Cada ejecución interactiva crea un TXT privado con fecha/hora, emisora y contenido o evento, separados por tabuladores. `O → S` abre su visor; también `D → S`. Tiene navegación por páginas, detalle completo y actualización en vivo; solo sigue automáticamente las nuevas entradas si estabas al final.
 
 El TXT se guarda en `~/.local/state/keila-radio/sessions/keila-session-*.txt`. Directorios con permisos `700` y archivos `600`; es texto legible, no cifrado. Recientes guarda nombres y URLs por separado, sin títulos ni marcas de tiempo. Rutas y opciones de entorno se recogen más abajo.
 
@@ -314,7 +314,7 @@ No hay borrado definitivo ni vaciado automático. Solo se retiran los contenedor
 
 **`O → A` Datos y almacenamiento:** `C` crea una copia privada y `R` abre las disponibles, con nombre, fecha y tamaño. En la lista, `C` crea, `U` actualiza, `Enter`/`?` muestra el detalle y `R` verifica para restaurar. Después, solo `Enter` confirma; `Esc` cancela. Navegar o redimensionar no confirma.
 
-Las copias incluyen configuración, Favoritas, comentarios, preferencias, calidades elegidas, volumen/última emisora guardados, Recientes y ecualizador. **No incluyen audios grabados, catálogo, registros de canciones ni alarmas.** No se borran automáticamente ni se sobrescriben.
+Las copias incluyen configuración, Favoritas, comentarios, preferencias, calidades elegidas, volumen/última emisora guardados, Recientes y ecualizador. **No incluyen audios grabados, catálogo, registros de sesión ni alarmas.** No se borran automáticamente ni se sobrescriben.
 
 Para importar de otro dispositivo, coloca el `.tar.gz` en `~/.local/state/keila-radio/backups/` y actualiza la lista. También reconoce respaldos previos de configuración y copias antiguas junto al programa, sin recorrer el equipo ni seguir enlaces.
 
@@ -379,8 +379,9 @@ Otros ajustes, en segundos salvo donde se indica:
 | Variable | Valor inicial | Uso |
 | --- | --- | --- |
 | `KEILA_TITLE_PROBE_INTERVAL` | `20` | Consulta auxiliar de títulos |
-| `KEILA_TITLE_MAX_AGE` | `300` | Caducidad del título sin cambios |
-| `KEILA_TRACK_HISTORY_DISPLAY_LIMIT` | `8` | Filas reservadas para canciones anteriores, de 1 a 20 |
+| `KEILA_TITLE_MAX_AGE` | `300` | Caducidad del título sin cambios ni confirmación |
+| `KEILA_NOW_PLAYING` | `1` | `0` desactiva las consultas públicas de contenido (no ICY ni el probe HLS) |
+| `KEILA_TRACK_HISTORY_DISPLAY_LIMIT` | `8` | Filas reservadas para emisiones anteriores, de 1 a 20 |
 | `KEILA_RECONNECT_STALL_TIMEOUT` | `15` | Plazo sin progreso del audio |
 | `KEILA_RECONNECT_START_TIMEOUT` | `12` | Plazo de arranque sin audio |
 | `KEILA_RECONNECT_MAX_ATTEMPTS` | `3` | Intentos automáticos por ciclo |

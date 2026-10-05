@@ -94,7 +94,7 @@ check_main() {
         # Son pruebas no interactivas: no heredar el teclado. timeout crea un
         # grupo en segundo plano; ffmpeg/script pueden detenerse al leer del TTY.
         # Las pruebas de terminal crean expresamente su propio pseudo-terminal.
-        XDG_CONFIG_HOME="$test_dir/config" XDG_STATE_HOME="$test_dir/state" \
+        KEILA_NOW_PLAYING=0 XDG_CONFIG_HOME="$test_dir/config" XDG_STATE_HOME="$test_dir/state" \
         XDG_CACHE_HOME="$test_dir/cache" TMPDIR="$test_dir/tmp" TERM=xterm-256color \
             timeout --kill-after=5s "${timeout_seconds}s" "${command[@]}" </dev/null > "$test_dir/output.log" 2>&1 || status=$?
         if ((status == 0)); then

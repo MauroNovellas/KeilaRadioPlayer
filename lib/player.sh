@@ -16,13 +16,17 @@ PLAYER_IPC_REQUEST_ID=1000
 # Información real del stream obtenida desde mpv por JSON IPC.
 PLAYER_STREAM_TITLE=""
 PLAYER_STREAM_TITLE_LAST_SEEN=""
+PLAYER_STREAM_TITLE_EMBEDDED_LAST_SEEN=''
 PLAYER_STREAM_TITLE_UPDATED_AT=0
+PLAYER_STREAM_TITLE_CONFIRMED_AT=0
 PLAYER_STREAM_TITLE_MAX_AGE="${KEILA_TITLE_MAX_AGE:-300}"
 PLAYER_STREAM_TITLE_PROBE_INTERVAL="${KEILA_TITLE_PROBE_INTERVAL:-20}"
 PLAYER_STREAM_TITLE_PROBE_PID=""
 PLAYER_STREAM_TITLE_PROBE_DIR=""
 PLAYER_STREAM_TITLE_PROBE_LAST_AT=0
 PLAYER_STREAM_TITLE_PROBE_VALUE=""
+PLAYER_STREAM_TITLE_PROBE_BASELINE=''
+PLAYER_STREAM_TITLE_PROBE_START_TITLE=''
 PLAYER_CODEC=""
 PLAYER_BITRATE_KBPS=""
 PLAYER_SAMPLE_RATE=""
@@ -41,6 +45,7 @@ PLAYER_STREAM_LAST_POSITION=""
 PLAYER_STREAM_STARTED_AT=0
 PLAYER_STREAM_LAST_PROGRESS_AT=0
 PLAYER_INFO_LAST_REFRESH=0
+PLAYER_INFO_PARSE_ERROR=0
 PLAYER_INFO_INTERVAL="${KEILA_PLAYER_INFO_INTERVAL:-1}"
 
 if [[ -n "${XDG_RUNTIME_DIR:-}" ]]; then
@@ -73,30 +78,14 @@ player_title_probe_cleanup() {
     fi
     PLAYER_STREAM_TITLE_PROBE_PID=""
     PLAYER_STREAM_TITLE_PROBE_DIR=""
+    PLAYER_STREAM_TITLE_PROBE_START_TITLE=''
 }
 
 player_title_probe_extract() {
-    jq -r '
-        def clean:
-            (if . == null then "" elif type == "string" then . else tostring end)
-            | gsub("[\r\n\t]+"; " ")
-            | gsub("^ +| +$"; "");
-        [
-            .format.tags["icy-title"]?,
-            .format.tags["StreamTitle"]?,
-            .format.tags["streamtitle"]?,
-            .format.tags["now-playing"]?,
-            .format.tags["now_playing"]?,
-            .format.tags.title?,
-            (.streams[]?.tags["icy-title"]?),
-            (.streams[]?.tags["StreamTitle"]?),
-            (.streams[]?.tags["streamtitle"]?),
-            (.streams[]?.tags["now-playing"]?),
-            (.streams[]?.tags["now_playing"]?),
-            (.streams[]?.tags.title?)
-        ]
-        | map(clean | select(length > 0))
-        | .[0] // ""
+    jq -r -L "$PLAYER_METADATA_DIR" '
+        include "now-playing-metadata";
+        [(.format.tags | np_content), (.streams[]?.tags | np_content)]
+        | map(select(length > 0)) | .[0] // ""
     '
 }
 
@@ -136,7 +125,7 @@ player_title_probe_poll() {
 }
 
 player_title_probe_start() {
-    local now="$1" dir url
+    local now="$1" baseline=${2:-${PLAYER_STREAM_TITLE:-}} dir url
 
     player_title_probe_should_run || return 1
     [[ -z "${PLAYER_STREAM_TITLE_PROBE_PID:-}" ]] || return 1
@@ -150,6 +139,7 @@ player_title_probe_start() {
     url="${PLAYER_INPUT_URL:-$PLAYER_URL}"
     PLAYER_STREAM_TITLE_PROBE_DIR="$dir"
     PLAYER_STREAM_TITLE_PROBE_LAST_AT=$now
+    PLAYER_STREAM_TITLE_PROBE_START_TITLE=$baseline
 
     (
         timeout 8 ffprobe -v quiet -show_entries format_tags:stream_tags -of json "$url" 2>/dev/null |
@@ -260,10 +250,15 @@ player_ipc() {
 }
 
 player_reset_info() {
+    PLAYER_INFO_PARSE_ERROR=0
     PLAYER_STREAM_TITLE=""
     PLAYER_STREAM_TITLE_LAST_SEEN=""
+    PLAYER_STREAM_TITLE_EMBEDDED_LAST_SEEN=''
     PLAYER_STREAM_TITLE_UPDATED_AT=0
+    PLAYER_STREAM_TITLE_CONFIRMED_AT=0
+    now_playing_reset
     PLAYER_STREAM_TITLE_PROBE_VALUE=""
+    PLAYER_STREAM_TITLE_PROBE_BASELINE=''
     player_title_probe_cleanup >/dev/null 2>&1 || true
     PLAYER_CODEC=""
     PLAYER_BITRATE_KBPS=""
@@ -362,9 +357,12 @@ player_refresh_info() {
     snapshot=$(player_query_snapshot) || return 1
     [[ -n "$snapshot" ]] || return 1
 
-    local -a fields=()
-    mapfile -t fields < <(
-        jq -r '
+    local parsed
+    # Un error del parser no puede imprimir líneas sobre el frame ni sustituir
+    # el estado válido anterior con un snapshot parcial.
+    if ! parsed=$(
+        jq -r -L "$PLAYER_METADATA_DIR" --arg name "$PLAYER_NAME" --arg url "$PLAYER_URL" --arg input "$PLAYER_INPUT_URL" '
+            include "now-playing-metadata";
             def clean:
                 (if . == null then ""
                  elif type == "string" then .
@@ -393,12 +391,12 @@ player_refresh_info() {
                 [
                     .["6"],
                     .["7"],
-                    metadata_value(["icy-title", "streamtitle", "stream-title", "now-playing", "now_playing"]),
+                    (.["1"] | np_content),
                     .["8"],
                     metadata_value(["title"]),
                     .["9"]
                 ]
-                | map(clean | select(length > 0))
+                | map(np_usable($name; $url; $input))
                 | .[0] // "";
 
             stream_title,
@@ -410,8 +408,11 @@ player_refresh_info() {
             (if .["10"] == false then "0" else "1" end),
             ((.["11"] // null) | number_text),
             ((.["12"] // null) | number_text)
-        ' <<< "$snapshot"
-    )
+        ' <<< "$snapshot" 2>/dev/null
+    ); then PLAYER_INFO_PARSE_ERROR=1; return 1; fi
+    PLAYER_INFO_PARSE_ERROR=0
+    local -a fields=()
+    mapfile -t fields <<< "$parsed"
 
     local new_title="${fields[0]:-}"
     local new_codec="${fields[1]:-}"
@@ -425,10 +426,28 @@ player_refresh_info() {
     local new_ready=$PLAYER_STREAM_READY
     local new_position=""
 
-    if player_title_probe_poll; then
-        new_title="$PLAYER_STREAM_TITLE_PROBE_VALUE"
+    local probe_snapshot_title=$new_title probe_start_title=$PLAYER_STREAM_TITLE_PROBE_START_TITLE embedded_changed=0
+    if [[ $new_title != "$PLAYER_STREAM_TITLE_EMBEDDED_LAST_SEEN" ]]; then
+        PLAYER_STREAM_TITLE_EMBEDDED_LAST_SEEN=$new_title
+        embedded_changed=1
     fi
-    player_title_probe_start "$now" >/dev/null 2>&1 || true
+    if player_title_probe_poll; then
+        if [[ $new_title == "$probe_start_title" || -z $new_title ]]; then
+            PLAYER_STREAM_TITLE_PROBE_BASELINE=$new_title
+        else
+            # No sustituir un cambio de mpv ocurrido mientras ffprobe trabajaba.
+            PLAYER_STREAM_TITLE_PROBE_VALUE='' PLAYER_STREAM_TITLE_PROBE_BASELINE=''
+        fi
+    fi
+    if [[ -n $PLAYER_STREAM_TITLE_PROBE_VALUE ]]; then
+        if [[ $new_title == "$PLAYER_STREAM_TITLE_PROBE_BASELINE" || -z $new_title ]]; then
+            new_title=$PLAYER_STREAM_TITLE_PROBE_VALUE
+        else
+            # No alternar cada segundo entre un probe nuevo y el snapshot viejo.
+            PLAYER_STREAM_TITLE_PROBE_VALUE='' PLAYER_STREAM_TITLE_PROBE_BASELINE=''
+        fi
+    fi
+    player_title_probe_start "$now" "$probe_snapshot_title" >/dev/null 2>&1 || true
 
     if [[ "$new_audio_pts" =~ ^-?[0-9]+([.][0-9]+)?$ ]]; then
         new_position="$new_audio_pts"
@@ -461,14 +480,24 @@ player_refresh_info() {
             ;;
     esac
 
-    # Algunas radios entregan el primer título, pero no propagan los cambios
-    # ID3 posteriores. No mantener una canción antigua indefinidamente.
+    now_playing_tick "$now" "$new_title" "$new_ready" "$new_buffering"
+    now_playing_choose "$now" "$new_title"
+    new_title=$NP_DISPLAY_TITLE
+
+    # Los títulos solo vistos en mpv siguen caducando. Una respuesta pública
+    # reciente renueva su vigencia aunque el programa conserve el mismo nombre.
     [[ "$PLAYER_STREAM_TITLE_MAX_AGE" =~ ^[0-9]+$ ]] || PLAYER_STREAM_TITLE_MAX_AGE=300
     if [[ -n "$new_title" ]]; then
-        if [[ "$new_title" != "$PLAYER_STREAM_TITLE_LAST_SEEN" ]]; then
+        if [[ $new_title != "$PLAYER_STREAM_TITLE_LAST_SEEN" ||
+              ( $NP_DISPLAY_CONFIRMED_AT == 0 && $embedded_changed == 1 && $new_title == "$probe_snapshot_title" ) ]]; then
             PLAYER_STREAM_TITLE_LAST_SEEN="$new_title"
             PLAYER_STREAM_TITLE_UPDATED_AT=$now
-        elif ((PLAYER_STREAM_TITLE_UPDATED_AT > 0 && now - PLAYER_STREAM_TITLE_UPDATED_AT >= PLAYER_STREAM_TITLE_MAX_AGE)); then
+            PLAYER_STREAM_TITLE_CONFIRMED_AT=0
+        fi
+        if ((NP_DISPLAY_CONFIRMED_AT > 0)); then PLAYER_STREAM_TITLE_CONFIRMED_AT=$NP_DISPLAY_CONFIRMED_AT; fi
+        local title_seen_at=$PLAYER_STREAM_TITLE_UPDATED_AT
+        ((PLAYER_STREAM_TITLE_CONFIRMED_AT <= title_seen_at)) || title_seen_at=$PLAYER_STREAM_TITLE_CONFIRMED_AT
+        if ((title_seen_at > 0 && now - title_seen_at >= PLAYER_STREAM_TITLE_MAX_AGE)); then
             new_title=''
         fi
     fi
@@ -644,3 +673,7 @@ player_stop() {
     player_reset_info
     rm -f "$PLAYER_SOCKET"
 }
+
+PLAYER_METADATA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/now-playing.sh
+source "$PLAYER_METADATA_DIR/now-playing.sh"

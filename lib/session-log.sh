@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Registro local de la sesión y memoria visual de canciones recientes.
+# Registro local de la sesión y memoria visual de contenidos recientes.
 #
 # El historial de emisoras recientes vive en personal.sh. Este módulo registra
 # títulos de canciones/programas emitidos por la emisora actual y escribe un
@@ -98,7 +98,7 @@ session_log_init() {
     {
         printf '# Keila Radio Player session\n'
         printf '# Started: %s\n' "$(session_log_now)"
-        printf '# Format: fecha y hora<TAB>emisora<TAB>canción o evento\n'
+        printf '# Format: fecha y hora<TAB>emisora<TAB>contenido o evento\n'
     } > "$SESSION_LOG_FILE" || {
         SESSION_LOG_FILE=''
         return 1
